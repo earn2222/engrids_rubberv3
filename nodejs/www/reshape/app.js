@@ -81,8 +81,8 @@ const overlayMaps = {
     "NDVI": ndvi,
     "NDVI gee": ndviTile,
     "S2 gee": trueColorTile,
-    "landsmaps": lddFeatureGroup.addTo(map),
-    "Longdo Map": longdoLayer,
+    "landsmaps": lddFeatureGroup,
+    "Longdo Map": longdoLayer.addTo(map),
 };
 
 L.control.layers(baseLayers, overlayMaps).addTo(map);
@@ -235,6 +235,7 @@ const loadGeoData = async () => {
             classified: item.classified,
         }));
 
+        // สร้างตารางหน้า ui
         const dataTable = $('#featureTable').DataTable({
             data: tableData,
             columns: [
@@ -447,6 +448,7 @@ document.getElementById('btnRestore').addEventListener("click", async () => {
     }
 });
 
+// เลือกไอดี
 document.getElementById('classify').addEventListener('click', () => {
     const id = document.getElementById('id').value;
     if (!id) {
@@ -470,6 +472,7 @@ document.getElementById('classify').addEventListener('click', () => {
             alert('Failed to create reclassification layer');
         });
 });
+
 
 document.getElementById('dashboard').addEventListener('click', (e) => {
     e.preventDefault();
@@ -534,5 +537,11 @@ document.getElementById('dashboard').addEventListener('click', (e) => {
     e.preventDefault();
     const tb = document.getElementById('tb').value;
     window.location.href = './../reclassdash/index.html?tb=' + tb;
+});
+
+document.getElementById('digitize').addEventListener('click', function () {
+    const tb = document.getElementById('tb').value;
+    const id = document.getElementById('id').value;
+    window.location.href = `./../digitize/index.html?tb=${tb}&id=${id}`;
 });
 

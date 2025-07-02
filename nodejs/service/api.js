@@ -65,6 +65,40 @@ app.get('/api/getfeatures/:tb/:fid', async (req, res) => {
                         ST_ASGeoJSON(geom) AS geom
                     FROM reclass_${tb}
                     WHERE geom IS NOT NULL AND id = $1`;
+        console.log(`Executing SQL: ${sql} with fid: ${fid}`);
+        const values = [fid];
+        const result = await pool.query(sql, values);
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Feature not found' });
+        }
+        res.status(200).json({ success: true, data: result.rows });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.get('/api/getsinglefeature/:tb/:fid', async (req, res) => {
+    try {
+        const tb = req.params.tb;
+        if (!tb) {
+            return res.status(400).json({ error: 'Table name is required' });
+        }
+
+        const fid = req.params.fid;
+        if (!fid) {
+            return res.status(400).json({ error: 'Feature ID is required' });
+        }
+
+        const sql = `SELECT id,  
+                        app_no, 
+                        refinal,
+                        xls_sqm,
+                        shparea_sqm, 
+                        ST_ASGeoJSON(geom) AS geom
+                    FROM ${tb}
+                    WHERE geom IS NOT NULL AND id = $1`;
+        console.log(`Executing SQL: ${sql} with fid: ${fid}`);
         const values = [fid];
         const result = await pool.query(sql, values);
         if (result.rowCount === 0) {
@@ -114,7 +148,6 @@ app.put('/api/restorefeatures/:tb/:id', async (req, res) => {
         return res.status(500).json({ error: err.message });
     }
 });
-
 
 app.put('/api/updateselectedfeatures/:tb', async (req, res) => {
     try {
@@ -210,6 +243,77 @@ app.post('/api/updatefeatures/:tb', async (req, res) => {
             client.release();
         }
     } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/savefeature/:tb', async (req, res) => {
+    try {
+        const tb = req.params.tb;
+        if (!tb) {
+            return res.status(400).json({ error: 'Table name is required' });
+        }
+
+        const { id, refinal, features, displayName } = req.body;
+
+        if (!features || !Array.isArray(features) || features.length === 0) {
+            return res.status(400).json({ error: 'Invalid input data or no features' });
+        }
+
+        const client = await pool.connect();
+
+        try {
+            await client.query('BEGIN');
+
+            for (const feature of features) {
+                const geomJson = JSON.stringify(feature.geometry);
+
+                // 👇 ดึง geometry เดิมจากตารางก่อน
+                const { rows } = await client.query(
+                    `SELECT geom FROM ${tb} WHERE id = $1`, [id]
+                );
+
+                if (rows.length === 0) {
+                    throw new Error(`ไม่พบข้อมูล id: ${id}`);
+                }
+
+                const sql = `
+                    UPDATE ${tb}
+                    SET 
+                        geom = ST_Multi(
+                            ST_Union(
+                                geom,
+                                ST_SetSRID(ST_GeomFromGeoJSON($1), 4326)
+                            )
+                        ),
+                        shparea_sqm = ST_Area(
+                            ST_SetSRID(ST_Union(geom, ST_GeomFromGeoJSON($1)), 4326)::geography
+                        ),
+                        refinal = $3,
+                        editor = $4
+                    WHERE id = $2
+                `;
+
+                await client.query(sql, [
+                    geomJson,
+                    id,
+                    refinal,
+                    displayName
+                ]);
+            }
+
+            await client.query('COMMIT');
+            res.json({ success: true });
+        } catch (err) {
+            await client.query('ROLLBACK');
+            console.error('Transaction error:', err);
+            res.status(500).json({ error: err.message });
+        } finally {
+            client.release();
+        }
+
+    } catch (err) {
+        console.error('Server error:', err);
         res.status(500).json({ error: err.message });
     }
 });
