@@ -1,7 +1,7 @@
 services:
   postgis:
     platform: linux/amd64
-    image: postgis/postgis
+    image: postgis/postgis:latest
     container_name: rub_postgis
     restart: always
     environment:

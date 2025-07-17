@@ -78,6 +78,72 @@ app.get('/api/getfeatures/:tb/:fid', async (req, res) => {
     }
 });
 
+// v3
+app.get('/api/getfeaturesv3/:tb', async (req, res) => {
+    try {
+        const tb = req.params.tb;
+        if (!tb) {
+            return res.status(400).json({ error: 'Table name is required' });
+        }
+
+        const sql = `
+            SELECT id,
+                farm_name,
+                f_name,
+                l_name,
+                age,
+                refinal,
+                app_no,
+                xls_sqm,
+                shparea_sqm,
+                classified,
+                ST_AsGeoJSON(geom) AS geom,
+                ST_AsGeoJSON(geom_point) AS geom_point
+            FROM ${tb}
+            WHERE geom_point IS NOT NULL
+        `;
+        const result = await pool.query(sql);
+        res.status(200).json({ success: true, data: result.rows });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// GET: ดึงข้อมูลรายแปลงแบบละเอียด
+app.get('/api/getfeaturesv3/:tb/:fid', async (req, res) => {
+    try {
+        const tb = req.params.tb;
+        const fid = req.params.fid;
+
+        if (!tb) return res.status(400).json({ error: 'Table name is required' });
+        if (!fid) return res.status(400).json({ error: 'Feature ID is required' });
+
+        const sql = `
+            SELECT id, 
+                   sub_id, 
+                   classtype, 
+                   app_no, 
+                   shpsplit_sqm, 
+                   ST_AsGeoJSON(geom) AS geom,
+                   ST_AsGeoJSON(geom_point) AS geom_point
+            FROM reclass_${tb}
+            WHERE geom_point IS NOT NULL AND id = $1
+        `;
+        const result = await pool.query(sql, [fid]);
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Feature not found' });
+        }
+
+        res.status(200).json({ success: true, data: result.rows });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+
 app.get('/api/getsinglefeature/:tb/:fid', async (req, res) => {
     try {
         const tb = req.params.tb;

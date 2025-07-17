@@ -1,10 +1,11 @@
+
 // Initialize map and feature group
 const map = L.map('map').setView([18.819620993471577, 100.8784385963758], 13);
 const featureGroup = L.featureGroup();
 const lddFeatureGroup = L.featureGroup();
 // Configure base layer
 const gmap_road = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
-    maxZoom: 22,
+    maxZoom: 50,
     subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
 });
 
@@ -129,7 +130,7 @@ map.pm.addControls({
     drawCircleMarker: false,
 });
 
-//Area calculation utilities
+// Area calculation utilities
 const formatArea = (area) => {
     return area >= 1e6
         ? `${(area / 1e6).toLocaleString(undefined, { maximumFractionDigits: 2 })} km²`
@@ -214,13 +215,14 @@ const onEachFeature = (feature, layer) => {
     layer.on('pm:edit pm:dragend pm:update pm:change', () => updateAreaLabel(layer));
 }
 
-// **** ไม่เหมือนdigitize
 var selectedLayer = null;
 const loadGeoData = async () => {
     try {
         const tb = document.getElementById('tb').value;
-        const response = await fetch(`/rub/api/getfeatures/${tb}`);
+        // console.log('โหลดข้อมูลจากตาราง:', tb);
+        const response = await fetch(`/rub/api/getfeaturesv3/${tb}`);
         const { data } = await response.json();
+        // console.log('Loaded data:', data);
 
         const tableData = data.map(item => ({
             id: item.id,
@@ -229,12 +231,15 @@ const loadGeoData = async () => {
             f_name: item.f_name,
             l_name: item.l_name,
             age: item.age,
-            geom: JSON.parse(item.geom),
+            geom_point: item.geom_point,
+            geom: item.geom,
             app_no: item.app_no,
             xls_sqm: item.xls_sqm,
             shparea_sqm: item.shparea_sqm,
             classified: item.classified,
         }));
+
+        // console.log('tableData', tableData);
 
         // สร้างตารางหน้า ui
         const dataTable = $('#featureTable').DataTable({
@@ -244,9 +249,9 @@ const loadGeoData = async () => {
                     data: null,
                     title: 'Zoom',
                     render: (data, type, row) => {
-                        const _geojson = JSON.stringify(row.geom);
-                        return `<a class="btn btn-success map-btn"
-                                    data-refid="${row.id}"
+                        const _geojson = row.geom_point;
+                        return `<a class="btn btn-success map-btn" 
+                                    data-refid="${row.id}" 
                                     data-geojson='${_geojson}'
                                     href="#">
                                     <em class="icon ni ni-zoom-in"></em>&nbsp;ซูม
@@ -297,12 +302,12 @@ const loadGeoData = async () => {
             scrollX: true,
         });
 
-        // ***clear ไม่เหมือน digitize
         const updateMap = () => {
             featureGroup.clearLayers(); // Clear existing layers
             const visibleRows = dataTable.rows({ search: 'applied' }).data().toArray();
 
             visibleRows.forEach(row => {
+                // แสดง geom (Polygon หรือ Geometry หลัก)
                 const geoJsonData = {
                     type: 'Feature',
                     geometry: row.geom,
@@ -319,6 +324,25 @@ const loadGeoData = async () => {
                     style: getFeatureStyle,
                     onEachFeature: onEachFeature,
                 }).addTo(featureGroup);
+
+                // แสดง geom_point (point) ถ้ามี (สมมติ geom_point เป็น GeoJSON Point)
+
+                // console.log(typeof row.geom_point);
+                if (row.geom_point) {
+                    const coords = JSON.parse(row.geom_point).coordinates;
+                    // console.log('Point coordinates:', coords);
+
+                    // console.log('Point coordinates:', coords);
+                    const circleMarker = L.circleMarker([coords[1], coords[0]], {
+                        radius: 5,          // ขนาดจุด
+                        color: 'white',       // สีเส้นขอบ (ถ้าไม่อยากให้มีเส้นขอบใช้ 'none' หรือ 'transparent')
+                        fillColor: 'red',   // สีเติมภายในจุด
+                        fillOpacity: 1      // ความทึบของสีเติม
+                    });
+                    circleMarker.addTo(featureGroup);
+                    circleMarker.bindPopup(`Point ID: ${row.id}<br>App No: ${row.app_no}`);
+                }
+
             });
         };
 
@@ -332,18 +356,21 @@ const loadGeoData = async () => {
             try {
                 e.stopPropagation();
                 const geojson = $(this).data('geojson');
-                const layer = L.geoJSON(geojson)
+                // console.log('GeoJSON data:', geojson);
 
-                const bounds = layer.getBounds();
-                map.fitBounds(bounds, {
-                    padding: [20, 20],
-                    // maxZoom: 16
-                });
+                // const layer = L.geoJSON(geojson).addTo(featureGroup);
+
+                // const latlng = layer.getLayers()[0].getLatLng(); 
+                const zoomLevel = 20; // <== กำหนดระดับการซูมตรงนี้
+
+                map.setView([geojson.coordinates[1], geojson.coordinates[0]], zoomLevel); // ซูมไปยังจุดด้วยระดับที่กำหนด
                 selectedLayer = layer;
+
             } catch (error) {
                 console.error('Failed to parse GeoJSON:', error);
             }
         });
+
 
 
         dataTable.rows().every(function () {
@@ -357,101 +384,9 @@ const loadGeoData = async () => {
     }
 };
 
-map.on('click', (e) => featureGroup.eachLayer(l => l.pm.disable()));
 
-// ****ไม่เหมือน digitize
-document.getElementById('save').addEventListener('click', async () => {
-    if (!selectedLayer) {
-        alert('กรุณาเลือกแปลงที่ต้องการบันทึกก่อน');
-        return;
-    }
 
-    const id = document.getElementById('id').value
-    const refinal = document.getElementById('refinal').value;
-    const displayName = document.getElementById('displayName').value;
-
-    const features = [];
-    features.push(selectedLayer.toGeoJSON());
-
-    try {
-        const tb = document.getElementById('tb').value;
-        const response = await fetch(`/rub/api/updatefeatures/${tb}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id, refinal, features, displayName })
-        });
-        const result = await response.json();
-        alert(`อัพเดท features ${result.updated} เรียบร้อย`);
-
-        if (result.success) {
-            featureGroup.eachLayer(layer => {
-                layer.pm.disable();
-                layer.areaLabel?.remove();
-            });
-
-            featureGroup.clearLayers();
-            loadGeoData();
-        } else {
-            alert('Failed to update features');
-        }
-    } catch (error) {
-        console.error('Error saving data:', error);
-        alert('Failed to save data');
-    }
-});
-
-document.getElementById("restore").addEventListener("click", () => {
-    try {
-        const modal = document.getElementById("restoreModal");
-        if (modal) {
-            const bsModal = new bootstrap.Modal(modal);
-            bsModal.show();
-        } else {
-            console.error(`Modal with ID ${modalId} not found.`);
-        }
-    } catch (error) {
-        console.error('Failed to fetch user:', err);
-    }
-})
-
-document.getElementById('btnRestore').addEventListener("click", async () => {
-    try {
-        const tb = document.getElementById('tb').value;
-        const id = document.getElementById('restoreId').value;
-        const response = await fetch(`/rub/api/restorefeatures/${tb}/${id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id })
-        });
-        const result = await response.json();
-        alert(`อัพเดท features ${result.updated} เรียบร้อย`);
-
-        if (result.success) {
-            featureGroup.eachLayer(layer => {
-                layer.pm.disable();
-                layer.areaLabel?.remove();
-            });
-
-            featureGroup.clearLayers();
-            loadGeoData();
-            document.getElementById('restoreId').value = "";
-            const modal = document.getElementById("restoreModal");
-            if (modal) {
-                const bsModal = bootstrap.Modal.getInstance(modal);
-                bsModal.hide();
-            } else {
-                console.error(`Modal with ID ${modalId} not found.`);
-            }
-        } else {
-            alert('Failed to update features');
-        }
-    } catch (error) {
-        console.error('Error restoring data:', error);
-        alert('Failed to restore data');
-    }
-});
-
-// // เลือกไอดี
+// เลือกไอดี
 document.getElementById('classify').addEventListener('click', () => {
     const id = document.getElementById('id').value;
     if (!id) {
@@ -487,13 +422,14 @@ const initApp = async () => {
     try {
         const urlParams = new URLSearchParams(window.location.search);
         const tb = urlParams.get('tb');
+
         if (!tb || tb === 'undefined') {
             alert('พื้นที่ไม่ถูกต้อง');
             window.location.href = './../index.html';
         } else {
             document.getElementById('tb').value = tb;
             await loadGeoData();
-            map.fitBounds(featureGroup.getBounds());
+            // map.fitBounds(featureGroup.getBounds());
         }
     } catch (error) {
         console.error('Error loading data:', error);
