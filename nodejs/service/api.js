@@ -110,7 +110,7 @@ app.get('/api/getfeaturesv3/:tb', async (req, res) => {
     }
 });
 
-// GET: ดึงข้อมูลรายแปลงแบบละเอียด
+// GET: ดึงข้อมูลรายแปลงใส่ตาราง
 app.get('/api/getfeaturesv3/:tb/:fid', async (req, res) => {
     try {
         const tb = req.params.tb;
@@ -312,6 +312,96 @@ app.post('/api/updatefeatures/:tb', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+
+// post('/api/updatefeaturesv3/:tb', async (req, res) => {
+//     try {
+//         const tb = req.params.tb;
+//         if (!tb) {
+//             return res.status(400).json({ error: 'Table name is required' });
+//         }
+//         const { id, refinal, features, displayName } = req.body;
+
+//         const client = await pool.connect();
+//         if (!features || !Array.isArray(features)) {
+//             return res.status(400).json({ error: 'Invalid input data' });
+//         }
+//         if (features.length === 0) {
+//             return res.status(400).json({ error: 'No features to update' });
+//         }
+
+//         try {
+//             await client.query('BEGIN');
+//             const queries = features.map(feature =>
+//                 client.query(`
+//                     UPDATE ${tb}
+//                     SET geom = ST_SetSRID(ST_GeomFromGeoJSON($1), 4326),
+//                         shparea_sqm = ST_Area(
+//                             ST_SetSRID(ST_GeomFromGeoJSON($1), 4326):: geography
+//                         ),
+//                         refinal = $3,
+//                         editor = $4
+//                     WHERE id = $2
+//                 `, [
+//                     JSON.stringify(feature.geometry),
+//                     id,
+//                     refinal,
+//                     displayName
+//                 ])
+//             );
+
+//             await Promise.all(queries);
+//             await client.query('COMMIT');
+
+//             res.json({ success: true, updated: features[0].properties.id });
+//         } catch (err) {
+//             await client.query('ROLLBACK');
+//             throw err;
+//         } finally {
+//             client.release();
+//         }
+//     } catch (err) {
+//         res.status(500).json({ error: err.message });
+//     }
+// });
+
+
+//testv3
+// แก้ไข endpoint ให้รองรับ Polygon และ MultiPolygon
+app.post('/api/updatefeaturesv3/:tb', async (req, res) => {
+    const { tb } = req.params;
+    const { geom, id, refinal, editor } = req.body;
+
+    try {
+        const geojson = JSON.parse(geom);
+
+        // ✅ ตรวจสอบให้แน่ใจว่า geometry เป็น Polygon หรือ MultiPolygon
+        if (!['Polygon', 'MultiPolygon'].includes(geojson.type)) {
+            return res.status(400).send('Geometry ต้องเป็น Polygon หรือ MultiPolygon เท่านั้น');
+        }
+
+        const result = await pool.query(
+            `
+            UPDATE ${tb}
+            SET geom = ST_SetSRID(ST_GeomFromGeoJSON($1), 4326),
+                shparea_sqm = ST_Area(ST_SetSRID(ST_GeomFromGeoJSON($1), 4326)::geography),
+                refinal = $3,
+                editor = $4
+            WHERE id = $2
+            `,
+            [geom, id, refinal, editor]
+        );
+
+        if (result.rowCount === 0) {
+            return res.status(404).send('ไม่พบข้อมูลที่ต้องการอัปเดต');
+        }
+
+        res.send('อัปเดตข้อมูลสำเร็จ');
+    } catch (err) {
+        console.error('Update error:', err);
+        res.status(500).send('เกิดข้อผิดพลาดในการอัปเดตข้อมูล');
+    }
+});
+
 
 app.post('/api/savefeature/:tb', async (req, res) => {
     try {
@@ -746,6 +836,27 @@ app.put('/api/update_landuse/:tb', async (req, res) => {
     }
 });
 
+// //reclassify
+// app.put('/api/updategeometry/:tb', async (req, res) => {
+//     const { tb } = req.params;
+//     const { id, sub_id, geom, displayName } = req.body;
+
+//     try {
+//         const query = `
+//             UPDATE ${tb}
+//             SET geom = ST_SetSRID(ST_GeomFromGeoJSON($1), 32647),
+//                 displayname = $2
+//             WHERE id = $3 AND sub_id = $4
+//         `;
+//         await db.query(query, [geom, displayName, id, sub_id]);
+//         res.json({ success: true });
+//     } catch (error) {
+//         console.error(error);
+//         res.json({ success: false, error: error.message });
+//     }
+// });
+
+
 
 app.get('/api/download/reshape/:tb', async (req, res) => {
     try {
@@ -886,6 +997,10 @@ app.post('/api/area', async (req, res) => {
         return res.status(500).json({ error: err.message });
     }
 });
+
+//
+
+
 
 app.post('/api/split', async (req, res) => {
     const { polygon_fc, line_fc, srid } = req.body;

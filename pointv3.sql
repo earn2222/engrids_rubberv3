@@ -23,3 +23,8 @@ SET geom_point = ST_Transform(ST_SetSRID(geom, 32647), 4326);
 UPDATE rayong_point_v3
 SET geom = NULL
 
+-- set ค่า geom เป็น 4326
+ALTER TABLE rayong_point_v3
+  ALTER COLUMN geom TYPE geometry(Geometry, 4326)
+  USING ST_SetSRID(geom::geometry, 4326);
+

@@ -130,6 +130,19 @@ map.pm.addControls({
     drawCircleMarker: false,
 });
 
+map.on('pm:create', (e) => {
+    const layer = e.layer;
+    selectedLayer = layer;
+    featureGroup.addLayer(layer);
+
+    // ผูก event edit เพื่อ recalculation
+    layer.on('pm:edit pm:dragend pm:update pm:change', () => updateAreaLabel(layer));
+
+    // คำนวณพื้นที่
+    updateAreaLabel(layer);
+});
+
+
 // Area calculation utilities
 const formatArea = (area) => {
     return area >= 1e6
@@ -138,23 +151,11 @@ const formatArea = (area) => {
 };
 
 // Label management
-const updateAreaLabel = async (layer) => {
+const updateAreaLabel = (layer) => {
     try {
-        const geojsonFeature = layer.toGeoJSON();
-
-        const res = await fetch(`/rub/api/area`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ geometry: geojsonFeature.geometry })
-        });
-
-        if (!res.ok) {
-            const errText = await res.text();
-            throw new Error(`API error ${res.status}: ${errText}`);
-        }
-
-        const { area } = await res.json();
-        const xls_sqm = document.getElementById('xls_sqm').value;
+        const geojson = layer.toGeoJSON();
+        const area = turf.area(geojson); // คำนวณเป็น m² ด้วย Turf.js
+        const xls_sqm = Number(document.getElementById('xls_sqm').value);
 
         document.getElementById('shparea_sqm').value = area.toFixed(0);
         const diff = Math.abs(area - xls_sqm);
@@ -165,19 +166,19 @@ const updateAreaLabel = async (layer) => {
             document.getElementById('message').innerHTML = '<h5><span class="badge bg-success">เนื้อที่ใกล้เคียงกัน</span></h5>';
         }
     } catch (error) {
-        console.error('Error updating label:', error);
+        console.error('Error calculating area:', error);
     }
 };
 
 function showFeaturePanel(feature, layer) {
     const xls = Number(feature.properties.xls_sqm);
     const id = document.getElementById('id');
-    const xls_app_no = document.getElementById('xls_app_no');
+    const app_no = document.getElementById('app_no');
     const xls_sqm = document.getElementById('xls_sqm');
     const refinal = document.getElementById('refinal');
 
     id.value = feature.properties.id;
-    xls_app_no.value = feature.properties.app_no;
+    app_no.value = feature.properties.app_no;
     xls_sqm.value = feature.properties.xls_sqm;
     refinal.value = feature.properties.refinal;
 
@@ -215,7 +216,9 @@ const onEachFeature = (feature, layer) => {
     layer.on('pm:edit pm:dragend pm:update pm:change', () => updateAreaLabel(layer));
 }
 
-var selectedLayer = null;
+let selectedFeature = null; // เก็บข้อมูลจากตาราง (app_no, xls_sqm ฯลฯ)
+let selectedLayer = null;   // เก็บ layer ที่กำลังถูกวาดหรือแก้ไข
+
 const loadGeoData = async () => {
     try {
         const tb = document.getElementById('tb').value;
@@ -303,48 +306,76 @@ const loadGeoData = async () => {
         });
 
         const updateMap = () => {
-            featureGroup.clearLayers(); // Clear existing layers
+            featureGroup.clearLayers();
             const visibleRows = dataTable.rows({ search: 'applied' }).data().toArray();
 
             visibleRows.forEach(row => {
-                // แสดง geom (Polygon หรือ Geometry หลัก)
-                const geoJsonData = {
-                    type: 'Feature',
-                    geometry: row.geom,
-                    properties: {
-                        id: row.id,
-                        refinal: row.refinal,
-                        app_no: row.app_no,
-                        xls_sqm: row.xls_sqm,
-                        shparea_sqm: row.shparea_sqm
+                // ✅ 1. แสดง Polygon (ถ้ามี)
+                if (row.geom) {
+                    let geom = row.geom;
+                    if (typeof geom === 'string') {
+                        try {
+                            geom = JSON.parse(geom);
+                        } catch (e) {
+                            console.warn(`Invalid Polygon JSON for row ${row.id}`);
+                            geom = null;
+                        }
+                    }
+
+                    if (geom && geom.type && geom.coordinates) {
+                        const geoJsonData = {
+                            type: 'Feature',
+                            geometry: geom,
+                            properties: {
+                                id: row.id,
+                                refinal: row.refinal,
+                                app_no: row.app_no,
+                                xls_sqm: row.xls_sqm,
+                                shparea_sqm: row.shparea_sqm
+                            }
+                        };
+
+                        L.geoJson(geoJsonData, {
+                            style: getFeatureStyle,
+                            onEachFeature: onEachFeature,
+                        }).addTo(featureGroup);
                     }
                 }
 
-                L.geoJson(geoJsonData, {
-                    style: getFeatureStyle,
-                    onEachFeature: onEachFeature,
-                }).addTo(featureGroup);
-
-                // แสดง geom_point (point) ถ้ามี (สมมติ geom_point เป็น GeoJSON Point)
-
-                // console.log(typeof row.geom_point);
+                // ✅ 2. แสดง Point (แน่นอน)
                 if (row.geom_point) {
-                    const coords = JSON.parse(row.geom_point).coordinates;
-                    // console.log('Point coordinates:', coords);
+                    let point = row.geom_point;
 
-                    // console.log('Point coordinates:', coords);
-                    const circleMarker = L.circleMarker([coords[1], coords[0]], {
-                        radius: 5,          // ขนาดจุด
-                        color: 'white',       // สีเส้นขอบ (ถ้าไม่อยากให้มีเส้นขอบใช้ 'none' หรือ 'transparent')
-                        fillColor: 'red',   // สีเติมภายในจุด
-                        fillOpacity: 1      // ความทึบของสีเติม
-                    });
-                    circleMarker.addTo(featureGroup);
-                    circleMarker.bindPopup(`Point ID: ${row.id}<br>App No: ${row.app_no}`);
+                    // 👇 แปลงเป็น object ถ้าเป็น string
+                    if (typeof point === 'string') {
+                        try {
+                            point = JSON.parse(point);
+                        } catch (e) {
+                            console.warn(`Invalid point JSON for row ${row.id}:`, point);
+                            return;
+                        }
+                    }
+
+                    if (point && point.type === 'Point' && Array.isArray(point.coordinates)) {
+                        const [lng, lat] = point.coordinates;
+                        const circleMarker = L.circleMarker([lat, lng], {
+                            radius: 5,
+                            color: 'white',
+                            fillColor: 'red',
+                            fillOpacity: 1
+                        }).addTo(featureGroup);
+
+                        circleMarker.bindPopup(`
+                    <b>Point ID:</b> ${row.id}<br>
+                    <b>App No:</b> ${row.app_no}
+                `);
+                    } else {
+                        console.warn(`Invalid point format for row ${row.id}:`, point);
+                    }
                 }
-
             });
         };
+
 
         updateMap();
 
@@ -352,24 +383,37 @@ const loadGeoData = async () => {
             updateMap();
         });
 
+        //  ปุ่ม Zoom ในตาราง
         $('#featureTable tbody').on('click', '.map-btn', function (e) {
             try {
                 e.stopPropagation();
-                const geojson = $(this).data('geojson');
-                // console.log('GeoJSON data:', geojson);
+                const geojson = $(this).data('geojson'); // จุด point
+                const zoomLevel = 20;
+                map.setView([geojson.coordinates[1], geojson.coordinates[0]], zoomLevel);
 
-                // const layer = L.geoJSON(geojson).addTo(featureGroup);
+                // ✅ เก็บข้อมูล row เพื่อใช้ตอนวาด polygon
+                const row = dataTable.row($(this).closest('tr')).data();
+                selectedFeature = {
+                    id: row.id,
+                    app_no: row.app_no,
+                    xls_sqm: row.xls_sqm,
+                    refinal: row.refinal
+                };
 
-                // const latlng = layer.getLayers()[0].getLatLng(); 
-                const zoomLevel = 20; // <== กำหนดระดับการซูมตรงนี้
-
-                map.setView([geojson.coordinates[1], geojson.coordinates[0]], zoomLevel); // ซูมไปยังจุดด้วยระดับที่กำหนด
-                selectedLayer = layer;
+                // ✅ แสดงค่าลง input ด้านขวา
+                document.getElementById('id').value = selectedFeature.id;
+                document.getElementById('app_no').value = selectedFeature.app_no;
+                document.getElementById('xls_sqm').value = selectedFeature.xls_sqm;
+                document.getElementById('refinal').value = selectedFeature.refinal;
+                document.getElementById('shparea_sqm').value = ""; // reset ก่อนวาดใหม่
+                document.getElementById('message').innerHTML = "";
 
             } catch (error) {
-                console.error('Failed to parse GeoJSON:', error);
+                console.error('Failed to handle zoom click:', error);
             }
         });
+
+
 
 
 
@@ -477,6 +521,51 @@ document.getElementById('dashboard').addEventListener('click', (e) => {
     const tb = document.getElementById('tb').value;
     window.location.href = './../reclassdash/index.html?tb=' + tb;
 });
+
+
+//testv3 ฟังก์ชัน save 
+document.getElementById('save').addEventListener('click', async () => {
+    if (!selectedLayer) {
+        alert('กรุณาเลือกแปลงที่ต้องการบันทึกก่อน');
+        return;
+    }
+
+    const id = document.getElementById('id').value;
+    const refinal = document.getElementById('refinal').value;
+    const editor = document.getElementById('displayName').value;
+    const tb = document.getElementById('tb').value;
+
+    // ✅ ดึง geometry จาก feature
+    const feature = selectedLayer.toGeoJSON();
+    const geom = JSON.stringify(feature.geometry);  // เก็บเฉพาะ geometry
+
+    try {
+        const response = await fetch(`/rub/api/updatefeaturesv3/${tb}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, refinal, editor, geom })
+        });
+
+        const resultText = await response.text();
+        if (response.ok) {
+            alert(`อัปเดตข้อมูล ID: ${id} สำเร็จแล้ว`);
+
+            featureGroup.eachLayer(layer => {
+                layer.pm.disable();
+                layer.areaLabel?.remove();
+            });
+
+            featureGroup.clearLayers();
+            loadGeoData(); // โหลดข้อมูลใหม่
+        } else {
+            alert('บันทึกไม่สำเร็จ: ' + resultText);
+        }
+    } catch (error) {
+        console.error('Error saving data:', error);
+        alert('เกิดข้อผิดพลาดขณะบันทึกข้อมูล');
+    }
+});
+
 
 // document.getElementById('digitize').addEventListener('click', function () {
 //     const tb = document.getElementById('tb').value;
