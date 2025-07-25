@@ -350,6 +350,41 @@ document.getElementById('split').addEventListener('click', () => {
         })
 });
 
+document.getElementById('save').addEventListener('click', () => {
+    if (!selectedPolygon) {
+        alert('กรุณาเลือก polygon ที่ต้องการบันทึก');
+        return;
+    }
+
+    const geom = selectedPolygon.toGeoJSON().geometry;
+    const sub_id = document.getElementById('sub_id').value;
+    const tb = document.getElementById('tb').value;
+    const displayName = document.getElementById('displayName').value;
+
+    fetch('/rub/api/update_geometry/' + tb, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            sub_id: sub_id,
+            geometry: geom,
+            displayName: displayName
+        })
+    })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert("บันทึก polygon เรียบร้อยแล้ว");
+                // รีโหลดแปลงใหม่
+                loadGeoData(document.getElementById('id').value);
+            } else {
+                alert("เกิดข้อผิดพลาดขณะบันทึก");
+            }
+        });
+});
+
+
 document.getElementById('reshape').addEventListener('click', (e) => {
     e.preventDefault();
     const tb = document.getElementById('tb').value;

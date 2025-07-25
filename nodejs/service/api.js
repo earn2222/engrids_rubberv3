@@ -836,25 +836,37 @@ app.put('/api/update_landuse/:tb', async (req, res) => {
     }
 });
 
-// //reclassify
-// app.put('/api/updategeometry/:tb', async (req, res) => {
-//     const { tb } = req.params;
-//     const { id, sub_id, geom, displayName } = req.body;
+// //reclassify   
+app.put('/api/update_geometry/:tb', async (req, res) => {
+    try {
+        const tb = req.params.tb;
+        const { sub_id, geometry, displayName } = req.body;
 
-//     try {
-//         const query = `
-//             UPDATE ${tb}
-//             SET geom = ST_SetSRID(ST_GeomFromGeoJSON($1), 32647),
-//                 displayname = $2
-//             WHERE id = $3 AND sub_id = $4
-//         `;
-//         await db.query(query, [geom, displayName, id, sub_id]);
-//         res.json({ success: true });
-//     } catch (error) {
-//         console.error(error);
-//         res.json({ success: false, error: error.message });
-//     }
-// });
+        if (!geometry || !sub_id) {
+            return res.status(400).json({ error: 'sub_id และ geometry จำเป็นต้องมี' });
+        }
+
+        const query = `
+            UPDATE reclass_${tb}
+            SET geom = ST_SetSRID(ST_GeomFromGeoJSON($1), 4326),
+                editor = $2
+            WHERE sub_id = $3
+            RETURNING *;
+        `;
+        const values = [JSON.stringify(geometry), displayName, sub_id];
+        const result = await pool.query(query, values);
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'ไม่พบข้อมูล sub_id นี้' });
+        }
+
+        res.status(200).json({ success: true, data: result.rows });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: err.message });
+    }
+});
 
 
 
