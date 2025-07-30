@@ -58,7 +58,7 @@ const initApp = async () => {
                                 Download reclassify
                             </button>
                             <button class="btn btn-success testv3" data-tb="${tb_name}">
-                               testv3
+                               V3
                             </button>
                             
                         </div>

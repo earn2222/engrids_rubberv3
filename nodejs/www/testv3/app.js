@@ -130,6 +130,19 @@ map.pm.addControls({
     drawCircleMarker: false,
 });
 
+map.on('pm:create', (e) => {
+    const layer = e.layer;
+    selectedLayer = layer;
+    featureGroup.addLayer(layer);
+
+    // ผูก event edit เพื่อ recalculation
+    layer.on('pm:edit pm:dragend pm:update pm:change', () => updateAreaLabel(layer));
+
+    // คำนวณพื้นที่
+    updateAreaLabel(layer);
+});
+
+
 // Area calculation utilities
 const formatArea = (area) => {
     return area >= 1e6
@@ -173,7 +186,7 @@ function showFeaturePanel(feature, layer) {
     const xls = Number(feature.properties.xls_sqm);
     const id = document.getElementById('id');
     const app_no = document.getElementById('app_no');
-    ('xls_sqm'); const xls_sqm = document.getElementById
+    const xls_sqm = document.getElementById('xls_sqm');
     const refinal = document.getElementById('refinal');
 
     id.value = feature.properties.id;

@@ -121,14 +121,12 @@ const formatArea = (area) => {
 
 const sub_id = document.getElementById('sub_id');
 const xls_app_no = document.getElementById('xls_app_no');
-const xls_sqm = document.getElementById('xls_sqm');
 const shpsplit_sqm = document.getElementById('shpsplit_sqm');
 const classtype = document.getElementById('classtype');
 
 function showFeaturePanel(feature, layer) {
     sub_id.value = feature.properties.sub_id;
     xls_app_no.value = feature.properties.app_no;
-    xls_sqm.value = feature.properties.xls_sqm;
     shpsplit_sqm.value = Number(feature.properties.shpsplit_sqm).toFixed(0);
     classtype.value = feature.properties.classtype;
 }
@@ -223,28 +221,33 @@ const loadGeoData = async (id) => {
     try {
         const tb = document.getElementById('tb').value;
 
-        // โหลด spatial ตาม id
+        // ✅ โหลด spatial พร้อม xls_sqm จาก geometry DB
         const response = await fetch('/rub/api/getfeatures/' + tb + '/' + id);
         const { data } = await response.json();
 
-        // ✅ โหลดข้อมูล xls_sqm แยกอีก API
-        // ✅ โหลดข้อมูล xls_sqm จาก API
+        // ✅ โหลด xls_sqm เป้าหมายจาก getfeaturesv3 (Excel)
         const responseTarget = await fetch(`/rub/api/getfeaturesv3/${tb}`);
         const jsonTarget = await responseTarget.json();
         const targetData = jsonTarget.data || [];
 
         // ✅ หาแปลงที่ตรงกับ id
-        const matched = targetData.find(item => item.id === parseInt(id));
+        const matchedTarget = targetData.find(item => item.id === parseInt(id));
 
-
-        // ✅ ใส่ลงใน input ที่มี id="xls_sqm"
-        if (matched) {
-            document.getElementById('xls_sqm').value = matched.xls_sqm;
+        // ✅ แสดงผลใน input (เนื้อที่ shapefile)
+        if (data.length > 0 && data[0].xls_sqm !== undefined) {
+            document.getElementById('xls_sqm').value = data[0].xls_sqm;
         } else {
             document.getElementById('xls_sqm').value = 'ไม่พบข้อมูล';
         }
 
+        // ✅ แสดงผลใน input (เนื้อที่จาก Excel)
+        if (matchedTarget && matchedTarget.xls_sqm !== undefined) {
+            document.getElementById('xls_sqm').value = matchedTarget.xls_sqm;
+        } else {
+            document.getElementById('xls_sqm').value = 'ไม่พบข้อมูล';
+        }
 
+        // ✅ แสดงบนแผนที่
         const geoJsonData = {
             type: 'FeatureCollection',
             features: data.map(item => ({
@@ -360,7 +363,6 @@ document.getElementById('clear').addEventListener('click', () => {
     selectedLine = null;
     sub_id.value = '';
     xls_app_no.value = '';
-    // xls_sqm.value = '';
     shpsplit_sqm.value = '';
     classtype.value = '';
 })
