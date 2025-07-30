@@ -144,6 +144,7 @@ app.get('/api/getfeaturesv3/:tb/:fid', async (req, res) => {
 });
 
 
+
 app.get('/api/getsinglefeature/:tb/:fid', async (req, res) => {
     try {
         const tb = req.params.tb;
@@ -847,12 +848,22 @@ app.put('/api/update_geometry/:tb', async (req, res) => {
         }
 
         const query = `
+            WITH geom_input AS (
+                SELECT
+                    ST_SetSRID(ST_GeomFromGeoJSON($1), 4326) AS geom_wgs,
+                    $2::text AS editor,
+                    $3::text AS sub_id
+            )
             UPDATE reclass_${tb}
-            SET geom = ST_SetSRID(ST_GeomFromGeoJSON($1), 4326),
-                editor = $2
-            WHERE sub_id = $3
+            SET
+                geom = g.geom_wgs,
+                shpsplit_sqm = ST_Area(ST_Transform(g.geom_wgs, 32647)),
+                editor = g.editor
+            FROM geom_input g
+            WHERE reclass_${tb}.sub_id = g.sub_id
             RETURNING *;
         `;
+
         const values = [JSON.stringify(geometry), displayName, sub_id];
         const result = await pool.query(query, values);
 
@@ -867,6 +878,7 @@ app.put('/api/update_geometry/:tb', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+
 
 
 

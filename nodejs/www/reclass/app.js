@@ -121,15 +121,42 @@ const formatArea = (area) => {
 
 const sub_id = document.getElementById('sub_id');
 const xls_app_no = document.getElementById('xls_app_no');
+const xls_sqm = document.getElementById('xls_sqm');
 const shpsplit_sqm = document.getElementById('shpsplit_sqm');
 const classtype = document.getElementById('classtype');
 
 function showFeaturePanel(feature, layer) {
     sub_id.value = feature.properties.sub_id;
     xls_app_no.value = feature.properties.app_no;
+    xls_sqm.value = feature.properties.xls_sqm;
     shpsplit_sqm.value = Number(feature.properties.shpsplit_sqm).toFixed(0);
     classtype.value = feature.properties.classtype;
 }
+
+function calculateArea(layer) {
+    const geojson = layer.toGeoJSON();
+    return turf.area(geojson); // หน่วย: m²
+}
+
+function updateAreaDisplay(layer) {
+    const area = calculateArea(layer);
+    const sqmInput = document.getElementById('shpsplit_sqm');
+    if (sqmInput) {
+        sqmInput.value = Math.round(area).toLocaleString(); // แสดงผล
+    }
+}
+
+function attachRealtimeAreaUpdate(layer) {
+    const update = () => updateAreaDisplay(layer);
+
+    update(); // เรียกครั้งแรก
+
+    layer.on('pm:edit', update);
+    layer.on('pm:update', update);
+    layer.on('pm:drag', update);
+    layer.on('pm:change', update);
+}
+
 
 const getFeatureStyle = (feature) => {
     console.log('getFeatureStyle', feature);
@@ -156,6 +183,7 @@ let highlightedLayer = null; // Track the currently highlighted layer
 
 function onEachFeature(feature, layer) {
     featureGroup.addLayer(layer);
+    attachRealtimeAreaUpdate(layer); // ✅ เพิ่มตรงนี้
     layer.on({
         click: function (e) {
             selectedPolygon = layer;
@@ -191,12 +219,31 @@ function highlightFeature(e) {
     });
     layer.bringToFront();
 }
-
 const loadGeoData = async (id) => {
     try {
         const tb = document.getElementById('tb').value;
+
+        // โหลด spatial ตาม id
         const response = await fetch('/rub/api/getfeatures/' + tb + '/' + id);
         const { data } = await response.json();
+
+        // ✅ โหลดข้อมูล xls_sqm แยกอีก API
+        // ✅ โหลดข้อมูล xls_sqm จาก API
+        const responseTarget = await fetch(`/rub/api/getfeaturesv3/${tb}`);
+        const jsonTarget = await responseTarget.json();
+        const targetData = jsonTarget.data || [];
+
+        // ✅ หาแปลงที่ตรงกับ id
+        const matched = targetData.find(item => item.id === parseInt(id));
+
+
+        // ✅ ใส่ลงใน input ที่มี id="xls_sqm"
+        if (matched) {
+            document.getElementById('xls_sqm').value = matched.xls_sqm;
+        } else {
+            document.getElementById('xls_sqm').value = 'ไม่พบข้อมูล';
+        }
+
 
         const geoJsonData = {
             type: 'FeatureCollection',
@@ -207,8 +254,9 @@ const loadGeoData = async (id) => {
                     id: item.id,
                     sub_id: item.sub_id,
                     app_no: item.app_no,
+                    xls_sqm: item.xls_sqm,
                     shpsplit_sqm: item.shpsplit_sqm,
-                    classtype: item.classtype
+                    classtype: item.classtype,
                 }
             }))
         };
@@ -219,11 +267,13 @@ const loadGeoData = async (id) => {
         }).addTo(map);
 
         map.fitBounds(featureGroup.getBounds());
+
     } catch (error) {
         console.error('Error loading data:', error);
         alert('Failed to load spatial data');
     }
 };
+
 
 var selectedLine = null;
 const handleLayerCreate = (e) => {
@@ -231,6 +281,8 @@ const handleLayerCreate = (e) => {
     featureGroup.addLayer(layer);
     layer.pm.enable({ allowSelfIntersection: true });
     selectedLine = layer;
+
+    attachRealtimeAreaUpdate(layer); // ✅ เพิ่มตรงนี้
 
     layer.on('pm:edit pm:dragend pm:update pm:change', () => console.log(layer));
     layer.on('click', () => {
@@ -245,6 +297,9 @@ map.on('pm:edit', (e) => {
     featureGroup.eachLayer(l => l.pm.disable());
     layer.pm.enable();
 });
+
+
+
 map.on('click', () => featureGroup.eachLayer(l => l.pm.disable()));
 
 const legend = L.control({ position: 'bottomright' });
@@ -305,6 +360,7 @@ document.getElementById('clear').addEventListener('click', () => {
     selectedLine = null;
     sub_id.value = '';
     xls_app_no.value = '';
+    // xls_sqm.value = '';
     shpsplit_sqm.value = '';
     classtype.value = '';
 })

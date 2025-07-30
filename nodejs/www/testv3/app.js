@@ -130,19 +130,6 @@ map.pm.addControls({
     drawCircleMarker: false,
 });
 
-map.on('pm:create', (e) => {
-    const layer = e.layer;
-    selectedLayer = layer;
-    featureGroup.addLayer(layer);
-
-    // ผูก event edit เพื่อ recalculation
-    layer.on('pm:edit pm:dragend pm:update pm:change', () => updateAreaLabel(layer));
-
-    // คำนวณพื้นที่
-    updateAreaLabel(layer);
-});
-
-
 // Area calculation utilities
 const formatArea = (area) => {
     return area >= 1e6
@@ -151,11 +138,23 @@ const formatArea = (area) => {
 };
 
 // Label management
-const updateAreaLabel = (layer) => {
+const updateAreaLabel = async (layer) => {
     try {
-        const geojson = layer.toGeoJSON();
-        const area = turf.area(geojson); // คำนวณเป็น m² ด้วย Turf.js
-        const xls_sqm = Number(document.getElementById('xls_sqm').value);
+        const geojsonFeature = layer.toGeoJSON();
+
+        const res = await fetch(`/rub/api/area`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ geometry: geojsonFeature.geometry })
+        });
+
+        if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(`API error ${res.status}: ${errText}`);
+        }
+
+        const { area } = await res.json();
+        const xls_sqm = document.getElementById('xls_sqm').value;
 
         document.getElementById('shparea_sqm').value = area.toFixed(0);
         const diff = Math.abs(area - xls_sqm);
@@ -166,7 +165,7 @@ const updateAreaLabel = (layer) => {
             document.getElementById('message').innerHTML = '<h5><span class="badge bg-success">เนื้อที่ใกล้เคียงกัน</span></h5>';
         }
     } catch (error) {
-        console.error('Error calculating area:', error);
+        console.error('Error updating label:', error);
     }
 };
 
@@ -174,7 +173,7 @@ function showFeaturePanel(feature, layer) {
     const xls = Number(feature.properties.xls_sqm);
     const id = document.getElementById('id');
     const app_no = document.getElementById('app_no');
-    const xls_sqm = document.getElementById('xls_sqm');
+    ('xls_sqm'); const xls_sqm = document.getElementById
     const refinal = document.getElementById('refinal');
 
     id.value = feature.properties.id;
