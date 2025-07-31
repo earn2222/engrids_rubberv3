@@ -46,6 +46,13 @@ const rubber_parcel = L.tileLayer.wms("https://engrids.soc.cmu.ac.th/geoserver/r
     zIndex: 6
 });
 
+const longdoLayer = L.tileLayer('https://ms.longdo.com/mmmap/img.php?zoom={z}&x={x}&y={y}&mode=dol_hd', {
+    attribution: '&copy; Longdo Map',
+    tileSize: 256,
+    maxZoom: 30,
+    minZoom: 1
+});
+
 const baseLayers = {
     "Google Road": gmap_road,
     "Google Satellite": gmap_sat.addTo(map),
@@ -62,7 +69,8 @@ const overlayMaps = {
     "แปลงยาง(เดิม)": rubber_parcel,
     "NDVI": ndvi,
     "NDVI gee": ndviTile,
-    "S2 gee": trueColorTile
+    "S2 gee": trueColorTile,
+    "Longdo Map": longdoLayer.addTo(map),
 };
 
 L.control.layers(baseLayers, overlayMaps).addTo(map);
@@ -123,6 +131,31 @@ function showFeaturePanel(feature, layer) {
     classtype.value = feature.properties.classtype;
 }
 
+function calculateArea(layer) {
+    const geojson = layer.toGeoJSON();
+    return turf.area(geojson); // หน่วย: m²
+}
+
+function updateAreaDisplay(layer) {
+    const area = calculateArea(layer);
+    const sqmInput = document.getElementById('shpsplit_sqm');
+    if (sqmInput) {
+        sqmInput.value = Math.round(area).toLocaleString(); // แสดงผล
+    }
+}
+
+function attachRealtimeAreaUpdate(layer) {
+    const update = () => updateAreaDisplay(layer);
+
+    update(); // เรียกครั้งแรก
+
+    layer.on('pm:edit', update);
+    layer.on('pm:update', update);
+    layer.on('pm:drag', update);
+    layer.on('pm:change', update);
+}
+
+
 const getFeatureStyle = (feature) => {
     console.log('getFeatureStyle', feature);
 
@@ -148,6 +181,7 @@ let highlightedLayer = null; // Track the currently highlighted layer
 
 function onEachFeature(feature, layer) {
     featureGroup.addLayer(layer);
+    attachRealtimeAreaUpdate(layer); // ✅ เพิ่มตรงนี้
     layer.on({
         click: function (e) {
             selectedPolygon = layer;
@@ -183,13 +217,37 @@ function highlightFeature(e) {
     });
     layer.bringToFront();
 }
-
 const loadGeoData = async (id) => {
     try {
         const tb = document.getElementById('tb').value;
+
+        // ✅ โหลด spatial พร้อม xls_sqm จาก geometry DB
         const response = await fetch('/rub/api/getfeatures/' + tb + '/' + id);
         const { data } = await response.json();
 
+        // ✅ โหลด xls_sqm เป้าหมายจาก getfeaturesv3 (Excel)
+        const responseTarget = await fetch(`/rub/api/getfeaturesv3/${tb}`);
+        const jsonTarget = await responseTarget.json();
+        const targetData = jsonTarget.data || [];
+
+        // ✅ หาแปลงที่ตรงกับ id
+        const matchedTarget = targetData.find(item => item.id === parseInt(id));
+
+        // ✅ แสดงผลใน input (เนื้อที่ shapefile)
+        if (data.length > 0 && data[0].xls_sqm !== undefined) {
+            document.getElementById('xls_sqm').value = data[0].xls_sqm;
+        } else {
+            document.getElementById('xls_sqm').value = 'ไม่พบข้อมูล';
+        }
+
+        // ✅ แสดงผลใน input (เนื้อที่จาก Excel)
+        if (matchedTarget && matchedTarget.xls_sqm !== undefined) {
+            document.getElementById('xls_sqm').value = matchedTarget.xls_sqm;
+        } else {
+            document.getElementById('xls_sqm').value = 'ไม่พบข้อมูล';
+        }
+
+        // ✅ แสดงบนแผนที่
         const geoJsonData = {
             type: 'FeatureCollection',
             features: data.map(item => ({
@@ -199,8 +257,9 @@ const loadGeoData = async (id) => {
                     id: item.id,
                     sub_id: item.sub_id,
                     app_no: item.app_no,
+                    xls_sqm: item.xls_sqm,
                     shpsplit_sqm: item.shpsplit_sqm,
-                    classtype: item.classtype
+                    classtype: item.classtype,
                 }
             }))
         };
@@ -211,11 +270,13 @@ const loadGeoData = async (id) => {
         }).addTo(map);
 
         map.fitBounds(featureGroup.getBounds());
+
     } catch (error) {
         console.error('Error loading data:', error);
         alert('Failed to load spatial data');
     }
 };
+
 
 var selectedLine = null;
 const handleLayerCreate = (e) => {
@@ -223,6 +284,8 @@ const handleLayerCreate = (e) => {
     featureGroup.addLayer(layer);
     layer.pm.enable({ allowSelfIntersection: true });
     selectedLine = layer;
+
+    attachRealtimeAreaUpdate(layer); // ✅ เพิ่มตรงนี้
 
     layer.on('pm:edit pm:dragend pm:update pm:change', () => console.log(layer));
     layer.on('click', () => {
@@ -237,6 +300,9 @@ map.on('pm:edit', (e) => {
     featureGroup.eachLayer(l => l.pm.disable());
     layer.pm.enable();
 });
+
+
+
 map.on('click', () => featureGroup.eachLayer(l => l.pm.disable()));
 
 const legend = L.control({ position: 'bottomright' });
@@ -341,6 +407,41 @@ document.getElementById('split').addEventListener('click', () => {
             }
         })
 });
+
+document.getElementById('save').addEventListener('click', () => {
+    if (!selectedPolygon) {
+        alert('กรุณาเลือก polygon ที่ต้องการบันทึก');
+        return;
+    }
+
+    const geom = selectedPolygon.toGeoJSON().geometry;
+    const sub_id = document.getElementById('sub_id').value;
+    const tb = document.getElementById('tb').value;
+    const displayName = document.getElementById('displayName').value;
+
+    fetch('/rub/api/update_geometry/' + tb, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            sub_id: sub_id,
+            geometry: geom,
+            displayName: displayName
+        })
+    })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert("บันทึก polygon เรียบร้อยแล้ว");
+                // รีโหลดแปลงใหม่
+                loadGeoData(document.getElementById('id').value);
+            } else {
+                alert("เกิดข้อผิดพลาดขณะบันทึก");
+            }
+        });
+});
+
 
 document.getElementById('reshape').addEventListener('click', (e) => {
     e.preventDefault();

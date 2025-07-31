@@ -67,12 +67,16 @@
                                 <input type="hidden" id="tb">
                             </div>
                             <div>
-                                <strong>Subid:</strong>
+                                <strong>SubID:</strong>
                                 <input class="form-control" id="sub_id" disabled>
                             </div>
                             <div>
                                 <strong>App No:</strong>
                                 <input class="form-control" id="xls_app_no" disabled>
+                            </div>
+                            <div>
+                                <strong>เนื้อที่ยางพารา (m²):</strong>
+                                <input class="form-control" id="xls_sqm" disabled>
                             </div>
                             <div>
                                 <strong>เนื้อที่ (m²):</strong>
@@ -91,6 +95,7 @@
                         <div class="mb-2">
                             <button class="btn btn-info" id="clear">Clear selection</button>
                             <button class="btn btn-success" id="split">Split แปลงยาง</button>
+                            <button class="btn btn-info" id="save">Save</button>
                         </div>
                         <p></p>* คลิ๊กที่แปลงยางก่อน > กำหนดประเภท
                         <br>** หากต้องการแบ่งพื้นที่ ให้ลากเส้นเพื่อตัดแบ่งพื้นที่ > คลิ๊กปุ่ม "Split แปลงยาง"
@@ -106,6 +111,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.14.2/dist/leaflet-geoman.min.js"></script>
     <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 
     <script src="./app.js"> </script>
 </body>

@@ -57,6 +57,10 @@ const initApp = async () => {
                             <button class="btn btn-success classify_download" data-tb="${tb_name}">
                                 Download reclassify
                             </button>
+                            <button class="btn btn-success testv3" data-tb="${tb_name}">
+                               V3
+                            </button>
+                            
                         </div>
                         <div>
                             <!--button class="btn btn-danger deleteBtn" data-tb="${tb_name}">
@@ -84,6 +88,20 @@ const initApp = async () => {
             });
         }
 
+        const testv3 = document.getElementsByClassName('testv3');
+        for (let i = 0; i < testv3.length; i++) {
+            testv3[i].addEventListener('click', function (e) {
+                e.preventDefault();
+                const chkLogin = document.getElementById('chkLogin').value;
+                if (chkLogin === 'false') {
+                    alert('กรุณา Login ก่อนครับ');
+                    return;
+                }
+                const tb = this.getAttribute('data-tb');
+                window.location.href = `./testv3/index.html?tb=${tb}`;
+            });
+        }
+
         const dashboard = document.getElementsByClassName('dashboard');
         for (let i = 0; i < dashboard.length; i++) {
             dashboard[i].addEventListener('click', function (e) {
@@ -92,6 +110,7 @@ const initApp = async () => {
                 window.location.href = `./reclassdash/index.html?tb=${tb}`;
             });
         }
+
 
         const reshape_download = document.getElementsByClassName('reshape_download');
         for (let i = 0; i < reshape_download.length; i++) {
@@ -129,6 +148,8 @@ const initApp = async () => {
                     })
                     .then(blob => {
                         const url = URL.createObjectURL(blob);
+                        console.log(url);
+
                         const a = document.createElement('a');
                         a.href = url;
                         a.download = `v_reclass_${tb}.geojson`;

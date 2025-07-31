@@ -65,6 +65,107 @@ app.get('/api/getfeatures/:tb/:fid', async (req, res) => {
                         ST_ASGeoJSON(geom) AS geom
                     FROM reclass_${tb}
                     WHERE geom IS NOT NULL AND id = $1`;
+        console.log(`Executing SQL: ${sql} with fid: ${fid}`);
+        const values = [fid];
+        const result = await pool.query(sql, values);
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Feature not found' });
+        }
+        res.status(200).json({ success: true, data: result.rows });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// v3
+app.get('/api/getfeaturesv3/:tb', async (req, res) => {
+    try {
+        const tb = req.params.tb;
+        if (!tb) {
+            return res.status(400).json({ error: 'Table name is required' });
+        }
+
+        const sql = `
+            SELECT id,
+                farm_name,
+                f_name,
+                l_name,
+                age,
+                refinal,
+                app_no,
+                xls_sqm,
+                shparea_sqm,
+                classified,
+                ST_AsGeoJSON(geom) AS geom,
+                ST_AsGeoJSON(geom_point) AS geom_point
+            FROM ${tb}
+            WHERE geom_point IS NOT NULL
+        `;
+        const result = await pool.query(sql);
+        res.status(200).json({ success: true, data: result.rows });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// GET: ดึงข้อมูลรายแปลงใส่ตาราง
+app.get('/api/getfeaturesv3/:tb/:fid', async (req, res) => {
+    try {
+        const tb = req.params.tb;
+        const fid = req.params.fid;
+
+        if (!tb) return res.status(400).json({ error: 'Table name is required' });
+        if (!fid) return res.status(400).json({ error: 'Feature ID is required' });
+
+        const sql = `
+            SELECT id, 
+                   sub_id, 
+                   classtype, 
+                   app_no, 
+                   shpsplit_sqm, 
+                   ST_AsGeoJSON(geom) AS geom,
+                   ST_AsGeoJSON(geom_point) AS geom_point
+            FROM reclass_${tb}
+            WHERE geom_point IS NOT NULL AND id = $1
+        `;
+        const result = await pool.query(sql, [fid]);
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Feature not found' });
+        }
+
+        res.status(200).json({ success: true, data: result.rows });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+
+
+app.get('/api/getsinglefeature/:tb/:fid', async (req, res) => {
+    try {
+        const tb = req.params.tb;
+        if (!tb) {
+            return res.status(400).json({ error: 'Table name is required' });
+        }
+
+        const fid = req.params.fid;
+        if (!fid) {
+            return res.status(400).json({ error: 'Feature ID is required' });
+        }
+
+        const sql = `SELECT id,  
+                        app_no, 
+                        refinal,
+                        xls_sqm,
+                        shparea_sqm, 
+                        ST_ASGeoJSON(geom) AS geom
+                    FROM ${tb}
+                    WHERE geom IS NOT NULL AND id = $1`;
+        console.log(`Executing SQL: ${sql} with fid: ${fid}`);
         const values = [fid];
         const result = await pool.query(sql, values);
         if (result.rowCount === 0) {
@@ -114,7 +215,6 @@ app.put('/api/restorefeatures/:tb/:id', async (req, res) => {
         return res.status(500).json({ error: err.message });
     }
 });
-
 
 app.put('/api/updateselectedfeatures/:tb', async (req, res) => {
     try {
@@ -210,6 +310,167 @@ app.post('/api/updatefeatures/:tb', async (req, res) => {
             client.release();
         }
     } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// post('/api/updatefeaturesv3/:tb', async (req, res) => {
+//     try {
+//         const tb = req.params.tb;
+//         if (!tb) {
+//             return res.status(400).json({ error: 'Table name is required' });
+//         }
+//         const { id, refinal, features, displayName } = req.body;
+
+//         const client = await pool.connect();
+//         if (!features || !Array.isArray(features)) {
+//             return res.status(400).json({ error: 'Invalid input data' });
+//         }
+//         if (features.length === 0) {
+//             return res.status(400).json({ error: 'No features to update' });
+//         }
+
+//         try {
+//             await client.query('BEGIN');
+//             const queries = features.map(feature =>
+//                 client.query(`
+//                     UPDATE ${tb}
+//                     SET geom = ST_SetSRID(ST_GeomFromGeoJSON($1), 4326),
+//                         shparea_sqm = ST_Area(
+//                             ST_SetSRID(ST_GeomFromGeoJSON($1), 4326):: geography
+//                         ),
+//                         refinal = $3,
+//                         editor = $4
+//                     WHERE id = $2
+//                 `, [
+//                     JSON.stringify(feature.geometry),
+//                     id,
+//                     refinal,
+//                     displayName
+//                 ])
+//             );
+
+//             await Promise.all(queries);
+//             await client.query('COMMIT');
+
+//             res.json({ success: true, updated: features[0].properties.id });
+//         } catch (err) {
+//             await client.query('ROLLBACK');
+//             throw err;
+//         } finally {
+//             client.release();
+//         }
+//     } catch (err) {
+//         res.status(500).json({ error: err.message });
+//     }
+// });
+
+
+//testv3
+// แก้ไข endpoint ให้รองรับ Polygon และ MultiPolygon
+app.post('/api/updatefeaturesv3/:tb', async (req, res) => {
+    const { tb } = req.params;
+    const { geom, id, refinal, editor } = req.body;
+
+    try {
+        const geojson = JSON.parse(geom);
+
+        // ✅ ตรวจสอบให้แน่ใจว่า geometry เป็น Polygon หรือ MultiPolygon
+        if (!['Polygon', 'MultiPolygon'].includes(geojson.type)) {
+            return res.status(400).send('Geometry ต้องเป็น Polygon หรือ MultiPolygon เท่านั้น');
+        }
+
+        const result = await pool.query(
+            `
+            UPDATE ${tb}
+            SET geom = ST_SetSRID(ST_GeomFromGeoJSON($1), 4326),
+                shparea_sqm = ST_Area(ST_SetSRID(ST_GeomFromGeoJSON($1), 4326)::geography),
+                refinal = $3,
+                editor = $4
+            WHERE id = $2
+            `,
+            [geom, id, refinal, editor]
+        );
+
+        if (result.rowCount === 0) {
+            return res.status(404).send('ไม่พบข้อมูลที่ต้องการอัปเดต');
+        }
+
+        res.send('อัปเดตข้อมูลสำเร็จ');
+    } catch (err) {
+        console.error('Update error:', err);
+        res.status(500).send('เกิดข้อผิดพลาดในการอัปเดตข้อมูล');
+    }
+});
+
+
+app.post('/api/savefeature/:tb', async (req, res) => {
+    try {
+        const tb = req.params.tb;
+        if (!tb) {
+            return res.status(400).json({ error: 'Table name is required' });
+        }
+
+        const { id, refinal, features, displayName } = req.body;
+
+        if (!features || !Array.isArray(features) || features.length === 0) {
+            return res.status(400).json({ error: 'Invalid input data or no features' });
+        }
+
+        const client = await pool.connect();
+
+        try {
+            await client.query('BEGIN');
+
+            for (const feature of features) {
+                const geomJson = JSON.stringify(feature.geometry);
+
+                // 👇 ดึง geometry เดิมจากตารางก่อน
+                const { rows } = await client.query(
+                    `SELECT geom FROM ${tb} WHERE id = $1`, [id]
+                );
+
+                if (rows.length === 0) {
+                    throw new Error(`ไม่พบข้อมูล id: ${id}`);
+                }
+
+                const sql = `
+                    UPDATE ${tb}
+                    SET 
+                        geom = ST_Multi(
+                            ST_Union(
+                                geom,
+                                ST_SetSRID(ST_GeomFromGeoJSON($1), 4326)
+                            )
+                        ),
+                        shparea_sqm = ST_Area(
+                            ST_SetSRID(ST_Union(geom, ST_GeomFromGeoJSON($1)), 4326)::geography
+                        ),
+                        refinal = $3,
+                        editor = $4
+                    WHERE id = $2
+                `;
+
+                await client.query(sql, [
+                    geomJson,
+                    id,
+                    refinal,
+                    displayName
+                ]);
+            }
+
+            await client.query('COMMIT');
+            res.json({ success: true });
+        } catch (err) {
+            await client.query('ROLLBACK');
+            console.error('Transaction error:', err);
+            res.status(500).json({ error: err.message });
+        } finally {
+            client.release();
+        }
+
+    } catch (err) {
+        console.error('Server error:', err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -576,6 +837,50 @@ app.put('/api/update_landuse/:tb', async (req, res) => {
     }
 });
 
+// //reclassify   
+app.put('/api/update_geometry/:tb', async (req, res) => {
+    try {
+        const tb = req.params.tb;
+        const { sub_id, geometry, displayName } = req.body;
+
+        if (!geometry || !sub_id) {
+            return res.status(400).json({ error: 'sub_id และ geometry จำเป็นต้องมี' });
+        }
+
+        const query = `
+            WITH geom_input AS (
+                SELECT
+                    ST_SetSRID(ST_GeomFromGeoJSON($1), 4326) AS geom_wgs,
+                    $2::text AS editor,
+                    $3::text AS sub_id
+            )
+            UPDATE reclass_${tb}
+            SET
+                geom = g.geom_wgs,
+                shpsplit_sqm = ST_Area(ST_Transform(g.geom_wgs, 32647)),
+                editor = g.editor
+            FROM geom_input g
+            WHERE reclass_${tb}.sub_id = g.sub_id
+            RETURNING *;
+        `;
+
+        const values = [JSON.stringify(geometry), displayName, sub_id];
+        const result = await pool.query(query, values);
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'ไม่พบข้อมูล sub_id นี้' });
+        }
+
+        res.status(200).json({ success: true, data: result.rows });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+
+
 
 app.get('/api/download/reshape/:tb', async (req, res) => {
     try {
@@ -716,6 +1021,10 @@ app.post('/api/area', async (req, res) => {
         return res.status(500).json({ error: err.message });
     }
 });
+
+//
+
+
 
 app.post('/api/split', async (req, res) => {
     const { polygon_fc, line_fc, srid } = req.body;
