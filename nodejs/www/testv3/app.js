@@ -169,6 +169,9 @@ const updateAreaLabel = async (layer) => {
         const { area } = await res.json();
         const xls_sqm = document.getElementById('xls_sqm').value;
 
+        console.log(area);
+
+
         document.getElementById('shparea_sqm').value = area.toFixed(0);
         const diff = Math.abs(area - xls_sqm);
 

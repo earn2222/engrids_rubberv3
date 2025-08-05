@@ -269,40 +269,109 @@ app.post('/api/updatefeatures/:tb', async (req, res) => {
         if (!tb) {
             return res.status(400).json({ error: 'Table name is required' });
         }
+
         const { id, refinal, features, displayName } = req.body;
 
         const client = await pool.connect();
-        if (!features || !Array.isArray(features)) {
-            return res.status(400).json({ error: 'Invalid input data' });
+
+        if (!features || !Array.isArray(features) || features.length === 0) {
+            return res.status(400).json({ error: 'Invalid or empty features' });
         }
-        if (features.length === 0) {
-            return res.status(400).json({ error: 'No features to update' });
+
+        // ✅ ฟังก์ชันคำนวณ EPSG จาก centroid
+        function getPolygonCentroid(coords, type) {
+            let x = 0, y = 0, total = 0;
+
+            if (type === 'Polygon') {
+                for (const ring of coords) {
+                    for (const [lon, lat] of ring) {
+                        x += lon;
+                        y += lat;
+                        total++;
+                    }
+                }
+            } else if (type === 'MultiPolygon') {
+                for (const polygon of coords) {
+                    for (const ring of polygon) {
+                        for (const [lon, lat] of ring) {
+                            x += lon;
+                            y += lat;
+                            total++;
+                        }
+                    }
+                }
+            }
+
+            return total > 0 ? [x / total, y / total] : [null, null];
+        }
+
+        function getUTMEPSGCode(lon, lat) {
+            const zone = Math.floor((lon + 180) / 6) + 1;
+            return lat >= 0 ? 32600 + zone : 32700 + zone;
+        }
+
+        function getEPSGFromGeoJSON(geometry) {
+            const coords = geometry.coordinates;
+            const type = geometry.type;
+            const [lon, lat] = getPolygonCentroid(coords, type);
+            if (lon === null || lat === null || isNaN(lon) || isNaN(lat)) {
+                return 4326;
+            }
+            return getUTMEPSGCode(lon, lat);
         }
 
         try {
             await client.query('BEGIN');
-            const queries = features.map(feature =>
-                client.query(`
+
+            const areas = [];
+
+            for (const feature of features) {
+                const geometry = feature.geometry;
+                const epsg = getEPSGFromGeoJSON(geometry);
+                const geojsonStr = JSON.stringify(geometry);
+
+                // ✅ คำนวณพื้นที่แบบ UTM
+                const areaSql = `
+                    SELECT ST_Area(
+                        ST_Transform(
+                            ST_SetSRID(ST_GeomFromGeoJSON($1), 4326),
+                            ${epsg}
+                        )
+                    ) AS area
+                `;
+                const areaResult = await client.query(areaSql, [geojsonStr]);
+                const area = areaResult.rows[0].area;
+
+                // ✅ บันทึกลงฐานข้อมูล
+                await client.query(`
                     UPDATE ${tb}
                     SET geom = ST_SetSRID(ST_GeomFromGeoJSON($1), 4326),
-                        shparea_sqm = ST_Area(
-                            ST_SetSRID(ST_GeomFromGeoJSON($1), 4326):: geography
-                        ),
-                        refinal = $3,
-                        editor = $4
+                        shparea_sqm = $3,
+                        refinal = $4,
+                        editor = $5
                     WHERE id = $2
                 `, [
-                    JSON.stringify(feature.geometry),
+                    geojsonStr,
                     id,
+                    area,
                     refinal,
                     displayName
-                ])
-            );
+                ]);
 
-            await Promise.all(queries);
+                areas.push({
+                    id: feature.properties?.id || id,
+                    area
+                });
+            }
+
             await client.query('COMMIT');
 
-            res.json({ success: true, updated: features[0].properties.id });
+            res.json({
+                success: true,
+                updated: areas.map(a => a.id),
+                areas
+            });
+
         } catch (err) {
             await client.query('ROLLBACK');
             throw err;
@@ -310,60 +379,12 @@ app.post('/api/updatefeatures/:tb', async (req, res) => {
             client.release();
         }
     } catch (err) {
+        console.error('Error in /api/updatefeatures:', err);
         res.status(500).json({ error: err.message });
     }
 });
 
-// post('/api/updatefeaturesv3/:tb', async (req, res) => {
-//     try {
-//         const tb = req.params.tb;
-//         if (!tb) {
-//             return res.status(400).json({ error: 'Table name is required' });
-//         }
-//         const { id, refinal, features, displayName } = req.body;
 
-//         const client = await pool.connect();
-//         if (!features || !Array.isArray(features)) {
-//             return res.status(400).json({ error: 'Invalid input data' });
-//         }
-//         if (features.length === 0) {
-//             return res.status(400).json({ error: 'No features to update' });
-//         }
-
-//         try {
-//             await client.query('BEGIN');
-//             const queries = features.map(feature =>
-//                 client.query(`
-//                     UPDATE ${tb}
-//                     SET geom = ST_SetSRID(ST_GeomFromGeoJSON($1), 4326),
-//                         shparea_sqm = ST_Area(
-//                             ST_SetSRID(ST_GeomFromGeoJSON($1), 4326):: geography
-//                         ),
-//                         refinal = $3,
-//                         editor = $4
-//                     WHERE id = $2
-//                 `, [
-//                     JSON.stringify(feature.geometry),
-//                     id,
-//                     refinal,
-//                     displayName
-//                 ])
-//             );
-
-//             await Promise.all(queries);
-//             await client.query('COMMIT');
-
-//             res.json({ success: true, updated: features[0].properties.id });
-//         } catch (err) {
-//             await client.query('ROLLBACK');
-//             throw err;
-//         } finally {
-//             client.release();
-//         }
-//     } catch (err) {
-//         res.status(500).json({ error: err.message });
-//     }
-// });
 
 
 //testv3
@@ -375,33 +396,91 @@ app.post('/api/updatefeaturesv3/:tb', async (req, res) => {
     try {
         const geojson = JSON.parse(geom);
 
-        // ✅ ตรวจสอบให้แน่ใจว่า geometry เป็น Polygon หรือ MultiPolygon
         if (!['Polygon', 'MultiPolygon'].includes(geojson.type)) {
-            return res.status(400).send('Geometry ต้องเป็น Polygon หรือ MultiPolygon เท่านั้น');
+            return res.status(400).json({ error: 'Geometry ต้องเป็น Polygon หรือ MultiPolygon เท่านั้น' });
         }
 
-        const result = await pool.query(
-            `
+        // ✅ ฟังก์ชันคำนวณ EPSG แบบเดียวกับ /api/area
+        function getPolygonCentroid(coords, type) {
+            let x = 0, y = 0, total = 0;
+
+            if (type === 'Polygon') {
+                for (const ring of coords) {
+                    for (const [lon, lat] of ring) {
+                        x += lon;
+                        y += lat;
+                        total++;
+                    }
+                }
+            } else if (type === 'MultiPolygon') {
+                for (const polygon of coords) {
+                    for (const ring of polygon) {
+                        for (const [lon, lat] of ring) {
+                            x += lon;
+                            y += lat;
+                            total++;
+                        }
+                    }
+                }
+            }
+
+            return total > 0 ? [x / total, y / total] : [null, null];
+        }
+
+        function getUTMEPSGCode(lon, lat) {
+            const zone = Math.floor((lon + 180) / 6) + 1;
+            const isNorthern = lat >= 0;
+            return isNorthern ? 32600 + zone : 32700 + zone;
+        }
+
+        function getEPSGFromGeoJSON(geojson) {
+            const coords = geojson.coordinates;
+            const type = geojson.type;
+            const [lon, lat] = getPolygonCentroid(coords, type);
+            if (lon === null || lat === null || isNaN(lon) || isNaN(lat)) {
+                return 4326;
+            }
+            return getUTMEPSGCode(lon, lat);
+        }
+
+        const epsg = getEPSGFromGeoJSON(geojson);
+        const geojsonStr = JSON.stringify(geojson);
+
+        // ✅ ใช้ EPSG คำนวณเนื้อที่แบบแม่นยำก่อนอัปเดต
+        const areaSql = `
+            SELECT ST_Area(
+                ST_Transform(
+                    ST_SetSRID(ST_GeomFromGeoJSON($1), 4326),
+                    ${epsg}
+                )
+            ) AS area
+        `;
+        const areaResult = await pool.query(areaSql, [geojsonStr]);
+        const area = areaResult.rows[0].area;
+
+        // ✅ บันทึกลงฐานข้อมูล
+        const updateSql = `
             UPDATE ${tb}
             SET geom = ST_SetSRID(ST_GeomFromGeoJSON($1), 4326),
-                shparea_sqm = ST_Area(ST_SetSRID(ST_GeomFromGeoJSON($1), 4326)::geography),
-                refinal = $3,
-                editor = $4
+                shparea_sqm = $3,
+                refinal = $4,
+                editor = $5
             WHERE id = $2
-            `,
-            [geom, id, refinal, editor]
-        );
+        `;
+        const result = await pool.query(updateSql, [geojsonStr, id, area, refinal, editor]);
 
         if (result.rowCount === 0) {
-            return res.status(404).send('ไม่พบข้อมูลที่ต้องการอัปเดต');
+            return res.status(404).json({ error: 'ไม่พบข้อมูลที่ต้องการอัปเดต' });
         }
 
-        res.send('อัปเดตข้อมูลสำเร็จ');
+        res.json({ success: true, id, area }); // ✅ ส่ง area กลับ
+
     } catch (err) {
         console.error('Update error:', err);
-        res.status(500).send('เกิดข้อผิดพลาดในการอัปเดตข้อมูล');
+        res.status(500).json({ error: 'เกิดข้อผิดพลาดในการอัปเดตข้อมูล' });
     }
 });
+
 
 
 app.post('/api/savefeature/:tb', async (req, res) => {
@@ -419,48 +498,115 @@ app.post('/api/savefeature/:tb', async (req, res) => {
 
         const client = await pool.connect();
 
+        // ✅ ฟังก์ชันช่วยคำนวณ EPSG จาก centroid
+        function getPolygonCentroid(coords, type) {
+            let x = 0, y = 0, total = 0;
+
+            if (type === 'Polygon') {
+                for (const ring of coords) {
+                    for (const [lon, lat] of ring) {
+                        x += lon;
+                        y += lat;
+                        total++;
+                    }
+                }
+            } else if (type === 'MultiPolygon') {
+                for (const polygon of coords) {
+                    for (const ring of polygon) {
+                        for (const [lon, lat] of ring) {
+                            x += lon;
+                            y += lat;
+                            total++;
+                        }
+                    }
+                }
+            }
+
+            return total > 0 ? [x / total, y / total] : [null, null];
+        }
+
+        function getUTMEPSGCode(lon, lat) {
+            const zone = Math.floor((lon + 180) / 6) + 1;
+            const isNorthern = lat >= 0;
+            return isNorthern ? 32600 + zone : 32700 + zone;
+        }
+
+        function getEPSGFromGeoJSON(geometry) {
+            const coords = geometry.coordinates;
+            const type = geometry.type;
+            const [lon, lat] = getPolygonCentroid(coords, type);
+
+            if (lon === null || lat === null || isNaN(lon) || isNaN(lat)) {
+                return 4326;
+            }
+            return getUTMEPSGCode(lon, lat);
+        }
+
         try {
             await client.query('BEGIN');
 
-            for (const feature of features) {
-                const geomJson = JSON.stringify(feature.geometry);
+            let unionedGeom = null;
+            let totalArea = 0;
 
-                // 👇 ดึง geometry เดิมจากตารางก่อน
+            for (const feature of features) {
+                const geom = feature.geometry;
+                const geomStr = JSON.stringify(geom);
+
+                // ดึง geometry เดิม
                 const { rows } = await client.query(
                     `SELECT geom FROM ${tb} WHERE id = $1`, [id]
                 );
-
                 if (rows.length === 0) {
                     throw new Error(`ไม่พบข้อมูล id: ${id}`);
                 }
 
-                const sql = `
+                // รวม geometry เดิมกับ geometry ใหม่
+                const unionSql = `
+                    SELECT ST_Multi(ST_Union(
+                        $1::geometry,
+                        ST_SetSRID(ST_GeomFromGeoJSON($2), 4326)
+                    )) AS merged
+                `;
+                const unionResult = await client.query(unionSql, [rows[0].geom, geomStr]);
+                unionedGeom = unionResult.rows[0].merged;
+
+                // คำนวณ EPSG และพื้นที่
+                const epsg = getEPSGFromGeoJSON(geom);
+                const areaSql = `
+                    SELECT ST_Area(
+                        ST_Transform(ST_GeomFromEWKT($1), ${epsg})
+                    ) AS area
+                `;
+                const ewkt = `SRID=4326;${unionedGeom}`;
+                const areaResult = await client.query(areaSql, [ewkt]);
+                totalArea = areaResult.rows[0].area;
+
+                // อัปเดตในตาราง
+                const updateSql = `
                     UPDATE ${tb}
                     SET 
-                        geom = ST_Multi(
-                            ST_Union(
-                                geom,
-                                ST_SetSRID(ST_GeomFromGeoJSON($1), 4326)
-                            )
-                        ),
-                        shparea_sqm = ST_Area(
-                            ST_SetSRID(ST_Union(geom, ST_GeomFromGeoJSON($1)), 4326)::geography
-                        ),
-                        refinal = $3,
-                        editor = $4
+                        geom = ST_GeomFromEWKT($1),
+                        shparea_sqm = $3,
+                        refinal = $4,
+                        editor = $5
                     WHERE id = $2
                 `;
-
-                await client.query(sql, [
-                    geomJson,
+                await client.query(updateSql, [
+                    ewkt,
                     id,
+                    totalArea,
                     refinal,
                     displayName
                 ]);
             }
 
             await client.query('COMMIT');
-            res.json({ success: true });
+            res.json({
+                success: true,
+                id,
+                area: totalArea
+            });
+
         } catch (err) {
             await client.query('ROLLBACK');
             console.error('Transaction error:', err);
@@ -474,6 +620,7 @@ app.post('/api/savefeature/:tb', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+
 
 app.get('/api/getreclassfeatures/:tb', async (req, res) => {
     try {
@@ -1001,53 +1148,103 @@ app.delete('/api/layerlist/:tb', async (req, res) => {
 app.post('/api/area', async (req, res) => {
     const geojson = req.body;
     const geometry = geojson.geometry || geojson;
-    if (!geometry || !geometry.type) {
-        return res.status(400).json({ error: 'Missing GeoJSON geometry' });
+
+    if (!geometry || !geometry.type || !geometry.coordinates) {
+        return res.status(400).json({ error: 'Missing or invalid GeoJSON geometry' });
     }
 
     try {
+        // ✅ รองรับทั้ง Polygon และ MultiPolygon
+        function getPolygonCentroid(coords, type) {
+            let x = 0, y = 0, total = 0;
+
+            if (type === 'Polygon') {
+                for (const ring of coords) {
+                    for (const [lon, lat] of ring) {
+                        x += lon;
+                        y += lat;
+                        total++;
+                    }
+                }
+            } else if (type === 'MultiPolygon') {
+                for (const polygon of coords) {
+                    for (const ring of polygon) {
+                        for (const [lon, lat] of ring) {
+                            x += lon;
+                            y += lat;
+                            total++;
+                        }
+                    }
+                }
+            }
+
+            return total > 0 ? [x / total, y / total] : [null, null];
+        }
+
+        function getUTMEPSGCode(lon, lat) {
+            const zone = Math.floor((lon + 180) / 6) + 1;
+            const isNorthern = lat >= 0;
+            return isNorthern ? 32600 + zone : 32700 + zone;
+        }
+
+        function getEPSGFromGeoJSON(geojson) {
+            const coords = geojson.geometry.coordinates;
+            const type = geojson.geometry.type;
+            const [lon, lat] = getPolygonCentroid(coords, type);
+
+            if (lon === null || lat === null || isNaN(lon) || isNaN(lat)) {
+                return 4326; // fallback
+            }
+
+            return getUTMEPSGCode(lon, lat);
+        }
+
+        const epsg = getEPSGFromGeoJSON(geojson);
+        const geojsonStr = JSON.stringify(geometry);
+
         const sql = `
-        SELECT ST_Area(
-          ST_SetSRID(
-            ST_GeomFromGeoJSON($1),
-            4326
-          )::geography
-        ) AS area;
-      `;
-        const { rows } = await pool.query(sql, [JSON.stringify(geometry)]);
-        return res.json({ area: rows[0].area });
+            SELECT ST_Area(
+                ST_Transform(
+                    ST_SetSRID(ST_GeomFromGeoJSON($1), 4326),
+                    ${epsg}
+                )
+            ) AS area;
+        `;
+
+        const { rows } = await pool.query(sql, [geojsonStr]);
+        return res.json({ success: true, area: rows[0].area });
+
+
     } catch (err) {
-        console.error(err);
+        console.error('Error in /api/area:', err);
         return res.status(500).json({ error: err.message });
     }
 });
 
 //
 
-
-
 app.post('/api/split', async (req, res) => {
     const { polygon_fc, line_fc, srid } = req.body;
 
     try {
         const sql = `
-        WITH inputs AS (
-          SELECT
+        WITH inputs AS(
+            SELECT
             ST_SetSRID(ST_GeomFromGeoJSON($1), 4326) AS poly_geom,
             ST_SetSRID(ST_GeomFromGeoJSON($2), 4326) AS line_geom
         ),
-        split AS (
-          SELECT ST_Split(poly_geom, line_geom) AS geom_collection
+            split AS(
+                SELECT ST_Split(poly_geom, line_geom) AS geom_collection
           FROM inputs
-        ),
-        dumped AS (
-          -- Dump each piece out of the GeometryCollection
-          SELECT (ST_Dump(geom_collection)).geom AS part_geom
+            ),
+                dumped AS(
+                    --Dump each piece out of the GeometryCollection
+          SELECT(ST_Dump(geom_collection)).geom AS part_geom
           FROM split
-        )
+                )
         SELECT ST_AsGeoJSON(part_geom) AS geojson
         FROM dumped;
-      `;
+        `;
         const params = [
             JSON.stringify(polygon_fc.geometry),
             JSON.stringify(line_fc.geometry)
@@ -1091,13 +1288,13 @@ app.post('/api/split', async (req, res) => {
 //         const response = await fetch(url, {
 //             method: 'GET',
 //             headers: {
-//                 'Authorization': `Bearer ${API_TOKEN}`,
+//                 'Authorization': `Bearer ${ API_TOKEN } `,
 //                 'Accept': 'application/json',
 //             }
 //         });
 
 //         if (!response.ok) {
-//             throw new Error(`HTTP error! status: ${response.status}`);
+//             throw new Error(`HTTP error! status: ${ response.status } `);
 //         }
 
 //         const data = await response.json();
