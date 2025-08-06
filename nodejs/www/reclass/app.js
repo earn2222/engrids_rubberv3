@@ -123,14 +123,29 @@ async function calculateArea(geometry) {
     return data.area;
 }
 
-// อัปเดตพื้นที่ใส่ใน input และ feature
 async function updateAreaDisplay(layer) {
     const geometry = layer.toGeoJSON().geometry;
     try {
         const area = await calculateArea(geometry);
-        shpsplit_sqm.value = Math.round(area); // แสดงใน input
+        const roundedArea = Math.round(area);
+        shpsplit_sqm.value = roundedArea;
+
+        const xls_sqm = parseFloat(document.getElementById('xls_sqm').value);
+        const checkArea = document.getElementById('checkarea');
+        checkArea.innerHTML = '';
+
+        if (Math.abs(xls_sqm - area) <= 100) {
+            checkArea.innerHTML = '<span style="color: green;">* พื้นที่ตรงกับข้อมูล Excel</span>';
+        } else {
+            checkArea.innerHTML = '<span style="color: red;">* พื้นที่ไม่ตรงกับข้อมูล Excel</span>';
+        }
+
+
+
+        // Save to layer properties
         layer.feature = layer.feature || { properties: {} };
         layer.feature.properties.shpsplit_sqm = area;
+
     } catch (err) {
         console.error('Error calculating area:', err);
     }
@@ -169,9 +184,6 @@ function showFeaturePanel(feature, layer) {
 
 
 const getFeatureStyle = (feature) => {
-    // console.log('getFeatureStyle', feature);
-    // console.log('Layer clicked:', JSON.stringify(feature));
-    // calArea(feature);
 
     const color = feature.properties.classtype === 'rubber'
         ? '#006d2c'
@@ -246,24 +258,6 @@ const loadGeoData = async (id) => {
         const responseTarget = await fetch(`/rub/api/getfeaturesv3/${tb}`);
         const jsonTarget = await responseTarget.json();
         console.log('Target data loaded:', jsonTarget);
-        // const targetData = jsonTarget.data || [];
-
-        // ✅ หาแปลงที่ตรงกับ id
-        // const matchedTarget = targetData.find(item => item.id === parseInt(id));
-
-        // ✅ แสดงผลใน input (เนื้อที่ shapefile)
-        // if (data.length > 0 && data[0].xls_sqm !== undefined) {
-        //     document.getElementById('xls_sqm').value = data[0].xls_sqm;
-        // } else {
-        //     document.getElementById('xls_sqm').value = 'ไม่พบข้อมูล';
-        // }
-
-        // ✅ แสดงผลใน input (เนื้อที่จาก Excel)
-        // if (matchedTarget && matchedTarget.xls_sqm !== undefined) {
-        //     document.getElementById('xls_sqm').value = matchedTarget.xls_sqm;
-        // } else {
-        //     document.getElementById('xls_sqm').value = 'ไม่พบข้อมูล';
-        // }
 
         // ✅ แสดงบนแผนที่
         const geoJsonData = {
@@ -479,7 +473,7 @@ document.getElementById('save').addEventListener('click', () => {
                 // รีโหลดแปลงใหม่
                 //refresh 
                 window.location.reload();
-                // loadGeoData(document.getElementById('id').value);
+
             } else {
                 alert("เกิดข้อผิดพลาดขณะบันทึก");
             }
