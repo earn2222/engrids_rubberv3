@@ -53,6 +53,7 @@ app.get('/api/getfeatures/:tb/:fid', async (req, res) => {
         }
 
         const fid = req.params.fid;
+        console.log(`Fetching feature with ID: ${fid} from table: ${tb}`);
         if (!fid) {
             return res.status(400).json({ error: 'Feature ID is required' });
         }
@@ -62,7 +63,8 @@ app.get('/api/getfeatures/:tb/:fid', async (req, res) => {
                         classtype, 
                         app_no, 
                         shpsplit_sqm, 
-                        ST_ASGeoJSON(geom) AS geom
+                        ST_ASGeoJSON(geom) AS geom,
+                        ST_ASGeoJSON(st_makepoint(100, 18)) AS geom_point
                     FROM reclass_${tb}
                     WHERE geom IS NOT NULL AND id = $1`;
         console.log(`Executing SQL: ${sql} with fid: ${fid}`);
