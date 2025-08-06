@@ -463,7 +463,8 @@ document.getElementById('classify').addEventListener('click', () => {
     }).then(response => response.json())
         .then(data => {
             if (data.success) {
-                window.open(`/rub/reclass/index.html?tb=${tb}&id=${id}`, '_self');
+                const xls_sqm = document.getElementById('xls_sqm').value;
+                window.open(`/rub/reclass/index.html?tb=${tb}&id=${id}&xls_sqm=${xls_sqm}`, '_self');
             } else {
                 alert('Failed to create reclassification layer');
             }

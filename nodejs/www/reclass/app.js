@@ -240,28 +240,30 @@ const loadGeoData = async (id) => {
         // ✅ โหลด spatial พร้อม xls_sqm จาก geometry DB
         const response = await fetch('/rub/api/getfeatures/' + tb + '/' + id);
         const { data } = await response.json();
+        console.log('Spatial data loaded:', data);
 
         // ✅ โหลด xls_sqm เป้าหมายจาก getfeaturesv3 (Excel)
         const responseTarget = await fetch(`/rub/api/getfeaturesv3/${tb}`);
         const jsonTarget = await responseTarget.json();
-        const targetData = jsonTarget.data || [];
+        console.log('Target data loaded:', jsonTarget);
+        // const targetData = jsonTarget.data || [];
 
         // ✅ หาแปลงที่ตรงกับ id
-        const matchedTarget = targetData.find(item => item.id === parseInt(id));
+        // const matchedTarget = targetData.find(item => item.id === parseInt(id));
 
         // ✅ แสดงผลใน input (เนื้อที่ shapefile)
-        if (data.length > 0 && data[0].xls_sqm !== undefined) {
-            document.getElementById('xls_sqm').value = data[0].xls_sqm;
-        } else {
-            document.getElementById('xls_sqm').value = 'ไม่พบข้อมูล';
-        }
+        // if (data.length > 0 && data[0].xls_sqm !== undefined) {
+        //     document.getElementById('xls_sqm').value = data[0].xls_sqm;
+        // } else {
+        //     document.getElementById('xls_sqm').value = 'ไม่พบข้อมูล';
+        // }
 
         // ✅ แสดงผลใน input (เนื้อที่จาก Excel)
-        if (matchedTarget && matchedTarget.xls_sqm !== undefined) {
-            document.getElementById('xls_sqm').value = matchedTarget.xls_sqm;
-        } else {
-            document.getElementById('xls_sqm').value = 'ไม่พบข้อมูล';
-        }
+        // if (matchedTarget && matchedTarget.xls_sqm !== undefined) {
+        //     document.getElementById('xls_sqm').value = matchedTarget.xls_sqm;
+        // } else {
+        //     document.getElementById('xls_sqm').value = 'ไม่พบข้อมูล';
+        // }
 
         // ✅ แสดงบนแผนที่
         const geoJsonData = {
@@ -383,6 +385,9 @@ document.getElementById('classtype').addEventListener('change', (e) => {
                 const id = document.getElementById('id').value;
                 featureGroup.clearLayers();
                 await loadGeoData(id);
+
+                console.log('Update successful 387');
+
             } else {
                 alert('Update failed');
             }
@@ -472,7 +477,9 @@ document.getElementById('save').addEventListener('click', () => {
             if (data.success) {
                 alert("บันทึก polygon เรียบร้อยแล้ว");
                 // รีโหลดแปลงใหม่
-                loadGeoData(document.getElementById('id').value);
+                //refresh 
+                window.location.reload();
+                // loadGeoData(document.getElementById('id').value);
             } else {
                 alert("เกิดข้อผิดพลาดขณะบันทึก");
             }
@@ -496,11 +503,13 @@ const initApp = async () => {
         const urlParams = new URLSearchParams(window.location.search);
         const id = urlParams.get('id');
         const tb = urlParams.get('tb');
+        const xls_sqm = urlParams.get('xls_sqm');
+
         if (!tb || tb === 'undefined') {
             alert('พื้นที่ไม่ถูกต้อง');
             window.location.href = './../index.html';
         }
-
+        document.getElementById('xls_sqm').value = xls_sqm;
         document.getElementById('id').value = id;
         document.getElementById('tb').value = tb;
         await loadGeoData(id);
