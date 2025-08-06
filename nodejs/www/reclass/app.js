@@ -46,13 +46,6 @@ const rubber_parcel = L.tileLayer.wms("https://engrids.soc.cmu.ac.th/geoserver/r
     zIndex: 6
 });
 
-const longdoLayer = L.tileLayer('https://ms.longdo.com/mmmap/img.php?zoom={z}&x={x}&y={y}&mode=dol_hd', {
-    attribution: '&copy; Longdo Map',
-    tileSize: 256,
-    maxZoom: 30,
-    minZoom: 1
-});
-
 const baseLayers = {
     "Google Road": gmap_road,
     "Google Satellite": gmap_sat.addTo(map),
@@ -69,8 +62,7 @@ const overlayMaps = {
     "แปลงยาง(เดิม)": rubber_parcel,
     "NDVI": ndvi,
     "NDVI gee": ndviTile,
-    "S2 gee": trueColorTile,
-    "Longdo Map": longdoLayer.addTo(map),
+    "S2 gee": trueColorTile
 };
 
 L.control.layers(baseLayers, overlayMaps).addTo(map);
@@ -112,12 +104,54 @@ map.pm.addControls({
     drawCircleMarker: false,
 });
 
-// Area calculation utilities
+// ฟังก์ชัน format แสดงพื้นที่
 const formatArea = (area) => {
     return area >= 1e6
         ? `${(area / 1e6).toLocaleString(undefined, { maximumFractionDigits: 2 })} km²`
         : `${area.toLocaleString(undefined, { maximumFractionDigits: 2 })} m²`;
 };
+
+// เรียก API /rub/api/area เพื่อคำนวณพื้นที่
+async function calculateArea(geometry) {
+    const res = await fetch('/rub/api/area', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ geometry })
+    });
+    if (!res.ok) throw new Error('Failed to calculate area');
+    const data = await res.json();
+    return data.area;
+}
+
+// อัปเดตพื้นที่ใส่ใน input และ feature
+async function updateAreaDisplay(layer) {
+    const geometry = layer.toGeoJSON().geometry;
+    try {
+        const area = await calculateArea(geometry);
+        shpsplit_sqm.value = Math.round(area); // แสดงใน input
+        layer.feature = layer.feature || { properties: {} };
+        layer.feature.properties.shpsplit_sqm = area;
+    } catch (err) {
+        console.error('Error calculating area:', err);
+    }
+}
+
+
+// ฟังก์ชันเพิ่ม Event ให้ polygon ที่แก้ไข
+function addRealTimeAreaCalculation(layer) {
+    layer.pm.enable({ allowSelfIntersection: true });
+
+    // อัปเดตระหว่างการลากจุด (real-time จริง)
+    layer.on('pm:change', async () => {
+        await updateAreaDisplay(layer);
+    });
+
+    // เผื่อ fallback หลังลากเสร็จ
+    layer.on('pm:edit', async () => {
+        await updateAreaDisplay(layer);
+    });
+}
+
 
 const sub_id = document.getElementById('sub_id');
 const xls_app_no = document.getElementById('xls_app_no');
@@ -131,33 +165,13 @@ function showFeaturePanel(feature, layer) {
     classtype.value = feature.properties.classtype;
 }
 
-function calculateArea(layer) {
-    const geojson = layer.toGeoJSON();
-    return turf.area(geojson); // หน่วย: m²
-}
-
-function updateAreaDisplay(layer) {
-    const area = calculateArea(layer);
-    const sqmInput = document.getElementById('shpsplit_sqm');
-    if (sqmInput) {
-        sqmInput.value = Math.round(area).toLocaleString(); // แสดงผล
-    }
-}
-
-function attachRealtimeAreaUpdate(layer) {
-    const update = () => updateAreaDisplay(layer);
-
-    update(); // เรียกครั้งแรก
-
-    layer.on('pm:edit', update);
-    layer.on('pm:update', update);
-    layer.on('pm:drag', update);
-    layer.on('pm:change', update);
-}
+// 
 
 
 const getFeatureStyle = (feature) => {
-    console.log('getFeatureStyle', feature);
+    // console.log('getFeatureStyle', feature);
+    // console.log('Layer clicked:', JSON.stringify(feature));
+    // calArea(feature);
 
     const color = feature.properties.classtype === 'rubber'
         ? '#006d2c'
@@ -181,7 +195,8 @@ let highlightedLayer = null; // Track the currently highlighted layer
 
 function onEachFeature(feature, layer) {
     featureGroup.addLayer(layer);
-    attachRealtimeAreaUpdate(layer); // ✅ เพิ่มตรงนี้
+    addRealTimeAreaCalculation(layer); // <-- เพิ่มบรรทัดนี้เพื่อให้ทุก polygon อัปเดตพื้นที่ได้แบบเรียลไทม์
+
     layer.on({
         click: function (e) {
             selectedPolygon = layer;
@@ -190,9 +205,8 @@ function onEachFeature(feature, layer) {
                 resetHighlight(e);
                 highlightedLayer = null;
             } else {
-                // Clicked new feature - highlight it
                 if (highlightedLayer) {
-                    resetHighlight({ target: highlightedLayer }); // Remove previous highlight
+                    resetHighlight({ target: highlightedLayer });
                 }
                 highlightFeature(e);
                 highlightedLayer = e.target;
@@ -200,6 +214,7 @@ function onEachFeature(feature, layer) {
         }
     });
 }
+
 
 var geojson;
 
@@ -217,6 +232,7 @@ function highlightFeature(e) {
     });
     layer.bringToFront();
 }
+
 const loadGeoData = async (id) => {
     try {
         const tb = document.getElementById('tb').value;
@@ -269,30 +285,53 @@ const loadGeoData = async (id) => {
             onEachFeature: onEachFeature
         }).addTo(map);
 
-        map.fitBounds(featureGroup.getBounds());
+        // เพิ่มตรงนี้
+        geojson.eachLayer(layer => {
+            layer.pm.enable({ allowSelfIntersection: true });
+            layer.on('pm:vertexdrag', async () => {
+                await updateAreaDisplay(layer);
+            });
+            layer.on('pm:edit', async () => {
+                await updateAreaDisplay(layer);
+            });
+        });
 
+
+
+
+        map.fitBounds(featureGroup.getBounds());
     } catch (error) {
         console.error('Error loading data:', error);
         alert('Failed to load spatial data');
     }
 };
-
-
 var selectedLine = null;
 const handleLayerCreate = (e) => {
     const layer = e.layer;
     featureGroup.addLayer(layer);
-    layer.pm.enable({ allowSelfIntersection: true });
+    addRealTimeAreaCalculation(layer); // <-- ใส่ให้ layer ที่เพิ่งสร้างใหม่ก็แสดงพื้นที่ real-time ได้
+
     selectedLine = layer;
 
-    attachRealtimeAreaUpdate(layer); // ✅ เพิ่มตรงนี้
-
-    layer.on('pm:edit pm:dragend pm:update pm:change', () => console.log(layer));
     layer.on('click', () => {
         featureGroup.eachLayer(l => l.pm.disable());
         layer.pm.enable();
     });
 };
+
+
+
+
+function enableEditAndListen(layer) {
+    layer.pm.enable({ allowSelfIntersection: true });
+    layer.on('pm:update', async () => {
+        await updateAreaDisplay(layer);
+    });
+    layer.on('pm:dragend', async () => {
+        await updateAreaDisplay(layer);
+    });
+}
+
 
 map.on('pm:create', handleLayerCreate);
 map.on('pm:edit', (e) => {
@@ -300,9 +339,6 @@ map.on('pm:edit', (e) => {
     featureGroup.eachLayer(l => l.pm.disable());
     layer.pm.enable();
 });
-
-
-
 map.on('click', () => featureGroup.eachLayer(l => l.pm.disable()));
 
 const legend = L.control({ position: 'bottomright' });
@@ -408,6 +444,7 @@ document.getElementById('split').addEventListener('click', () => {
         })
 });
 
+
 document.getElementById('save').addEventListener('click', () => {
     if (!selectedPolygon) {
         alert('กรุณาเลือก polygon ที่ต้องการบันทึก');
@@ -441,7 +478,6 @@ document.getElementById('save').addEventListener('click', () => {
             }
         });
 });
-
 
 document.getElementById('reshape').addEventListener('click', (e) => {
     e.preventDefault();

@@ -103,3 +103,17 @@ Cookie: _ga=GA1.1.1019945317.1745203012; cookiesession1=678B2867F76490B74EAF42C2
 
 ###
 GET https://landsmaps.dol.go.th/geoserver/LANDSMAPS/wms?viewparams=utmmap%3A563821624&service=WMS&version=1.1.1&request=GetFeatureInfo&layers=LANDSMAPS%3AV_PARCEL47%2CLANDSMAPS%3AV_PARCEL48&bbox=103.29372123%2C14.69413141%2C103.293722%2C14.694132&width=256&height=256&srs=EPSG%3A4326&query_layers=LANDSMAPS%3AV_PARCEL47%2CLANDSMAPS%3AV_PARCEL48&info_format=application%2Fjson&x=128&y=128
+
+
+###
+POST http://localhost:3400/rub/api/area
+Content-Type: application/json
+
+{
+  "type":"Feature",
+  "geometry":{
+    "type":"MultiPolygon",
+    "coordinates":[[[[99.216709459,10.79541527],[99.216499,10.795136],[99.216057,10.794823],[99.215051,10.79585],[99.215408,10.795882],[99.215504,10.795974],[99.215553,10.796106],[99.215569,10.796274],[99.21563,10.796332],[99.215708,10.796351],[99.215809332,10.796426326],[99.216709459,10.79541527]]]]},"properties":{"id":1,"sub_id":"1","app_no":"588602100017","shpsplit_sqm":"25986.9064396742","classtype":null}
+}
+
+
