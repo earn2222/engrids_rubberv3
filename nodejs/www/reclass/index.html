@@ -64,7 +64,7 @@
                             <div>
                                 <strong>ID</strong>
                                 <input class="form-control" id="id" disabled>
-                                <input type="hidden" id="tb">
+                                <input type="text" id="tb">
                             </div>
                             <div>
                                 <strong>SubID:</strong>
@@ -84,19 +84,23 @@
                                 <span id="checkarea" class="text-muted">* หากมีการแบ่งพื้นที่แล้ว</span>
                             </div>
                             <div><strong>ประเภท:</strong>
-                                <select class="form-select" id="classtype">
+                                <select class="form-select" id="ownertype">
                                     <option></option>
-                                    <option value="rubber">ยางพารา</option>
-                                    <option value="non-rubber">ไม่ใช่ยางพารา</option>
-                                    <option value="other">ไม่มั่นใจ</option>
+                                    <option value="rubber">พื้นที่ลงทะเบียนปลูกยาง</option>
+                                    <option value="non-rubber">พื้นที่ไม่ได้ลงทะเบียนปลูกยาง</option>
+
                                 </select>
                             </div>
                         </div>
                         <hr>
-                        <div class="mb-2">
+                        <div class="mb-2 ">
                             <button class="btn btn-info" id="clear">Clear selection</button>
                             <button class="btn btn-success" id="split">Split แปลงยาง</button>
                             <button class="btn btn-info" id="save">Save</button>
+
+                            <button class="btn btn-success mt-2" pt-5 id="classify">Classify แปลงต่อ <i
+                                    class="bi bi-rocket-takeoff"></i>
+                                <i class="bi bi-stars"></i></button>
                         </div>
                         <p></p>* คลิ๊กที่แปลงยางก่อน > กำหนดประเภท
                         <br>** หากต้องการแบ่งพื้นที่ ให้ลากเส้นเพื่อตัดแบ่งพื้นที่ > คลิ๊กปุ่ม "Split แปลงยาง"

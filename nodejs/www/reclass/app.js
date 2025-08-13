@@ -171,13 +171,13 @@ function addRealTimeAreaCalculation(layer) {
 const sub_id = document.getElementById('sub_id');
 const xls_app_no = document.getElementById('xls_app_no');
 const shpsplit_sqm = document.getElementById('shpsplit_sqm');
-const classtype = document.getElementById('classtype');
+const ownertype = document.getElementById('ownertype');
 
 function showFeaturePanel(feature, layer) {
     sub_id.value = feature.properties.sub_id;
     xls_app_no.value = feature.properties.app_no;
     shpsplit_sqm.value = Number(feature.properties.shpsplit_sqm).toFixed(0);
-    classtype.value = feature.properties.classtype;
+    ownertype.value = feature.properties.ownertype;
 }
 
 // 
@@ -185,13 +185,11 @@ function showFeaturePanel(feature, layer) {
 
 const getFeatureStyle = (feature) => {
 
-    const color = feature.properties.classtype === 'rubber'
+    const color = feature.properties.ownertype === 'rubber'
         ? '#006d2c'
-        : feature.properties.classtype === 'non-rubber'
+        : feature.properties.ownertype === 'non-rubber'
             ? '#d7191c'
-            : feature.properties.classtype === 'other'
-                ? '#fdae61'
-                : '#ff00ff';
+            : '#ff00ff';
     return {
         fillColor: color,
         weight: 2,
@@ -271,7 +269,7 @@ const loadGeoData = async (id) => {
                     app_no: item.app_no,
                     xls_sqm: item.xls_sqm,
                     shpsplit_sqm: item.shpsplit_sqm,
-                    classtype: item.classtype,
+                    ownertype: item.ownertype,
                 }
             }))
         };
@@ -342,10 +340,10 @@ const legend = L.control({ position: 'bottomright' });
 legend.onAdd = function (map) {
     const div = L.DomUtil.create('div', 'legend'),
         categories = ['rubber', 'non-rubber', 'other'],
-        labels = ['ยางพารา', 'ไม่ใช่ยางพารา', 'ไม่แน่ใจ'];
+        labels = ['พื้นที่ลงทะเบียนปลูกยาง', 'พื้นที่ไม่ได้ลงทะเบียนปลูกยาง'];
 
     for (let i = 0; i < categories.length; i++) {
-        const dummy = { properties: { classtype: categories[i] } },
+        const dummy = { properties: { ownertype: categories[i] } },
             style = getFeatureStyle(dummy);
 
         div.innerHTML +=
@@ -356,13 +354,13 @@ legend.onAdd = function (map) {
 
 legend.addTo(map);
 
-document.getElementById('classtype').addEventListener('change', (e) => {
+document.getElementById('ownertype').addEventListener('change', (e) => {
     const selectedValue = e.target.value;
     const id = document.getElementById('id').value
     const tb = document.getElementById('tb').value;
     const displayName = document.getElementById('displayName').value;
 
-    fetch('/rub/api/update_landuse/' + tb, {
+    fetch('/rub/api/update_ownerlanduse/' + tb, {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json'
@@ -370,7 +368,7 @@ document.getElementById('classtype').addEventListener('change', (e) => {
         body: JSON.stringify({
             id: id,
             sub_id: sub_id.value,
-            classtype: selectedValue,
+            ownertype: selectedValue,
             displayName: displayName,
         })
     }).then(response => response.json())
@@ -399,7 +397,7 @@ document.getElementById('clear').addEventListener('click', () => {
     sub_id.value = '';
     xls_app_no.value = '';
     shpsplit_sqm.value = '';
-    classtype.value = '';
+    ownertype.value = '';
 })
 
 document.getElementById('split').addEventListener('click', () => {
@@ -426,7 +424,7 @@ document.getElementById('split').addEventListener('click', () => {
     }
 
     const tb = document.getElementById('tb').value;
-    fetch('/rub/api/splitfeature/' + tb, {
+    fetch('/rub/api/splitowner/' + tb, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -454,8 +452,9 @@ document.getElementById('save').addEventListener('click', () => {
     const sub_id = document.getElementById('sub_id').value;
     const tb = document.getElementById('tb').value;
     const displayName = document.getElementById('displayName').value;
+    const ownertype = document.getElementById('ownertype').value;
 
-    fetch('/rub/api/update_geometry/' + tb, {
+    fetch('/rub/api/update_owner/' + tb, {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json'
@@ -463,6 +462,7 @@ document.getElementById('save').addEventListener('click', () => {
         body: JSON.stringify({
             sub_id: sub_id,
             geometry: geom,
+            ownertype: ownertype,
             displayName: displayName
         })
     })
@@ -477,6 +477,32 @@ document.getElementById('save').addEventListener('click', () => {
             } else {
                 alert("เกิดข้อผิดพลาดขณะบันทึก");
             }
+        });
+});
+
+// เลือกไอดี
+document.getElementById('classify').addEventListener('click', () => {
+    const id = document.getElementById('id').value;
+    if (!id) {
+        alert('เลือกแปลงที่ต้องการ classify ก่อน');
+        return;
+    }
+    const tb = document.getElementById('tb').value;
+    fetch(`/rub/api/create_reclass_feature/${tb}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+    }).then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const xls_sqm = document.getElementById('xls_sqm').value;
+                window.open(`/rub/reclassV2/index.html?tb=${tb}&id=${id}&xls_sqm=${xls_sqm}`, '_self');
+            } else {
+                alert('Failed to create reclassification layer');
+            }
+        }).catch(error => {
+            console.error('Error creating reclassification layer:', error);
+            alert('Failed to create reclassification layer');
         });
 });
 

@@ -117,6 +117,17 @@ Content-Type: application/json
 }
 
 ###
-GET http://localhost:3400/rub/api/getfeatures/rub1_chumphon_v1_pb
+GET http://localhost:3400/rub/api/
 
+
+###
+PUT http://localhost:3400/rub/api/update_ownerlanduse/rayong_point_v3
+Content-Type: application/json
+
+{
+  "id": 1,
+  "sub_id": "1-2",
+  "ownertype": "rubber",
+  "displayName": "napatsorn duhae"
+}
 
