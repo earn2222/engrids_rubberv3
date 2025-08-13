@@ -113,7 +113,9 @@ const getFeatureStyle = (feature) => {
         ? '#006d2c'
         : feature.properties.classtype === 'non-rubber'
             ? '#d7191c'
-            : '#ff00ff';
+            : feature.properties.classtype === 'other'
+                ? '#ff00ff'
+                : '#fdae61';
     return {
         fillColor: color,
         weight: 2,
@@ -257,7 +259,7 @@ const legend = L.control({ position: 'bottomright' });
 legend.onAdd = function (map) {
     const div = L.DomUtil.create('div', 'legend'),
         categories = ['rubber', 'non-rubber', 'other'],
-        labels = ['ยางพารา', 'ไม่ใช่ยางพารา', 'ไม่แน่ใจ'];
+        labels = ['ยางพาราที่ลงทะเบียน', 'ไม่ใช่ยางพารา', 'ยางพาราที่ไม่ได้ลงทะเบียน'];
 
     for (let i = 0; i < categories.length; i++) {
         const dummy = { properties: { classtype: categories[i] } },
@@ -317,9 +319,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const raiFetch = await fetch('/rub/api/countsrai/reclass_' + tb);
         const raiData = await raiFetch.json();
         const categories = raiData.map(r => {
-            if (r.classtype == 'rubber') { return 'แปลงยาง'; }
+            if (r.classtype == 'rubber') { return 'ยางพาราที่ลงทะเบียน'; }
             if (r.classtype == 'non-rubber') { return 'ไม่ใช่ยางพารา'; }
-            if (r.classtype == 'other') { return 'ไม่แน่ใจ'; }
+            if (r.classtype == 'other') { return 'ยางพาราที่ไม่ได้ลงทะเบียน'; }
             return 'ไม่ระบุ';
         });
         const dataRai = raiData.map(r => parseFloat(r.area_rai));
