@@ -772,48 +772,8 @@ app.post('/api/create_reclass_layer', async (req, res) => {
                 ts timestamp without time zone DEFAULT now()
             )`;
         await pool.query(sql);
-        const sql3 = `CREATE TABLE owner_${tb} (
-                fid serial not null,
-                id integer,
-                sub_id text COLLATE pg_catalog."default",
-                app_no text COLLATE pg_catalog."default",
-                shpsplit_sqm numeric,
-                geom geometry(MultiPolygon,4326),
-                ownertype text COLLATE pg_catalog."default",
-                editor text COLLATE pg_catalog."default",
-                ts timestamp without time zone DEFAULT now()
-            )`;
-        await pool.query(sql3);
 
-        const sql4 = `
-                ALTER TABLE ${tb}
-                ADD COLUMN farm_name TEXT;
-
-
-                UPDATE ${tb}
-                SET farm_name = CONCAT(titl_nam, f_name, ' ', l_name);
-
-
-                ALTER TABLE ${tb}
-                ADD COLUMN geom_point geometry(POINT, 4326);
-
-
-                SELECT DISTINCT ST_SRID(geom) FROM ${tb};
-
-
-                UPDATE ${tb}
-                SET geom_point = ST_Transform(ST_SetSRID(geom, 32647), 4326);
-
-
-                UPDATE ${tb}
-                SET geom = NULL
-
-                ALTER TABLE ${tb}
-                ALTER COLUMN geom TYPE geometry(Geometry, 4326)
-                USING ST_SetSRID(geom::geometry, 4326);
-                `
-
-        await pool.query(sql4);
+        console.log(sql);
 
         // join reclass table to source table
         const sql2 = `CREATE VIEW v_reclass_${tb} AS SELECT
@@ -984,107 +944,6 @@ app.post('/api/splitfeature/:tb', async (req, res) => {
     }
 });
 
-app.post('/api/splitowner/:tb', async (req, res) => {
-    try {
-        const tb = req.params.tb;
-        if (!tb) {
-            return res.status(400).json({ error: 'Table name is required' });
-        }
-        const { polygon_fc, line_fc, srid, displayName } = req.body;
-        const polygon = polygon_fc.geometry;
-        const line = line_fc.geometry;
-        const properties = polygon_fc.properties;
-        const id = polygon_fc.properties.id;
-        const sub_id = polygon_fc.properties.sub_id;
-
-        console.log(`Splitting feature in table ${tb} with ID ${id} and sub_id ${sub_id}`);
-
-        if (!properties?.app_no) {
-            return res.status(400).json({ error: 'app_no is required in properties' });
-        }
-
-        if (!polygon?.type || !['Polygon', 'MultiPolygon'].includes(polygon.type) || !polygon.coordinates) {
-            return res.status(400).json({ error: 'Invalid polygon GeoJSON' });
-        }
-        if (!line?.type || !['LineString', 'MultiLineString'].includes(line.type) || !line.coordinates) {
-            return res.status(400).json({ error: 'Invalid line GeoJSON' });
-        }
-
-        const result = await pool.query(`
-            WITH delete_existing AS (
-                DELETE FROM owner_${tb} 
-                WHERE sub_id = $5
-                RETURNING sub_id
-            ),
-            inputs AS (
-                SELECT 
-                    ST_Force2D(ST_GeomFromGeoJSON($1)) AS poly,
-                    ST_Force2D(ST_GeomFromGeoJSON($2)) AS line,
-                    $3::integer AS processing_srid
-            ),
-            transformed AS (
-                SELECT 
-                    ST_Transform(poly, processing_srid) AS poly_projected,
-                    ST_Transform(line, processing_srid) AS line_projected
-                FROM inputs
-            ),
-            split AS (
-                SELECT ST_Split(poly_projected, line_projected) AS split_geom
-                FROM transformed
-            ),
-            parts AS (
-                SELECT (ST_Dump(split_geom)).geom AS geom_projected 
-                FROM split
-            ),
-            inserted AS (
-                INSERT INTO owner_${tb} (app_no, geom, sub_id, id, ownertype, shpsplit_sqm, editor)
-                SELECT 
-                    $4, 
-                    ST_Transform(geom_projected, 4326), 
-                    $5 || '-' || row_number() OVER (),
-                    $6,
-                    $7, 
-                    ST_Area(geom_projected),
-                    $8
-                FROM parts, inputs
-                WHERE ST_GeometryType(geom_projected) = 'ST_Polygon'
-                RETURNING *
-            )
-            SELECT 
-                id, 
-                sub_id, 
-                ownertype, 
-                app_no, 
-                shpsplit_sqm, 
-                ST_ASGeoJSON(geom) AS geom
-            FROM inserted
-        `, [
-            JSON.stringify(polygon),
-            JSON.stringify(line),
-            srid || 32647,
-            properties.app_no,
-            sub_id,
-            id,
-            properties.ownertype,
-            displayName
-        ]);
-
-        if (result.rowCount === 0) {
-            return res.status(400).json({ error: 'No split results - check input geometries' });
-        }
-
-        res.status(200).json({ success: true, data: result.rows });
-
-    } catch (err) {
-        console.error('Split error:', err);
-        res.status(500).json({
-            success: false,
-            error: err.message,
-            details: 'Ensure valid intersecting geometries'
-        });
-    }
-});
-
 app.put('/api/update_landuse/:tb', async (req, res) => {
     try {
         const tb = req.params.tb;
@@ -1114,43 +973,6 @@ app.put('/api/update_landuse/:tb', async (req, res) => {
         `;
         const updateReshapeValues = [id];
         const updateResult = await pool.query(updateReshape, updateReshapeValues);
-
-        if (result.rowCount === 0) {
-            return res.status(404).json({ error: 'Feature not found' });
-        }
-
-        res.status(200).json({ success: true, data: result.rows });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: err.message });
-    }
-});
-
-app.put('/api/update_ownerlanduse/:tb', async (req, res) => {
-    try {
-        const tb = req.params.tb;
-        if (!tb) {
-            return res.status(400).json({ error: 'Table name is required' });
-        }
-        const { id, sub_id, ownertype, displayName } = req.body;
-
-        console.log(id, sub_id, ownertype, displayName)
-
-        if (!sub_id || !ownertype) {
-            return res.status(400).json({ error: 'ID and ownertype are required' });
-        }
-
-        const updateReclass = `
-            UPDATE owner_${tb}
-            SET ownertype = $1, 
-                editor = $2
-            WHERE sub_id = $3
-            RETURNING *`;
-
-        const values = [ownertype, displayName, sub_id];
-        const result = await pool.query(updateReclass, values);
-
 
         if (result.rowCount === 0) {
             return res.status(404).json({ error: 'Feature not found' });
@@ -1206,51 +1028,7 @@ app.put('/api/update_geometry/:tb', async (req, res) => {
     }
 });
 
-app.put('/api/update_owner/:tb', async (req, res) => {
-    try {
-        const tb = req.params.tb;
-        const { sub_id, geometry, displayName, ownertype } = req.body;
 
-        console.log();
-
-
-        if (!geometry || !sub_id) {
-            return res.status(400).json({ error: 'sub_id และ geometry จำเป็นต้องมี' });
-        }
-
-        const query = `
-            WITH geom_input AS (
-                SELECT
-                    ST_SetSRID(ST_GeomFromGeoJSON($1), 4326) AS geom_wgs,
-                    $2::text AS editor,
-                    $3::text AS sub_id,
-                    $4::text AS ownertype
-            )
-            UPDATE owner_${tb}
-            SET
-                geom = g.geom_wgs,
-                shpsplit_sqm = ST_Area(ST_Transform(g.geom_wgs, 32647)),
-                editor = g.editor,
-                ownertype = g.ownertype
-            FROM geom_input g
-            WHERE owner_${tb}.sub_id = g.sub_id
-            RETURNING *;
-        `;
-
-        const values = [JSON.stringify(geometry), displayName, sub_id, ownertype];
-        const result = await pool.query(query, values);
-
-        if (result.rowCount === 0) {
-            return res.status(404).json({ error: 'ไม่พบข้อมูล sub_id นี้' });
-        }
-
-        res.status(200).json({ success: true, data: result.rows });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: err.message });
-    }
-});
 
 
 app.get('/api/download/reshape/:tb', async (req, res) => {
@@ -1353,9 +1131,6 @@ app.delete('/api/layerlist/:tb', async (req, res) => {
         // delete reclass table
         const sql2 = `DROP TABLE IF EXISTS reclass_${tb}`;
         await pool.query(sql2);
-        // delete owner table
-        const owner = `DROP TABLE IF EXISTS owner_${tb}`;
-        await pool.query(owner);
 
         // delete source table
         // const sql3 = `DROP TABLE IF EXISTS ${tb}`;
