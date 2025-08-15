@@ -46,6 +46,14 @@ const rubber_parcel = L.tileLayer.wms("https://engrids.soc.cmu.ac.th/geoserver/r
     zIndex: 6
 });
 
+const longdoLayer = L.tileLayer('https://ms.longdo.com/mmmap/img.php?zoom={z}&x={x}&y={y}&mode=dol_hd', {
+    attribution: '&copy; Longdo Map',
+    tileSize: 256,
+    maxZoom: 30,
+    minZoom: 1
+});
+
+
 const baseLayers = {
     "Google Road": gmap_road,
     "Google Satellite": gmap_sat.addTo(map),
@@ -62,7 +70,8 @@ const overlayMaps = {
     "แปลงยาง(เดิม)": rubber_parcel,
     "NDVI": ndvi,
     "NDVI gee": ndviTile,
-    "S2 gee": trueColorTile
+    "S2 gee": trueColorTile,
+    "Longdo Map": longdoLayer.addTo(map),
 };
 
 L.control.layers(baseLayers, overlayMaps).addTo(map);
@@ -134,7 +143,7 @@ async function updateAreaDisplay(layer) {
         const checkArea = document.getElementById('checkarea');
         checkArea.innerHTML = '';
 
-        if (Math.abs(xls_sqm - area) <= 100) {
+        if (Math.abs(xls_sqm - area) <= 800) {
             checkArea.innerHTML = '<span style="color: green;">* พื้นที่ตรงกับข้อมูล Excel</span>';
         } else {
             checkArea.innerHTML = '<span style="color: red;">* พื้นที่ไม่ตรงกับข้อมูล Excel</span>';
