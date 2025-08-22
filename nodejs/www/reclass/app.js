@@ -500,6 +500,11 @@ document.getElementById('dashboard').addEventListener('click', (e) => {
     const tb = document.getElementById('tb').value;
     window.location.href = './../reclassdash/index.html?tb=' + tb;
 });
+document.getElementById('v3').addEventListener('click', (e) => {
+    e.preventDefault();
+    const tb = document.getElementById('tb').value;
+    window.location.href = './../testv3/index.html?tb=' + tb;
+});
 
 const initApp = async () => {
     try {
@@ -556,3 +561,4 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error('Failed to fetch user:', err);
     }
 });
+

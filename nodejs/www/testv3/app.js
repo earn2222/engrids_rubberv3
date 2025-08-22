@@ -482,6 +482,7 @@ const initApp = async () => {
     try {
         const urlParams = new URLSearchParams(window.location.search);
         const tb = urlParams.get('tb');
+        document.getElementById('tb').value = tb;
 
         if (!tb || tb === 'undefined') {
             alert('พื้นที่ไม่ถูกต้อง');
