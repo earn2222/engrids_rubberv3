@@ -200,7 +200,9 @@ const getFeatureStyle = (feature) => {
             ? '#d7191c'
             : feature.properties.classtype === 'other'
                 ? '#ff00ff'
-                : '#fdae61';
+                : feature.properties.classtype === 'not-rubber'
+                    ? '#1683ffff'
+                    : '#fdae61';
     return {
         fillColor: color,
         weight: 2,
@@ -350,8 +352,8 @@ const legend = L.control({ position: 'bottomright' });
 
 legend.onAdd = function (map) {
     const div = L.DomUtil.create('div', 'legend'),
-        categories = ['rubber', 'non-rubber', 'other'],
-        labels = ['ยางพาราที่ลงทะเบียน', 'ไม่ใช่ยางพารา', 'ยางพาราที่ไม่ได้ลงทะเบียน'];
+        categories = ['rubber', 'not-rubber', 'other', 'non-rubber',],
+        labels = ['ยางพาราที่ลงทะเบียน', 'พื้นที่กันออก', 'ยางพาราที่ไม่ได้ลงทะเบียน', 'ไม่ใช่ยางพารา'];
 
     for (let i = 0; i < categories.length; i++) {
         const dummy = { properties: { classtype: categories[i] } },
