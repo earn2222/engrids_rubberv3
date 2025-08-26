@@ -115,7 +115,9 @@ const getFeatureStyle = (feature) => {
             ? '#d7191c'
             : feature.properties.classtype === 'other'
                 ? '#ff00ff'
-                : '#fdae61';
+                : feature.properties.classtype === 'not-rubber'
+                    ? '#1683ffff'
+                    : '#fdae61';
     return {
         fillColor: color,
         weight: 2,
@@ -188,7 +190,7 @@ const loadGeoData = async () => {
                     data: 'classtype',
                     title: 'ประเภท',
                     render: (data) => {
-                        return data === 'rubber' ? 'แปลงยาง' : data === 'building' ? 'อาคาร' : data === 'agriculture' ? 'เกษตรกรรม' : data === 'water' ? 'น้ำ' : 'อื่นๆ';
+                        return data === 'rubber' ? 'แปลงยาง' : data === 'not-rubber' ? 'พื้นที่กันออก' : data === 'other' ? 'ยางพาราที่ไม่ได้ลงทะเบียน' : data === 'non-rubber' ? 'ไม่ใช่ยางพารา' : 'อื่นๆ';
                     }
                 },
             ],
@@ -258,8 +260,8 @@ const legend = L.control({ position: 'bottomright' });
 
 legend.onAdd = function (map) {
     const div = L.DomUtil.create('div', 'legend'),
-        categories = ['rubber', 'non-rubber', 'other'],
-        labels = ['ยางพาราที่ลงทะเบียน', 'ไม่ใช่ยางพารา', 'ยางพาราที่ไม่ได้ลงทะเบียน'];
+        categories = ['rubber', 'not-rubber', 'other', 'non-rubber',],
+        labels = ['ยางพาราที่ลงทะเบียน', 'พื้นที่กันออก', 'ยางพาราที่ไม่ได้ลงทะเบียน', 'ไม่ใช่ยางพารา'];
 
     for (let i = 0; i < categories.length; i++) {
         const dummy = { properties: { classtype: categories[i] } },
@@ -278,6 +280,7 @@ document.getElementById('reshape').addEventListener('click', (e) => {
     const tb = document.getElementById('tb').value;
     window.location.href = './../reshape/index.html?tb=' + tb;
 });
+
 document.getElementById('v3').addEventListener('click', (e) => {
     e.preventDefault();
     const tb = document.getElementById('tb').value;
