@@ -61,7 +61,7 @@ const trueColorTile = L.featureGroup();
 
 const overlayMaps = {
     "แปลงยาง (reclass)": featureGroup.addTo(map),
-    "แปลงยาง (reshape)": reshapeFeatureGroup.addTo(map),
+    "แปลงยาง (reshape)": reshapeFeatureGroup,
     "แปลงยาง(เดิม)": rubber_parcel,
     "NDVI": ndvi,
     "NDVI gee": ndviTile,
@@ -199,7 +199,7 @@ const loadGeoData = async () => {
                 { data: 'id', title: 'id' },
                 {
                     data: 'shparea_sqm',
-                    title: 'เนื้อที่รวมของแปลงนี้ (m²)',
+                    title: 'เนื้อที่โฉนด (m²)',
                     render: (data) => {
                         return Number(data).toFixed(0);
                     }
@@ -229,7 +229,7 @@ const loadGeoData = async () => {
                 },
                 {
                     data: 'check_area',
-                    title: 'ตรวจสอบเนื้อที่',
+                    title: 'ตรวจสอบโฉนด',
                     render: (data, type, row) => {
                         const passSelected = data === 'ผ่าน' ? 'selected' : '';
                         const failSelected = data === 'ไม่ผ่าน' ? 'selected' : '';
@@ -242,7 +242,7 @@ const loadGeoData = async () => {
                 },
                 {
                     data: 'check_shape',
-                    title: 'ตรวจสอบรูปร่าง',
+                    title: 'ตรวจสอบยางพารา',
                     render: (data, type, row) => {
                         const passSelected = data === 'ผ่าน' ? 'selected' : '';
                         const failSelected = data === 'ไม่ผ่าน' ? 'selected' : '';
@@ -362,6 +362,27 @@ const loadGeoData = async () => {
             // Get reviewer name from profile
             const displayName = document.getElementById('display-name')?.textContent || '';
 
+
+            // Determine if review-related fields have changed
+            const dataTable = $('#featureTable').DataTable();
+            const rowData = dataTable.row(row).data();
+
+            const currentReviewer = rowData.reviewer || '';
+            const originalCheckArea = rowData.check_area || '';
+            const originalCheckShape = rowData.check_shape || '';
+            const originalRemark = rowData.remark || '';
+
+            const isReviewChanged = (checkArea !== originalCheckArea) ||
+                (checkShape !== originalCheckShape) ||
+                (remark !== originalRemark);
+
+            // If Review fields changed -> Update Reviewer to current user (displayName)
+            // If ONLY User Remark changed (or no review change) -> Keep existing Reviewer
+            let reviewerToSave = currentReviewer;
+            if (isReviewChanged) {
+                reviewerToSave = displayName;
+            }
+
             btn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i>');
 
             try {
@@ -374,7 +395,7 @@ const loadGeoData = async () => {
                         check_shape: checkShape,
                         remark: remark,
                         user_remark: userRemark,
-                        reviewer: displayName
+                        reviewer: reviewerToSave
                     })
                 });
 
@@ -383,9 +404,17 @@ const loadGeoData = async () => {
                     btn.html('<i class="bi bi-check-lg"></i> สำเร็จ').addClass('btn-review-saved');
                     // Update reviewer badge in the row
                     const reviewerCell = row.find('td').eq(-2); // reviewer column
-                    if (displayName) {
-                        reviewerCell.html(`<span class="badge bg-success bg-opacity-75">${displayName}</span>`);
+                    if (reviewerToSave) {
+                        reviewerCell.html(`<span class="badge bg-success bg-opacity-75">${reviewerToSave}</span>`);
                     }
+
+                    // Update internal DataTable data so next save compares correctly against these new values
+                    rowData.check_area = checkArea;
+                    rowData.check_shape = checkShape;
+                    rowData.remark = remark;
+                    rowData.user_remark = userRemark;
+                    rowData.reviewer = reviewerToSave;
+                    dataTable.row(row).data(rowData);
                     setTimeout(() => {
                         btn.html('<i class="bi bi-floppy"></i> บันทึก').removeClass('btn-review-saved').prop('disabled', false);
                     }, 2000);

@@ -45,8 +45,8 @@ passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
 
-    // callbackURL: '/rub/auth/callback',
-    callbackURL: 'https://engrids.soc.cmu.ac.th/rub/auth/callback'
+    callbackURL: '/rub/auth/callback',
+    // callbackURL: 'https://engrids.soc.cmu.ac.th/rub/auth/callback'
 },
     async (accessToken, refreshToken, profile, done) => {
         const googleId = profile.id;

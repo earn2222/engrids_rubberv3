@@ -15,19 +15,29 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.14.2/dist/leaflet-geoman.css" />
     <link rel="stylesheet" href="./../assets/bootstrap.min.css">
-    <link rel=" stylesheet" href="./style.css">
+    <link rel="stylesheet" href="./style.css">
 </head>
 
 <body>
-    <div class="container">
-        <div class="row">
-            <div class="col-sm-8 mt-3">
+    <div class="container-fluid app-wrapper px-3">
+        <div class="row main-row">
+            <!-- Left Column: Map and Table -->
+            <div class="col-sm-8 map-col">
                 <div class="card" id="map"></div>
-            </div>
-            <div class="col-sm-4 mt-3 ">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <div>
+
+                <!-- Table in a card below map -->
+                <div class="card mt-2" style="flex: 0 0 35%; min-height: 200px; display: flex; flex-direction: column;">
+                    <div class="card-body" style="overflow: auto;">
+                        <table id="featureTable" class="display nowrap" style="width: 100%;"></table>
                     </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Sidebar -->
+            <div class="col-sm-4 sidebar-col">
+                <!-- User Panel -->
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div></div>
                     <div id="user-panel" class="d-flex align-items-center">
                         <div id="profile-section" class="dropdown d-flex align-items-center"
                             style="display: none !important;">
@@ -48,109 +58,74 @@
                         </a>
                     </div>
                 </div>
-                <div class="card mb-3">
-                    <div class="card-body ">
-                        <a class="btn btn-secondary" href="./../index.html">
-                            <i class="bi bi-house-heart-fill"></i>Home
-                        </a>
-                        <button class="btn btn-secondary" id="dashboard">Dashboard</button>
+
+                <!-- Navigation Menu -->
+                <div class="card mb-2">
+                    <div class="card-body nav-buttons">
+                        <div class="section-title"><i class="bi bi-compass"></i> เมนู</div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <a class="btn btn-secondary" href="./../index.html">
+                                <i class="bi bi-house-heart-fill"></i> Home
+                            </a>
+                            <button class="btn btn-secondary" id="dashboard">Dashboard</button>
+                        </div>
                     </div>
                 </div>
+
+                <!-- Feature Info & Tools -->
                 <div class="card">
                     <div class="card-body">
-                        <!-- <div class="d-flex gap-3"> ใช้ Flexbox แบ่งซ้ายขวา -->
-                        <!-- Panel ซ้าย -->
-                        <div id="featurePanel" class="flex-fill"
-                            style=" display: flex; justify-content: space-between; align-items: flex-start;">
-                            <div style="flex: 1;">
-                                <div>
-                                    <strong>ID:</strong>
-                                    <input class="form-control" id="id" disabled>
-                                    <input type="hidden" id="tb">
-                                </div>
-                                <div>
-                                    <strong>App No:</strong>
-                                    <input class="form-control" id="xls_app_no" disabled>
-                                </div>
-                                <div>
-                                    <strong>เนื้อที่เป้าหมาย (m²):</strong>
-                                    <input class="form-control" id="xls_sqm" disabled>
-                                </div>
-                                <div>
-                                    <strong>เนื้อที่ขณะนี้ (m²):</strong>
-                                    <input class="form-control" id="shparea_sqm" disabled>
-                                </div>
-                                <p class="mt-2" id="message"></p>
-                                <div>
-                                    <strong>re-final (โค้ดพี่เพียง):</strong>
-                                    <input class="form-control" type="text" id="refinal">
-                                </div>
+                        <div class="section-title"><i class="bi bi-layers"></i> ข้อมูลแปลง</div>
+
+                        <div id="featurePanel">
+                            <div class="mb-2">
+                                <strong>ID:</strong>
+                                <input class="form-control" id="id" disabled>
+                                <input type="hidden" id="tb">
+                            </div>
+                            <div class="mb-2">
+                                <strong>App No:</strong>
+                                <input class="form-control" id="xls_app_no" disabled>
+                            </div>
+                            <div class="mb-2">
+                                <strong>เนื้อที่เป้าหมาย (m²):</strong>
+                                <input class="form-control" id="xls_sqm" disabled>
+                            </div>
+                            <div class="mb-2">
+                                <strong>เนื้อที่ขณะนี้ (m²):</strong>
+                                <input class="form-control" id="shparea_sqm" disabled>
+                            </div>
+                            <p class="mt-2 text-danger" id="message" style="font-weight: 500;"></p>
+                            <div class="mb-2">
+                                <strong>re-final (โค้ดพี่เพียง):</strong>
+                                <input class="form-control" type="text" id="refinal">
                             </div>
                         </div>
 
-                        <!-- <div id=" featurePanel2">
-                                <strong>Level 2</strong>
-                                <div class="mb-3">
-                                    <select class="form-select" id="provinceSelect" aria-label="Province selection">
-                                        <option selected disabled>Loading provinces...</option>
-                                    </select>
-                                </div>
-
-                                <div class="mb-3">
-                                    <select class="form-select" id="amphoeSelect" aria-label="Amphoe selection"
-                                        disabled>
-                                        <option selected disabled>Please select a province first</option>
-                                    </select>
-                                </div>
-
-                                <div class="mb-3">
-                                    <input type="number" class="form-control" id="pacelNumber"
-                                        placeholder="Enter Pacel number">
-                                </div>
-
-                                <div class="mb-3">
-                                    <button class="btn btn-primary" id="searchButton">ค้นหา</button>
-                                    <button class="btn btn-secondary" id="clearButton">Clear</button>
-                                </div>
-
-                                <div class="mb-3">
-                                    <input class="form-control" id="urlText" placeholder="ใส่ url ของ wms">
-                                </div>
-                                <div class="mb-3">
-                                    <button class="btn btn-primary" id="loadParcelButton">Load</button>
-                                    <button class="btn btn-secondary" id="clearParcelButton">Clear</button>
-                                </div>
-                            </div> -->
-                        <!-- </div> -->
                         <hr>
-                        <div class="mt-3">
+
+                        <div class="section-title"><i class="bi bi-tools"></i> เครื่องมือ</div>
+                        <div class="d-flex flex-wrap gap-2">
                             <button class="btn btn-info" id="save">Save</button>
                             <button class="btn btn-success" id="classify">Classify แปลงที่นี้</button>
-                            <button class="btn btn-light" id="restore">restore</button>
-                            <button class="btn btn-light" id="digitize">digitizing</button>
-
+                            <button class="btn btn-light border" id="restore">restore</button>
+                            <button class="btn btn-light border" id="digitize">digitizing</button>
                         </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="row mt-3 mb-3">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-body">
-                        <table id="featureTable" class="display nowrap" style="width: 100%;"></table>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- create modal -->
+    <!-- Modals -->
     <div class="modal fade" id="restoreModal" tabindex="-1" aria-labelledby="restoreModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="restoreModalLabel">Restore Feature</h5>
+            <div class="modal-content"
+                style="border-radius: 12px; border: none; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
+                <div class="modal-header"
+                    style="background: linear-gradient(135deg, #e8f5e9, #f1f8e9); border-bottom: 1px solid rgba(76, 175, 80, 0.1);">
+                    <h5 class="modal-title" id="restoreModalLabel" style="color: #2e7d32; font-weight: 600;">Restore
+                        Feature</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -159,15 +134,17 @@
                         <input type="number" class="form-control" id="restoreId" required>
                     </div>
                 </div>
-                <div class="modal-footer">
+                <div class="modal-footer" style="border-top: 1px solid rgba(76, 175, 80, 0.1);">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-primary" id="btnRestore">Restore please</button>
+                    <button type="button" class="btn btn-primary" id="btnRestore"
+                        style="background: linear-gradient(135deg, #66bb6a, #43a047); border: none;">Restore
+                        please</button>
                 </div>
             </div>
         </div>
     </div>
 
-
+    <!-- Scripts -->
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"

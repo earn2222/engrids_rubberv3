@@ -1,45 +1,440 @@
+/* ===== Global Reset & Typography ===== */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html,
 body {
-    font-family: "Noto Sans Thai", sans-serif !important;
+    height: 100vh;
+    overflow: hidden;
+    font-family: "Noto Sans Thai", 'Inter', sans-serif;
     font-optical-sizing: auto;
     font-weight: 400;
     font-style: normal;
     font-variation-settings: "wdth" 100;
+    background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 40%, #e0f2f1 100%);
+    color: #2e3a2e;
 }
 
-h1 h2 h3 h4 h5 h6 {
-    font-family: "Noto Sans Thai", sans-serif !important;
+/* ===== Full-height Layout ===== */
+.app-wrapper {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
+.main-row {
+    flex: 1;
+    min-height: 0;
+}
+
+.map-col {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 16px);
+    padding-top: 8px;
+    padding-bottom: 8px;
+}
+
+.sidebar-col {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 16px);
+    padding-top: 8px;
+    padding-bottom: 8px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* Custom scrollbar */
+.sidebar-col::-webkit-scrollbar {
+    width: 5px;
+}
+
+.sidebar-col::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sidebar-col::-webkit-scrollbar-thumb {
+    background: #a5d6a7;
+    border-radius: 10px;
+}
+
+.sidebar-col::-webkit-scrollbar-thumb:hover {
+    background: #66bb6a;
+}
+
+/* ===== Map ===== */
+#map {
+    flex: 1;
+    min-height: 0;
+    border-radius: 16px;
+    border: 2px solid rgba(76, 175, 80, 0.25);
+    box-shadow: 0 4px 24px rgba(76, 175, 80, 0.10), 0 1px 6px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+}
+
+/* ===== Cards ===== */
+.card {
+    background: rgba(255, 255, 255, 0.82);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(76, 175, 80, 0.18);
+    border-radius: 14px;
+    box-shadow: 0 2px 16px rgba(76, 175, 80, 0.08), 0 1px 4px rgba(0, 0, 0, 0.03);
+    transition: box-shadow 0.3s ease, transform 0.2s ease;
+}
+
+.card:hover {
+    box-shadow: 0 4px 24px rgba(76, 175, 80, 0.14), 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.card-body {
+    padding: 0.85rem 1rem;
+}
+
+/* ===== Section Titles ===== */
+.section-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #388e3c;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.section-title i {
+    font-size: 1rem;
+    color: #43a047;
+}
+
+/* ===== User Panel ===== */
+#user-panel {
+    gap: 8px;
+}
+
+#user-panel .dropdown-toggle {
+    color: #2e7d32;
+    font-weight: 500;
+    font-size: 1rem;
+}
+
+#user-panel .dropdown-toggle:hover {
+    color: #1b5e20;
+}
+
+#user-panel .dropdown-menu {
+    background: #ffffff;
+    border: 1px solid rgba(76, 175, 80, 0.2);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+#user-panel .dropdown-item:hover {
+    background: #e8f5e9;
+    color: #2e7d32;
+}
+
+/* ===== Navigation Buttons ===== */
+.nav-buttons .btn {
+    font-size: 1rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 20px;
+    font-weight: 500;
+    transition: all 0.25s ease;
+    border: none;
+}
+
+.nav-buttons .btn-secondary {
+    background: linear-gradient(135deg, #66bb6a, #43a047);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.2);
+}
+
+.nav-buttons .btn-secondary:hover {
+    background: linear-gradient(135deg, #4caf50, #2e7d32);
+    box-shadow: 0 4px 16px rgba(76, 175, 80, 0.35);
+    transform: translateY(-1px);
+}
+
+.nav-buttons .btn i {
+    margin-right: 3px;
+}
+
+/* ===== Form Controls ===== */
+.form-control,
+.form-select {
+    background: #f9fdf9;
+    border: 1px solid rgba(76, 175, 80, 0.25);
+    border-radius: 8px;
+    color: #2e3a2e;
+    font-size: 1rem;
+    padding: 0.35rem 0.65rem;
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: #66bb6a;
+    box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.15);
+    background: #ffffff;
+    outline: none;
+}
+
+.form-control:disabled {
+    background: #f1f8e9;
+    color: #5a6b5a;
+    border-color: rgba(76, 175, 80, 0.12);
+    opacity: 0.85;
+}
+
+#featurePanel>div {
+    margin-bottom: 0.4rem;
+}
+
+#featurePanel strong {
+    font-size: 1rem;
+    color: #388e3c;
+    font-weight: 600;
+    display: block;
+    margin-bottom: 0.15rem;
+}
+
+#checkarea {
+    font-size: 1rem;
+    display: block;
+    margin-top: 2px;
+}
+
+/* ===== Action Buttons ===== */
 .btn {
     font-family: "Noto Sans Thai", sans-serif !important;
+    font-size: 1rem;
+    border-radius: 10px;
+    font-weight: 500;
+    transition: all 0.25s ease;
+    position: relative;
+    overflow: hidden;
 }
 
-.badge {
+.btn-info {
+    background: linear-gradient(135deg, #26c6da, #00acc1);
+    border: none;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(0, 172, 193, 0.2);
+}
+
+.btn-info:hover {
+    background: linear-gradient(135deg, #00bcd4, #00838f);
+    box-shadow: 0 4px 14px rgba(0, 172, 193, 0.35);
+    transform: translateY(-1px);
+    color: #fff;
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #66bb6a, #2e7d32);
+    border: none;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(46, 125, 50, 0.2);
+}
+
+.btn-success:hover {
+    background: linear-gradient(135deg, #4caf50, #1b5e20);
+    box-shadow: 0 4px 14px rgba(46, 125, 50, 0.35);
+    transform: translateY(-1px);
+}
+
+.btn-warning {
+    background: linear-gradient(135deg, #ffca28, #f9a825);
+    border: none;
+    color: #3e2723;
+    box-shadow: 0 2px 8px rgba(249, 168, 37, 0.2);
+}
+
+.btn-warning:hover {
+    background: linear-gradient(135deg, #ffc107, #f57f17);
+    box-shadow: 0 4px 14px rgba(249, 168, 37, 0.35);
+    transform: translateY(-1px);
+}
+
+.btn-secondary {
+    background: linear-gradient(135deg, #78909c, #546e7a);
+    border: none;
+    color: #fff;
+}
+
+.btn-secondary:hover {
+    background: linear-gradient(135deg, #607d8b, #37474f);
+    transform: translateY(-1px);
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #ef5350, #c62828);
+    border: none;
+    color: #fff;
+}
+
+.btn-danger:hover {
+    background: linear-gradient(135deg, #e53935, #b71c1c);
+    transform: translateY(-1px);
+}
+
+/* ===== Merge Panel ===== */
+#mergePanel .alert-info {
+    background: #e8f5e9;
+    border: 1px solid rgba(76, 175, 80, 0.2);
+    color: #2e7d32;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    padding: 0.5rem 0.75rem;
+}
+
+#mergeModeBtn.active {
+    background: linear-gradient(135deg, #43a047, #2e7d32) !important;
+    border-color: #2e7d32;
+    box-shadow: 0 0 12px rgba(46, 125, 50, 0.4);
+}
+
+.list-group-item {
+    padding: 0.4rem 0.65rem;
+    font-size: 0.8rem;
+    background: #f9fdf9;
+    border: 1px solid rgba(76, 175, 80, 0.12);
+    border-radius: 8px !important;
+    margin-bottom: 3px;
+    color: #2e3a2e;
+}
+
+/* ===== Legend ===== */
+.legend {
     font-family: "Noto Sans Thai", sans-serif !important;
+    background: rgba(255, 255, 255, 0.92) !important;
+    backdrop-filter: blur(10px);
+    padding: 10px 14px;
+    border-radius: 12px;
+    line-height: 22px;
+    color: #2e3a2e;
+    border: 1px solid rgba(76, 175, 80, 0.15);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+    font-size: 0.78rem;
 }
 
-#map {
-    height: 600px;
+.legend i {
+    width: 16px;
+    height: 16px;
+    float: left;
+    margin-right: 8px;
+    opacity: 0.7;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-sizing: border-box;
+    border-radius: 4px;
 }
 
+/* ===== Area Labels (Map) ===== */
 .area-label {
     font-size: 11px;
     color: #ffe033;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
+/* ===== Feature Popup ===== */
 .feature-popup {
-    font-family: Arial, sans-serif;
+    font-family: "Noto Sans Thai", sans-serif;
     min-width: 250px;
 }
 
 .feature-popup h4 {
     margin: 0 0 10px 0;
-    color: #333;
-    border-bottom: 1px solid #ccc;
+    color: #2e7d32;
+    border-bottom: 2px solid #a5d6a7;
     padding-bottom: 5px;
 }
 
 .feature-popup p {
     margin: 5px 0;
     font-size: 14px;
+    color: #2e3a2e;
+}
+
+/* ===== Instruction Text ===== */
+.instruction-text {
+    font-size: 0.72rem;
+    color: #689f63;
+    line-height: 1.5;
+    padding: 0.35rem 0;
+}
+
+/* ===== Dividers ===== */
+hr {
+    border: none;
+    border-top: 1px solid rgba(76, 175, 80, 0.15);
+    margin: 0.5rem 0;
+}
+
+/* ===== Leaflet Overrides ===== */
+.leaflet-control-layers {
+    border-radius: 12px !important;
+    border: 1px solid rgba(76, 175, 80, 0.2) !important;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08) !important;
+    background: rgba(255, 255, 255, 0.95) !important;
+}
+
+.leaflet-bar {
+    border-radius: 10px !important;
+    overflow: hidden;
+    border: 1px solid rgba(76, 175, 80, 0.2) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06) !important;
+}
+
+.leaflet-bar a {
+    background: rgba(255, 255, 255, 0.95) !important;
+    color: #388e3c !important;
+    border-bottom: 1px solid rgba(76, 175, 80, 0.1) !important;
+}
+
+.leaflet-bar a:hover {
+    background: #e8f5e9 !important;
+}
+
+/* ===== Responsive ===== */
+@media (max-height: 700px) {
+    .card-body {
+        padding: 0.6rem 0.8rem;
+    }
+
+    #featurePanel>div {
+        margin-bottom: 0.25rem;
+    }
+
+    .form-control,
+    .form-select {
+        font-size: 0.78rem;
+        padding: 0.25rem 0.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+
+    .map-col,
+    .sidebar-col {
+        height: auto;
+    }
+
+    #map {
+        height: 50vh;
+        min-height: 300px;
+    }
+
+    .app-wrapper {
+        height: auto;
+        overflow: auto;
+    }
 }
