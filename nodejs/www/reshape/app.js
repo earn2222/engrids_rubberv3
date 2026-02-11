@@ -180,8 +180,13 @@ function showFeaturePanel(feature, layer) {
     xls_sqm.value = feature.properties.xls_sqm;
     refinal.value = feature.properties.refinal;
 
-    // console.log(feature.properties);
-    updateAreaLabel(layer);
+    // For Point geometries, skip area calculation
+    if (feature.geometry && feature.geometry.type !== 'Point') {
+        updateAreaLabel(layer);
+    } else {
+        document.getElementById('shparea_sqm').value = 'N/A';
+        document.getElementById('message').innerHTML = '<h5><span class="badge bg-info">Point Geometry</span></h5>';
+    }
 }
 
 const getFeatureStyle = (feature) => {
@@ -221,19 +226,27 @@ const loadGeoData = async () => {
         const response = await fetch(`/rub/api/getfeatures/${tb}`);
         const { data } = await response.json();
 
-        const tableData = data.map(item => ({
-            id: item.id,
-            refinal: item.refinal,
-            farm_name: item.farm_name,
-            f_name: item.f_name,
-            l_name: item.l_name,
-            age: item.age,
-            geom: JSON.parse(item.geom),
-            app_no: item.app_no,
-            xls_sqm: item.xls_sqm,
-            shparea_sqm: item.shparea_sqm,
-            classified: item.classified,
-        }));
+        const tableData = data.map(item => {
+            let geom = null;
+            if (item.geom) {
+                geom = JSON.parse(item.geom);
+            } else if (item.geom_point) {
+                geom = JSON.parse(item.geom_point);
+            }
+            return {
+                id: item.id,
+                refinal: item.refinal,
+                farm_name: item.farm_name,
+                f_name: item.f_name,
+                l_name: item.l_name,
+                age: item.age,
+                geom: geom,
+                app_no: item.app_no,
+                xls_sqm: item.xls_sqm,
+                shparea_sqm: item.shparea_sqm,
+                classified: item.classified,
+            };
+        }).filter(item => item.geom !== null); // Filter out items without geometry
 
         // สร้างตารางหน้า ui
         const dataTable = $('#featureTable').DataTable({
@@ -313,10 +326,24 @@ const loadGeoData = async () => {
                     }
                 }
 
-                L.geoJson(geoJsonData, {
-                    style: getFeatureStyle,
-                    onEachFeature: onEachFeature,
-                }).addTo(featureGroup);
+                if (row.geom.type === 'Point') {
+                    // For Point geometries, add a marker
+                    const [lng, lat] = row.geom.coordinates;
+                    const marker = L.marker([lat, lng], {
+                        properties: geoJsonData.properties
+                    }).addTo(featureGroup);
+                    marker.bindPopup(`${row.id}`);
+                    marker.on('click', (e) => {
+                        showFeaturePanel(geoJsonData, marker);
+                        selectedLayer = marker;
+                    });
+                } else {
+                    // For Polygon/MultiPolygon, add as GeoJSON layer
+                    L.geoJson(geoJsonData, {
+                        style: getFeatureStyle,
+                        onEachFeature: onEachFeature,
+                    }).addTo(featureGroup);
+                }
             });
         };
 
@@ -330,14 +357,30 @@ const loadGeoData = async () => {
             try {
                 e.stopPropagation();
                 const geojson = $(this).data('geojson');
-                const layer = L.geoJSON(geojson)
+                const refid = $(this).data('refid');
 
-                const bounds = layer.getBounds();
-                map.fitBounds(bounds, {
-                    padding: [20, 20],
-                    // maxZoom: 16         
+                if (geojson.type === 'Point') {
+                    const [lng, lat] = geojson.coordinates;
+                    map.setView([lat, lng], 18);
+                } else {
+                    const layer = L.geoJSON(geojson);
+                    const bounds = layer.getBounds();
+                    map.fitBounds(bounds, {
+                        padding: [20, 20],
+                    });
+                }
+                // Find the corresponding layer
+                featureGroup.eachLayer(layer => {
+                    if (layer instanceof L.Marker) {
+                        if (layer.options.properties.id === refid) {
+                            selectedLayer = layer;
+                        }
+                    } else if (layer instanceof L.Path) {
+                        if (layer.feature.properties.id === refid) {
+                            selectedLayer = layer;
+                        }
+                    }
                 });
-                selectedLayer = layer;
             } catch (error) {
                 console.error('Failed to parse GeoJSON:', error);
             }

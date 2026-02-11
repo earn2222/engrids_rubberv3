@@ -130,3 +130,19 @@ Content-Type: application/json
   "displayName": "napatsorn duhae"
 }
 
+### post sub id
+POST http://localhost:3400/rub/api/collected_feat
+Content-Type: application/json
+
+{
+  "id_list": ["1-1", "1-2-2"],
+  "tb": "reclass_rub0_satun_v1_pp"
+}
+
+
+### get test
+GET http://localhost:3400/rub/api/test
+
+###
+collected_feat
+

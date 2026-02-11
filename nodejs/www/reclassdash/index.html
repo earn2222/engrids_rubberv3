@@ -2,7 +2,7 @@
 <html>
 
 <head>
-    <title>Leaflet Geoman with Turf Area - Click to Edit</title>
+    <title>Reclassdash - Dashboard</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,13 +19,13 @@
 </head>
 
 <body>
-    <div class="container">
+    <div class="container-fluid px-3 py-2">
         <div class="row">
-            <div class="col-sm-8 mt-3">
+            <div class="col-sm-8 mt-2 d-flex flex-column">
                 <div class="card" id="map"></div>
             </div>
-            <div class="col-sm-4 mt-3">
-                <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="col-sm-4 mt-2">
+                <div class="d-flex justify-content-between align-items-center mb-2">
                     <div>
                     </div>
                     <div id="user-panel" class="d-flex align-items-center">
@@ -47,17 +47,21 @@
                         </a>
                     </div>
                 </div>
-                <div class="card mb-3">
-                    <div class="card-body ">
-                        <a class="btn btn-secondary" href="./../index.html">
-                            <i class="bi bi-house-heart-fill"></i>Home
-                        </a>
-                        <button class="btn btn-secondary" id="reshape">ปรับรูปแปลง</button>
-                        <button class="btn btn-secondary" id="v3">V3</button>
+                <div class="card mb-2">
+                    <div class="card-body nav-buttons">
+                        <div class="section-title"><i class="bi bi-compass"></i> เมนู</div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <a class="btn btn-secondary" href="./../index.html">
+                                <i class="bi bi-house-heart-fill"></i> Home
+                            </a>
+                            <button class="btn btn-secondary" id="reshape">ปรับรูปแปลง</button>
+                            <button class="btn btn-secondary" id="v3">V3</button>
+                        </div>
                     </div>
                 </div>
-                <div class="card">
+                <div class="card mb-2">
                     <div class="card-body">
+                        <div class="section-title"><i class="bi bi-layers"></i> ข้อมูลแปลง</div>
                         <div id="featurePanel">
                             <div>
                                 <strong>ID:</strong>
@@ -68,25 +72,20 @@
                                 <strong>App No:</strong>
                                 <input class="form-control form-control-sm" id="xls_app_no">
                             </div>
-                            <!-- <div>
-                                <strong>ประเภทการใช้ประโยชน์:</strong>
-                                <input class="form-control" id="classtype">
-                            </div> -->
                             <div>
                                 <strong>เนื้อที่ (m²):</strong>
                                 <input class="form-control form-control-sm" id="shpsplit_sqm">
                             </div>
                         </div>
-                        <!-- <strong> <span class="mt-2" id="message"></span></strong> -->
                     </div>
                 </div>
                 <div class="row">
-                    <div class="col-sm-12 mt-3">
+                    <div class="col-sm-12 mt-2">
                         <div class="card" id="container"></div>
                     </div>
                 </div>
                 <div class="row">
-                    <div class="col-sm-12 mt-3">
+                    <div class="col-sm-12 mt-2">
                         <div class="card" id="count-rai"></div>
                     </div>
                 </div>
@@ -96,6 +95,7 @@
             <div class="col-12">
                 <div class="card">
                     <div class="card-body">
+                        <div class="section-title"><i class="bi bi-table"></i> ตารางข้อมูลแปลงยาง</div>
                         <table id="featureTable" class="display nowrap" style="width: 100%;"></table>
                     </div>
                 </div>

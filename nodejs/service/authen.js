@@ -38,9 +38,13 @@ passport.deserializeUser(async (id, done) => {
     }
 });
 
+console.log(process.env);
+
+
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+
     // callbackURL: '/rub/auth/callback',
     callbackURL: 'https://engrids.soc.cmu.ac.th/rub/auth/callback'
 },

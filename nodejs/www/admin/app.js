@@ -68,7 +68,7 @@ const initApp = async () => {
         const layerList = document.getElementById('layerList');
         layerList.innerHTML = ''; // clear existing
 
-        await result.forEach(async (item, index) => {
+        const promises = result.map(async (item, index) => {
             const { tb_name, remark } = item;
             const wrapper = document.createElement('div');
             wrapper.innerHTML = `
@@ -101,6 +101,8 @@ const initApp = async () => {
             layerList.appendChild(wrapper);
             await showChart(tb_name, tb_name);
         });
+
+        await Promise.all(promises);
 
         const reshape = document.getElementsByClassName('reshape');
         for (let i = 0; i < reshape.length; i++) {
@@ -225,35 +227,120 @@ document.getElementById("addData").addEventListener("click", () => {
 document.getElementById('btnAdd').addEventListener("click", async () => {
     try {
         const tb_name = document.getElementById("tb_name").value;
-        const remark = document.getElementById("tb_remark");
+        const remark = document.getElementById("tb_remark").value;
+        const shpFile = document.getElementById("shpFile").files[0];
 
-        const response = await fetch(`/rub/api/layerlist`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tb_name, remark })
-        });
+        if (!tb_name) {
+            alert('กรุณากรอกชื่อย่อ');
+            return;
+        }
 
-        const result = await response.json();
+        // ถ้ามีการอัปโหลด SHP file
+        if (shpFile) {
+            const formData = new FormData();
+            formData.append('file', shpFile);
+            formData.append('tb_name', tb_name);
 
-        const response_reclass = await fetch(`/rub/api/create_reclass_layer`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tb: tb_name })
-        });
+            document.getElementById('uploadProgress').style.display = 'block';
+            document.getElementById('progressBar').style.width = '0%';
 
-        const result_reclass = await response_reclass.json();
+            const xhr = new XMLHttpRequest();
 
-        if (result.success) {
-            document.getElementById("tb_name").value = "";
-            document.getElementById("tb_remark").value = "";
-            alert(`อัพเดท  ${tb_name} เรียบร้อย`);
-            await initApp();
+            // Track progress
+            xhr.upload.addEventListener('progress', (e) => {
+                if (e.lengthComputable) {
+                    const percentComplete = (e.loaded / e.total) * 100;
+                    document.getElementById('progressBar').style.width = percentComplete + '%';
+                    document.getElementById('progressText').textContent = `อัปโหลด ${Math.round(percentComplete)}%`;
+                }
+            });
+
+            xhr.addEventListener('load', async () => {
+                try {
+                    const shpResult = JSON.parse(xhr.responseText);
+
+                    if (xhr.status === 200 && shpResult.success) {
+                        // 1. อัปโหลด SHP สำเร็จ
+                        document.getElementById('progressText').textContent = 'กำลังสร้าง layer...';
+                        document.getElementById('progressBar').style.width = '75%';
+
+                        // 2. สร้าง reclass layer
+                        const response_reclass = await fetch(`/rub/api/create_reclass_layer`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ tb: tb_name })
+                        });
+
+                        const result_reclass = await response_reclass.json();
+                        document.getElementById('progressBar').style.width = '100%';
+
+                        // สำเร็จ
+                        document.getElementById("tb_name").value = "";
+                        document.getElementById("tb_remark").value = "";
+                        document.getElementById("shpFile").value = "";
+                        setTimeout(() => {
+                            document.getElementById('uploadProgress').style.display = 'none';
+                            alert(`อัพเดท ${tb_name} เรียบร้อย (${shpResult.recordCount} records)`);
+                            initApp();
+                        }, 500);
+                    } else {
+                        const errorMsg = shpResult.error || 'Unknown error';
+                        alert(`เกิดข้อผิดพลาดในการอัปโหลด: ${errorMsg}`);
+                        document.getElementById('uploadProgress').style.display = 'none';
+                        console.error('Upload error:', shpResult);
+                    }
+                } catch (parseErr) {
+                    console.error('Parse error:', parseErr, 'Response:', xhr.responseText);
+                    alert(`เกิดข้อผิดพลาดในการประมวลผล: ${parseErr.message}`);
+                    document.getElementById('uploadProgress').style.display = 'none';
+                }
+            });
+
+            xhr.addEventListener('error', () => {
+                alert('เกิดข้อผิดพลาดในการอัปโหลด (Network Error)');
+                document.getElementById('uploadProgress').style.display = 'none';
+                console.error('XHR error');
+            });
+
+            xhr.addEventListener('abort', () => {
+                alert('การอัปโหลดถูกยกเลิก');
+                document.getElementById('uploadProgress').style.display = 'none';
+            });
+
+            xhr.open('POST', '/rub/api/upload-shapefile', true);
+            xhr.send(formData);
         } else {
-            alert(`เกิดข้อผิดพลาด`);
+            // ไม่มี SHP file - สร้าง layer ว่างเปล่า
+            const response = await fetch(`/rub/api/layerlist`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tb_name, remark })
+            });
+
+            const result = await response.json();
+
+            const response_reclass = await fetch(`/rub/api/create_reclass_layer`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tb: tb_name })
+            });
+
+            const result_reclass = await response_reclass.json();
+
+            if (result.success) {
+                document.getElementById("tb_name").value = "";
+                document.getElementById("tb_remark").value = "";
+                alert(`อัพเดท ${tb_name} เรียบร้อย`);
+                await initApp();
+            } else {
+                alert(`เกิดข้อผิดพลาด: ${result.error}`);
+            }
         }
 
     } catch (error) {
-        console.error('Failed to fetch user:', err);
+        console.error('Failed:', error);
+        alert(`เกิดข้อผิดพลาด: ${error.message}`);
+        document.getElementById('uploadProgress').style.display = 'none';
     }
 })
 

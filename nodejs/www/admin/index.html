@@ -85,6 +85,19 @@
                         <label for="remark" class="form-label">remark</label>
                         <input type="text" class="form-control" id="tb_remark">
                     </div>
+                    <div class="mb-3">
+                        <label for="shpFile" class="form-label">อัปโหลด Shapefile (ZIP)</label>
+                        <input type="file" class="form-control" id="shpFile" accept=".zip">
+                        <small class="text-muted">โปรดเลือก ZIP file ที่มี .shp, .shx, .dbf, .prj</small>
+                    </div>
+                    <div id="uploadProgress" style="display: none;" class="mb-2">
+                        <div class="progress">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"
+                                aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" id="progressBar"
+                                style="width: 0%"></div>
+                        </div>
+                        <small id="progressText">กำลังอัปโหลด...</small>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>

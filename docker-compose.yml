@@ -43,11 +43,13 @@ services:
     working_dir: /usr/src/app
     environment:
       - NODE_ENV=development
+      - PORT=3000
       - DB_HOST=postgis
       - DB_PORT=5432
       - DB_USER=postgres
       - DB_PASSWORD=rub1234
       - DB_NAME=rub
+
     depends_on:
       - postgis
     volumes:

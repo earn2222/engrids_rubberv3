@@ -18,13 +18,13 @@
 </head>
 
 <body>
-    <div class="container">
-        <div class="row">
-            <div class="col-sm-8 mt-3">
+    <div class="container-fluid app-wrapper px-3">
+        <div class="row main-row">
+            <div class="col-sm-8 map-col">
                 <div class="card" id="map"></div>
             </div>
-            <div class="col-sm-4 mt-3">
-                <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="col-sm-4 sidebar-col">
+                <div class="d-flex justify-content-between align-items-center mb-2">
                     <div>
                     </div>
                     <div id="user-panel" class="d-flex align-items-center">
@@ -47,20 +47,22 @@
                         </a>
                     </div>
                 </div>
-                <div class="card mb-3">
-                    <div class="card-body ">
-                        <!-- <a class="btn btn-light" href="./../reshape/index.html">Reshape</a> -->
-                        <a class="btn btn-secondary" href="./../index.html">
-                            <i class="bi bi-house-heart-fill"></i>Home
-                        </a>
-                        <button class="btn btn-secondary" id="reshape">ปรับรูปแปลง</button>
-                        <button class="btn btn-secondary" id="dashboard">Dashboard</button>
-                        <button class="btn btn-secondary" id="v3">V3</button>
+                <div class="card mb-2">
+                    <div class="card-body nav-buttons">
+                        <div class="section-title"><i class="bi bi-compass"></i> เมนู</div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <a class="btn btn-secondary" href="./../index.html">
+                                <i class="bi bi-house-heart-fill"></i> Home
+                            </a>
+                            <button class="btn btn-secondary" id="reshape">ปรับรูปแปลง</button>
+                            <button class="btn btn-secondary" id="dashboard">Dashboard</button>
+                            <button class="btn btn-secondary" id="v3">V3</button>
+                        </div>
                     </div>
                 </div>
                 <div class="card">
                     <div class="card-body">
-
+                        <div class="section-title"><i class="bi bi-layers"></i> ข้อมูลแปลง</div>
                         <div id="featurePanel">
                             <div>
                                 <strong>ID</strong>
@@ -84,27 +86,57 @@
                                 <input class="form-control" id="shpsplit_sqm" disabled>
                                 <span id="checkarea" class="text-muted">* หากมีการแบ่งพื้นที่แล้ว</span>
                             </div>
-                            <div><strong>ประเภท:</strong>
+                            <div>
+                                <strong>ประเภท:</strong>
                                 <select class="form-select" id="classtype">
                                     <option></option>
                                     <option value="rubber">ยางพาราที่ลงทะเบียน</option>
-                                    <option value="not-rubber">พื้นที่กันออก</option>
+
+                                    <optgroup label="พื้นที่กันออก">
+                                        <option value="A">1</option>
+                                        <option value="B">2</option>
+                                        <option value="C">3</option>
+                                        <option value="D">4</option>
+                                    </optgroup>
+
                                     <option value="other">ยางพาราที่ไม่ได้ลงทะเบียน</option>
                                     <option value="non-rubber">ไม่ใช่ยางพารา</option>
                                 </select>
                             </div>
                         </div>
                         <hr>
-                        <div class="mb-2">
+                        <div class="section-title"><i class="bi bi-tools"></i> เครื่องมือ</div>
+                        <div class="mb-2 d-flex flex-wrap gap-2">
                             <button class="btn btn-info" id="clear">Clear selection</button>
                             <button class="btn btn-success" id="split">Split แปลงยาง</button>
                             <button class="btn btn-info" id="save">Save</button>
                         </div>
-                        <p></p>* คลิ๊กที่แปลงยางก่อน > กำหนดประเภท
-                        <br>** หากต้องการแบ่งพื้นที่ ให้ลากเส้นเพื่อตัดแบ่งพื้นที่ > คลิ๊กปุ่ม "Split แปลงยาง"
+                        <div class="instruction-text">
+                            * คลิกที่แปลงยางก่อน > กำหนดประเภท
+                            <br>** หากต้องการแบ่งพื้นที่ ให้ลากเส้นเพื่อตัดแบ่งพื้นที่ > คลิกปุ่ม "Split แปลงยาง"
+                        </div>
+
+                        <div class="card mb-2 mt-2">
+                            <div class="card-body">
+                                <div class="section-title"><i class="bi bi-union"></i> Merge Polygon</div>
+                                <button class="btn btn-warning w-100 mb-2" id="mergeModeBtn">เข้าโหมด Merge</button>
+                                <div id="mergePanel" style="display: none;">
+                                    <div class="alert alert-info mb-2">คลิกที่ polygon ที่ต้องการรวมบนแผนที่</div>
+                                    <div id="selectedPolygonsList" class="mb-2"
+                                        style="max-height: 200px; overflow-y: auto;">
+                                        <small class="text-muted">ยังไม่มี polygon ที่เลือก</small>
+                                    </div>
+                                    <button class="btn btn-success w-100" id="collectedBtn" disabled>Merge (เลือก 2
+                                        ตัวขึ้นไป)</button>
+                                    <button class="btn btn-secondary w-100 mt-2" id="exitMergeBtn">ออกจากโหมด
+                                        Merge</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
+
         </div>
     </div>
 
@@ -116,6 +148,8 @@
     <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
     <script src="https://unpkg.com/leaflet-geometryutil@0.10.0/src/leaflet.geometryutil.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsts/2.8.0/jsts.min.js"></script>
+    <script src="https://unpkg.com/jsts@2.7.1/dist/jsts.min.js"></script>
     <script src="./app.js"> </script>
 
 

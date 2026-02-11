@@ -1,6 +1,7 @@
 // Initialize map and feature group
 const map = L.map('map').setView([18.819620993471577, 100.8784385963758], 13);
 const featureGroup = L.featureGroup();
+const reshapeFeatureGroup = L.featureGroup();
 let showAreas = true;
 
 // Configure base layer
@@ -59,7 +60,8 @@ const ndwiTile = L.featureGroup();
 const trueColorTile = L.featureGroup();
 
 const overlayMaps = {
-    "แปลงยาง": featureGroup.addTo(map),
+    "แปลงยาง (reclass)": featureGroup.addTo(map),
+    "แปลงยาง (reshape)": reshapeFeatureGroup.addTo(map),
     "แปลงยาง(เดิม)": rubber_parcel,
     "NDVI": ndvi,
     "NDVI gee": ndviTile,
@@ -115,9 +117,17 @@ const getFeatureStyle = (feature) => {
             ? '#d7191c'
             : feature.properties.classtype === 'other'
                 ? '#ff00ff'
-                : feature.properties.classtype === 'not-rubber'
-                    ? '#1683ffff'
-                    : '#fdae61';
+                : feature.properties.classtype === 'A'
+                    ? '#7d61fdff'
+                    : feature.properties.classtype === 'B'
+                        ? '#ffbb00ff'
+                        : feature.properties.classtype === 'C'
+                            ? '#00ffddff'
+                            : feature.properties.classtype === 'D'
+                                ? '#ff009dff'
+                                : feature.properties.classtype === 'not-rubber'
+                                    ? 'transparent'   // ไม่มีสี
+                                    : '#fdae61';
     return {
         fillColor: color,
         weight: 2,
@@ -127,6 +137,7 @@ const getFeatureStyle = (feature) => {
         fillOpacity: 0.5
     };
 };
+
 
 const onEachFeature = (feature, layer) => {
     layer.bindPopup(`${feature.properties.id}`);
@@ -142,16 +153,30 @@ const loadGeoData = async () => {
     try {
         const tb = document.getElementById('tb').value;
         const response = await fetch(`/rub/api/getreclassfeatures/${tb}`);
-        const { data } = await response.json();
+        const result = await response.json();
+
+        if (!result.success || !result.data) {
+            console.error('API error:', result.error || 'No data returned');
+            alert('ไม่สามารถโหลดข้อมูลได้: ' + (result.error || 'ไม่พบข้อมูล'));
+            return;
+        }
+
+        const data = result.data;
 
         const tableData = data.map(item => ({
             id: item.id,
+            sub_id: item.sub_id,
             refinal: item.refinal,
             geom: JSON.parse(item.geom),
             app_no: item.app_no,
             shparea_sqm: item.shparea_sqm,
             shpsplit_sqm: item.shpsplit_sqm,
-            classtype: item.classtype
+            classtype: item.classtype,
+            check_area: item.check_area || '',
+            check_shape: item.check_shape || '',
+            remark: item.remark || '',
+            reviewer: item.reviewer || '',
+            user_remark: item.user_remark || ''
         }));
 
         const dataTable = $('#featureTable').DataTable({
@@ -190,7 +215,80 @@ const loadGeoData = async () => {
                     data: 'classtype',
                     title: 'ประเภท',
                     render: (data) => {
-                        return data === 'rubber' ? 'แปลงยาง' : data === 'not-rubber' ? 'พื้นที่กันออก' : data === 'other' ? 'ยางพาราที่ไม่ได้ลงทะเบียน' : data === 'non-rubber' ? 'ไม่ใช่ยางพารา' : 'อื่นๆ';
+
+                        return data === 'rubber' ? 'แปลงยาง'
+                            : data === 'not-rubber' ? 'พื้นที่กันออก'
+                                : data === 'other' ? 'ยางพาราที่ไม่ได้ลงทะเบียน'
+                                    : data === 'non-rubber' ? 'ไม่ใช่ยางพารา'
+                                        : data === 'A' ? 'พื้นที่กันออก A'
+                                            : data === 'B' ? 'พื้นที่กันออก B'
+                                                : data === 'C' ? 'พื้นที่กันออก C'
+                                                    : data === 'D' ? 'พื้นที่กันออก D'
+                                                        : 'อื่นๆ';
+                    }
+                },
+                {
+                    data: 'check_area',
+                    title: 'ตรวจสอบเนื้อที่',
+                    render: (data, type, row) => {
+                        const passSelected = data === 'ผ่าน' ? 'selected' : '';
+                        const failSelected = data === 'ไม่ผ่าน' ? 'selected' : '';
+                        return `<select class="form-select form-select-sm review-check-area" data-subid="${row.sub_id}">
+                                    <option value="">-- เลือก --</option>
+                                    <option value="ผ่าน" ${passSelected}>✅ ผ่าน</option>
+                                    <option value="ไม่ผ่าน" ${failSelected}>❌ ไม่ผ่าน</option>
+                                </select>`;
+                    }
+                },
+                {
+                    data: 'check_shape',
+                    title: 'ตรวจสอบรูปร่าง',
+                    render: (data, type, row) => {
+                        const passSelected = data === 'ผ่าน' ? 'selected' : '';
+                        const failSelected = data === 'ไม่ผ่าน' ? 'selected' : '';
+                        return `<select class="form-select form-select-sm review-check-shape" data-subid="${row.sub_id}">
+                                    <option value="">-- เลือก --</option>
+                                    <option value="ผ่าน" ${passSelected}>✅ ผ่าน</option>
+                                    <option value="ไม่ผ่าน" ${failSelected}>❌ ไม่ผ่าน</option>
+                                </select>`;
+                    }
+                },
+                {
+                    data: 'remark',
+                    title: 'หมายเหตุผู้เช็ค',
+                    render: (data, type, row) => {
+                        return `<input type="text" class="form-control form-control-sm review-remark" 
+                                    data-subid="${row.sub_id}" 
+                                    value="${data || ''}" 
+                                    placeholder="พิมพ์หมายเหตุ...">`;
+                    }
+                },
+                {
+                    data: 'user_remark',
+                    title: 'หมายเหตุผู้ใช้',
+                    render: (data, type, row) => {
+                        return `<input type="text" class="form-control form-control-sm user-remark" 
+                                    data-subid="${row.sub_id}" 
+                                    value="${data || ''}" 
+                                    placeholder="แก้ไขแล้ว / รายละเอียด...">`;
+                    }
+                },
+                {
+                    data: 'reviewer',
+                    title: 'ผู้ตรวจสอบ',
+                    render: (data) => {
+                        if (!data) return '<span class="text-muted">-</span>';
+                        return `<span class="badge bg-success bg-opacity-75">${data}</span>`;
+                    }
+                },
+                {
+                    data: null,
+                    title: 'บันทึก',
+                    orderable: false,
+                    render: (data, type, row) => {
+                        return `<button class="btn btn-sm btn-save-review" data-subid="${row.sub_id}">
+                                    <i class="bi bi-floppy"></i> บันทึก
+                                </button>`;
                     }
                 },
             ],
@@ -250,6 +348,58 @@ const loadGeoData = async () => {
             $(this.node()).attr('id', `row_${rowData.id}`);
         });
 
+        // Save review handler
+        $('#featureTable tbody').on('click', '.btn-save-review', async function () {
+            const btn = $(this);
+            const subId = btn.data('subid');
+            const row = btn.closest('tr');
+            const checkArea = row.find('.review-check-area').val();
+            const checkShape = row.find('.review-check-shape').val();
+            const remark = row.find('.review-remark').val();
+            const userRemark = row.find('.user-remark').val();
+            const tb = document.getElementById('tb').value;
+
+            // Get reviewer name from profile
+            const displayName = document.getElementById('display-name')?.textContent || '';
+
+            btn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i>');
+
+            try {
+                const res = await fetch(`/rub/api/update_review/${tb}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sub_id: subId,
+                        check_area: checkArea,
+                        check_shape: checkShape,
+                        remark: remark,
+                        user_remark: userRemark,
+                        reviewer: displayName
+                    })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    btn.html('<i class="bi bi-check-lg"></i> สำเร็จ').addClass('btn-review-saved');
+                    // Update reviewer badge in the row
+                    const reviewerCell = row.find('td').eq(-2); // reviewer column
+                    if (displayName) {
+                        reviewerCell.html(`<span class="badge bg-success bg-opacity-75">${displayName}</span>`);
+                    }
+                    setTimeout(() => {
+                        btn.html('<i class="bi bi-floppy"></i> บันทึก').removeClass('btn-review-saved').prop('disabled', false);
+                    }, 2000);
+                } else {
+                    alert('บันทึกไม่สำเร็จ: ' + (data.error || 'Unknown error'));
+                    btn.html('<i class="bi bi-floppy"></i> บันทึก').prop('disabled', false);
+                }
+            } catch (err) {
+                console.error('Save review error:', err);
+                alert('เกิดข้อผิดพลาด: ' + err.message);
+                btn.html('<i class="bi bi-floppy"></i> บันทึก').prop('disabled', false);
+            }
+        });
+
     } catch (error) {
         console.error('Error loading data:', error);
         alert('Failed to load spatial data');
@@ -260,18 +410,32 @@ const legend = L.control({ position: 'bottomright' });
 
 legend.onAdd = function (map) {
     const div = L.DomUtil.create('div', 'legend'),
-        categories = ['rubber', 'not-rubber', 'other', 'non-rubber',],
-        labels = ['ยางพาราที่ลงทะเบียน', 'พื้นที่กันออก', 'ยางพาราที่ไม่ได้ลงทะเบียน', 'ไม่ใช่ยางพารา'];
+        categories = ['rubber', 'other', 'non-rubber', 'A', 'B', 'C', 'D'],
+        labels = [
+            'ยางพาราที่ลงทะเบียน',
+            'ยางพาราที่ไม่ได้ลงทะเบียน',
+            'ไม่ใช่ยางพารา',
+            'พื้นที่กันออก A',
+            'พื้นที่กันออก B',
+            'พื้นที่กันออก C',
+            'พื้นที่กันออก D',
+            'ขอบเขต Reshape'
+        ];
+
+    // Add Reshape legend item first
+    div.innerHTML += `<i style="background:#2196F3; width:14px; height:14px; display:inline-block; margin-right:6px; opacity:0.8; border:1px solid #1565C0"></i> ขอบเขต Reshape<br>`;
+
 
     for (let i = 0; i < categories.length; i++) {
         const dummy = { properties: { classtype: categories[i] } },
             style = getFeatureStyle(dummy);
 
         div.innerHTML +=
-            `<i style="background:${style.fillColor};"></i> ${labels[i]}<br>`;
+            `<i style="background:${style.fillColor}; width:14px; height:14px; display:inline-block; margin-right:6px;"></i> ${labels[i]}<br>`;
     }
     return div;
 };
+
 
 legend.addTo(map);
 
@@ -298,7 +462,50 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         document.getElementById('tb').value = tb;
         await loadGeoData();
-        map.fitBounds(featureGroup.getBounds());
+        if (featureGroup.getLayers().length > 0) {
+            map.fitBounds(featureGroup.getBounds());
+        }
+
+        // Invalidate map size so it fills its container
+        setTimeout(() => map.invalidateSize(), 200);
+
+        // Load reshape polygon data as overlay layer
+        try {
+            const reshapeRes = await fetch('/rub/api/getreshapefeatures/' + tb);
+            const reshapeResult = await reshapeRes.json();
+            if (reshapeResult.success && reshapeResult.data) {
+                reshapeFeatureGroup.clearLayers();
+                reshapeResult.data.forEach(item => {
+                    if (!item.geom) return;
+                    const geom = JSON.parse(item.geom);
+                    const geojson = {
+                        type: 'Feature',
+                        geometry: geom,
+                        properties: {
+                            id: item.id,
+                            app_no: item.app_no,
+                            xls_sqm: item.xls_sqm,
+                            shparea_sqm: item.shparea_sqm
+                        }
+                    };
+                    L.geoJson(geojson, {
+                        style: () => ({
+                            fillColor: '#2196F3',
+                            weight: 2,
+                            opacity: 0.8,
+                            color: '#1565C0',
+                            dashArray: '5,5',
+                            fillOpacity: 0.12
+                        }),
+                        onEachFeature: (feature, layer) => {
+                            layer.bindPopup(`<b>Reshape</b><br>ID: ${feature.properties.id}<br>App: ${feature.properties.app_no}`);
+                        }
+                    }).addTo(reshapeFeatureGroup);
+                });
+            }
+        } catch (reshapeErr) {
+            console.error('Error loading reshape data:', reshapeErr);
+        }
 
         const response = await fetch('/rub/api/countsfeatures/' + tb);
         const data = await response.json();

@@ -1,9 +1,14 @@
 const express = require('express');
 const app = express.Router();
 const { Pool } = require('pg');
+const multer = require('multer');
+const unzipper = require('unzipper');
+const shapefile = require('shapefile');
+const fs = require('fs');
+const path = require('path');
 
 const bodyParser = require('body-parser');
-const path = require('path');
+const pathModule = require('path');
 
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
@@ -24,6 +29,16 @@ app.get('/api/getfeatures/:tb', async (req, res) => {
         if (!tb) {
             return res.status(400).json({ error: 'Table name is required' });
         }
+
+        // ตรวจสอบว่าตารางมีคอลัมน์ geom_point หรือไม่
+        const colCheck = await pool.query(
+            "SELECT column_name FROM information_schema.columns WHERE table_name = $1 AND column_name = 'geom_point'",
+            [tb]
+        );
+        const hasGeomPoint = colCheck.rowCount > 0;
+
+        const geomPointSelect = hasGeomPoint ? 'ST_ASGeoJSON(geom_point) AS geom_point' : "NULL::json AS geom_point";
+
         const sql = `SELECT id,
                         farm_name,
                         f_name,
@@ -34,9 +49,11 @@ app.get('/api/getfeatures/:tb', async (req, res) => {
                         xls_sqm,
                         shparea_sqm,
                         classified,
-                        ST_ASGeoJSON(geom) AS geom
+                        ST_ASGeoJSON(geom) AS geom,
+                        ${geomPointSelect}
                     FROM ${tb}
-                    WHERE geom IS NOT NULL`;
+                    WHERE geom IS NOT NULL ${hasGeomPoint ? 'OR geom_point IS NOT NULL' : ''}`;
+
         const result = await pool.query(sql);
         res.status(200).json({ success: true, data: result.rows });
     } catch (err) {
@@ -58,17 +75,39 @@ app.get('/api/getfeatures/:tb/:fid', async (req, res) => {
             return res.status(400).json({ error: 'Feature ID is required' });
         }
 
-        const sql = `SELECT id, 
+        // Check if reclass table exists
+        const checkTableSql = `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = $1)`;
+        const reclassTableName = `reclass_${tb}`;
+        const checkResult = await pool.query(checkTableSql, [reclassTableName]);
+        const reclassTableExists = checkResult.rows[0].exists;
+
+        let sql, values;
+        if (reclassTableExists) {
+            sql = `SELECT id, 
                         sub_id, 
                         classtype, 
                         app_no, 
                         shpsplit_sqm, 
                         ST_ASGeoJSON(geom) AS geom,
                         ST_ASGeoJSON(st_makepoint(100, 18)) AS geom_point
-                    FROM reclass_${tb}
+                    FROM ${reclassTableName}
                     WHERE geom IS NOT NULL AND id = $1`;
+            values = [fid];
+        } else {
+            // Fallback to original table
+            sql = `SELECT id, 
+                        id as sub_id, 
+                        'rubber' as classtype, 
+                        app_no, 
+                        shparea_sqm as shpsplit_sqm, 
+                        ST_ASGeoJSON(geom) AS geom,
+                        ST_ASGeoJSON(st_makepoint(100, 18)) AS geom_point
+                    FROM ${tb}
+                    WHERE geom IS NOT NULL AND id = $1`;
+            values = [fid];
+        }
+
         console.log(`Executing SQL: ${sql} with fid: ${fid}`);
-        const values = [fid];
         const result = await pool.query(sql, values);
         if (result.rowCount === 0) {
             return res.status(404).json({ error: 'Feature not found' });
@@ -88,6 +127,16 @@ app.get('/api/getfeaturesv3/:tb', async (req, res) => {
             return res.status(400).json({ error: 'Table name is required' });
         }
 
+        // ตรวจสอบคอลัมน์ geom_point
+        const colCheck = await pool.query(
+            "SELECT column_name FROM information_schema.columns WHERE table_name = $1 AND column_name = 'geom_point'",
+            [tb]
+        );
+        const hasGeomPoint = colCheck.rowCount > 0;
+
+        const geomPointSelect = hasGeomPoint ? 'ST_AsGeoJSON(geom_point) AS geom_point' : "NULL::json AS geom_point";
+        const whereClause = hasGeomPoint ? 'WHERE geom_point IS NOT NULL' : '';
+
         const sql = `
             SELECT id,
                 farm_name,
@@ -100,9 +149,9 @@ app.get('/api/getfeaturesv3/:tb', async (req, res) => {
                 shparea_sqm,
                 classified,
                 ST_AsGeoJSON(geom) AS geom,
-                ST_AsGeoJSON(geom_point) AS geom_point
+                ${geomPointSelect}
             FROM ${tb}
-            WHERE geom_point IS NOT NULL
+            ${whereClause}
         `;
         const result = await pool.query(sql);
         res.status(200).json({ success: true, data: result.rows });
@@ -121,6 +170,16 @@ app.get('/api/getfeaturesv3/:tb/:fid', async (req, res) => {
         if (!tb) return res.status(400).json({ error: 'Table name is required' });
         if (!fid) return res.status(400).json({ error: 'Feature ID is required' });
 
+        const reclassTable = `reclass_${tb}`;
+        const colCheck = await pool.query(
+            "SELECT column_name FROM information_schema.columns WHERE table_name = $1 AND column_name = 'geom_point'",
+            [reclassTable]
+        );
+        const hasGeomPoint = colCheck.rowCount > 0;
+
+        const geomPointSelect = hasGeomPoint ? 'ST_AsGeoJSON(geom_point) AS geom_point' : "NULL::json AS geom_point";
+        const whereClause = hasGeomPoint ? 'WHERE geom_point IS NOT NULL AND id = $1' : 'WHERE id = $1';
+
         const sql = `
             SELECT id, 
                    sub_id, 
@@ -128,9 +187,9 @@ app.get('/api/getfeaturesv3/:tb/:fid', async (req, res) => {
                    app_no, 
                    shpsplit_sqm, 
                    ST_AsGeoJSON(geom) AS geom,
-                   ST_AsGeoJSON(geom_point) AS geom_point
-            FROM reclass_${tb}
-            WHERE geom_point IS NOT NULL AND id = $1
+                   ${geomPointSelect}
+            FROM ${reclassTable}
+            ${whereClause}
         `;
         const result = await pool.query(sql, [fid]);
 
@@ -630,6 +689,19 @@ app.get('/api/getreclassfeatures/:tb', async (req, res) => {
         if (!tb) {
             return res.status(400).json({ error: 'Table name is required' });
         }
+
+        // Auto-add review columns if they don't exist (for older tables)
+        const alterCols = ['check_area', 'check_shape', 'remark', 'reviewer', 'user_remark'];
+        for (const col of alterCols) {
+            await pool.query(`
+                DO $$ BEGIN
+                    ALTER TABLE reclass_${tb} ADD COLUMN ${col} text;
+                EXCEPTION
+                    WHEN duplicate_column THEN NULL;
+                END $$;
+            `);
+        }
+
         const sql = `SELECT a.id,
                     a.sub_id,
                     b.refinal,
@@ -637,10 +709,75 @@ app.get('/api/getreclassfeatures/:tb', async (req, res) => {
                     a.app_no,
                     b.shparea_sqm,
                     a.shpsplit_sqm,
+                    a.check_area,
+                    a.check_shape,
+                    a.remark,
+                    a.reviewer,
+                    a.user_remark,
                     ST_ASGeoJSON(a.geom) AS geom FROM reclass_${tb} a
                 LEFT JOIN ${tb} b
                 ON a.id = b.id
                 WHERE a.geom IS NOT NULL`;
+        const result = await pool.query(sql);
+        res.status(200).json({ success: true, data: result.rows });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// Review/recheck endpoint
+app.put('/api/update_review/:tb', async (req, res) => {
+    try {
+        const tb = req.params.tb;
+        if (!tb) {
+            return res.status(400).json({ error: 'Table name is required' });
+        }
+        const { sub_id, check_area, check_shape, remark, reviewer, user_remark } = req.body;
+        if (!sub_id) {
+            return res.status(400).json({ error: 'sub_id is required' });
+        }
+
+        const sql = `
+            UPDATE reclass_${tb}
+            SET check_area = $1,
+                check_shape = $2,
+                remark = $3,
+                reviewer = $4,
+                user_remark = $5
+            WHERE sub_id = $6
+            RETURNING *`;
+
+        const values = [check_area || null, check_shape || null, remark || null, reviewer || null, user_remark || null, sub_id];
+        const result = await pool.query(sql, values);
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Feature not found' });
+        }
+
+        res.status(200).json({ success: true, data: result.rows });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// GET reshape polygon data for reclassdash map overlay
+app.get('/api/getreshapefeatures/:tb', async (req, res) => {
+    try {
+        const tb = req.params.tb;
+        if (!tb) {
+            return res.status(400).json({ error: 'Table name is required' });
+        }
+
+        const sql = `SELECT id,
+                        app_no,
+                        xls_sqm,
+                        shparea_sqm,
+                        ST_ASGeoJSON(geom) AS geom
+                    FROM ${tb}
+                    WHERE geom IS NOT NULL`;
+
         const result = await pool.query(sql);
         res.status(200).json({ success: true, data: result.rows });
     } catch (err) {
@@ -769,6 +906,10 @@ app.post('/api/create_reclass_layer', async (req, res) => {
                 geom geometry(MultiPolygon,4326),
                 classtype text COLLATE pg_catalog."default",
                 editor text COLLATE pg_catalog."default",
+                check_area text COLLATE pg_catalog."default",
+                check_shape text COLLATE pg_catalog."default",
+                remark text COLLATE pg_catalog."default",
+                reviewer text COLLATE pg_catalog."default",
                 ts timestamp without time zone DEFAULT now()
             )`;
         await pool.query(sql);
@@ -1073,27 +1214,61 @@ app.get('/api/download/reshape/:tb', async (req, res) => {
 
 app.get('/api/users', async (req, res) => {
     try {
+        // Check if users table exists, if not create it
+        const checkTableSql = `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'users')`;
+        const checkResult = await pool.query(checkTableSql);
+        const tableExists = checkResult.rows[0].exists;
+
+        if (!tableExists) {
+            const createTableSql = `
+                CREATE TABLE users (
+                    id SERIAL PRIMARY KEY,
+                    google_id TEXT UNIQUE,
+                    display_name TEXT,
+                    email TEXT,
+                    photo TEXT,
+                    created_at TIMESTAMP DEFAULT NOW()
+                )
+            `;
+            await pool.query(createTableSql);
+        }
+
         const sql = `SELECT * FROM users`;
         const result = await pool.query(sql);
         // console.log(result.rows);
-        if (result.rows.length > 0) {
-            res.status(200).json(result.rows)
-        }
+        res.status(200).json(result.rows);
     } catch (error) {
-        res.status(500).json({ error: err.message });
+        console.error(error);
+        res.status(500).json({ error: error.message });
     }
 })
 
 app.get('/api/layerlist', async (req, res) => {
     try {
+        // Check if layerlist table exists, if not create it
+        const checkTableSql = `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'layerlist')`;
+        const checkResult = await pool.query(checkTableSql);
+        const tableExists = checkResult.rows[0].exists;
+
+        if (!tableExists) {
+            const createTableSql = `
+                CREATE TABLE layerlist (
+                    id SERIAL PRIMARY KEY,
+                    tb_name TEXT NOT NULL,
+                    remark TEXT,
+                    created_at TIMESTAMP DEFAULT NOW()
+                )
+            `;
+            await pool.query(createTableSql);
+        }
+
         const sql = `SELECT * FROM layerlist`;
         const result = await pool.query(sql);
         // console.log(result.rows);
-        if (result.rows.length > 0) {
-            res.status(200).json(result.rows)
-        }
+        res.status(200).json(result.rows);
     } catch (error) {
-        res.status(500).json({ error: err.message });
+        console.error(error);
+        res.status(500).json({ error: error.message });
     }
 })
 
@@ -1260,11 +1435,6 @@ app.post('/api/split', async (req, res) => {
             properties: {}
         }));
 
-        // Wrap as FeatureCollection
-        // res.json({
-        //     type: 'FeatureCollection',
-        //     features
-        // });
 
         res.status(200).json({
             success: true, data: {
@@ -1279,219 +1449,286 @@ app.post('/api/split', async (req, res) => {
     }
 });
 
-
-// app.get('/api/ldd_getprovince', async (req, res) => {
+// app.post('/api/collected_feat', async (req, res) => {
 //     try {
-//         const response_token = await fetch('https://landsmaps.dol.go.th/apiService/JWT/GetJWTAccessToken');
-//         const token = await response_token.json();
-//         const API_TOKEN = token.result[0].access_token;
+//         const { id_list, tb } = req.body;
 
-//         const url = 'https://landsmaps.dol.go.th/apiService/Master/GetProvince';
-//         const response = await fetch(url, {
-//             method: 'GET',
-//             headers: {
-//                 'Authorization': `Bearer ${ API_TOKEN } `,
-//                 'Accept': 'application/json',
-//             }
-//         });
-
-//         if (!response.ok) {
-//             throw new Error(`HTTP error! status: ${ response.status } `);
+//         if (!Array.isArray(id_list) || id_list.length < 2) {
+//             return res.status(400).json({ error: 'ต้องมี polygon อย่างน้อย 2 อัน' });
 //         }
 
-//         const data = await response.json();
-//         res.status(200).json(data);
-//     } catch (error) {
-//         res.status(500).json({ error: error.message });
-//     }
-// })
+//         // รวม geom เฉพาะ rubber
+//         const placeholders = id_list.map((_, i) => `$${i + 1}`).join(', ');
+//         const sql = `
+//             SELECT ST_AsGeoJSON(ST_Union(geom)) AS geom
+//             FROM public.reclass_${tb}
+//             WHERE sub_id IN (${placeholders}) AND classtype = 'rubber'
+//         `;
+//         const result = await pool.query(sql, id_list);
+//         const collectedGeom = JSON.parse(result.rows[0].geom);
 
-// app.get('/api/ldd_getamphur/:province', async (req, res) => {
-//     try {
-//         const province = req.params.province;
-//         if (!province) {
-//             return res.status(400).json({ error: 'Province is required' });
-//         }
-//         const response_token = await fetch('https://landsmaps.dol.go.th/apiService/JWT/GetJWTAccessToken');
-//         const token = await response_token.json();
-//         const API_TOKEN = token.result[0].access_token;
-
-//         const url = `https://landsmaps.dol.go.th/apiService/Master/GetAmphoe/${province}`;
-//         const response = await fetch(url, {
-//             method: 'GET',
-//             headers: {
-//                 'Authorization': `Bearer ${API_TOKEN}`,
-//                 'Accept': 'application/json'
-//             }
-//         });
-
-//         if (!response.ok) {
-//             throw new Error(`HTTP error! status: ${response.status}`);
-//         }
-
-//         const data = await response.json();
-
-//         res.status(200).json(data);
-//     } catch (error) {
-//         res.status(500).json({ error: error.message });
-//     }
-// })
-
-// app.get('/api/ldd_getpacelbypacelnumber/:province/:amphur/:parcelnumber', async (req, res) => {
-//     try {
-//         const { province, amphur, parcelnumber } = req.params;
-
-//         const paramValidation = [
-//             { name: 'province', value: province, pattern: /^[a-zA-Z0-9ก-๙]+$/ },
-//             { name: 'amphur', value: amphur, pattern: /^[a-zA-Z0-9ก-๙]+$/ },
-//             { name: 'parcelnumber', value: parcelnumber, pattern: /^\d+$/ }
-//         ];
-
-//         const errors = paramValidation
-//             .filter(({ value, pattern }) => !value || !pattern.test(value))
-//             .map(({ name }) => `Invalid ${name}`);
-
-//         if (errors.length > 0) {
-//             return res.status(400).json({ errors });
-//         }
-
-//         const tokenResponse = await fetch('https://landsmaps.dol.go.th/apiService/JWT/GetJWTAccessToken');
-//         if (!tokenResponse.ok) throw new Error('Token request failed');
-
-//         const tokenData = await tokenResponse.json();
-//         const API_TOKEN = tokenData?.result?.[0]?.access_token;
-//         if (!API_TOKEN) throw new Error('Invalid token response');
-
-//         const parcelRes = await fetch(
-//             `https://landsmaps.dol.go.th/apiService/LandsMaps/GetParcelByParcelNo/${province}/${amphur}/${parcelnumber}`,
-//             {
-//                 headers: {
-//                     'Authorization': `Bearer ${API_TOKEN}`,
-//                     'Accept': 'application/json'
-//                 }
-//             }
+//         // อัปเดต polygon แรกที่เลือกด้วย geom ใหม่
+//         const keepSubId = id_list[0];
+//         await pool.query(
+//             `UPDATE public.reclass_${tb} SET geom = $1 WHERE sub_id = $2 AND classtype = 'rubber'`,
+//             [collectedGeom, keepSubId]
 //         );
 
-//         if (!parcelRes.ok) throw new Error(`Parcel API failed with status ${parcelRes.status}`);
+//         // ลบ polygon rubber อื่นที่เหลือ
+//         const idsToDelete = id_list.slice(1);
+//         if (idsToDelete.length > 0) {
+//             const delPlaceholders = idsToDelete.map((_, i) => `$${i + 1}`).join(', ');
+//             await pool.query(
+//                 `DELETE FROM public.reclass_${tb} WHERE sub_id IN (${delPlaceholders}) AND classtype = 'rubber'`,
+//                 idsToDelete
+//             );
+//         }
 
-//         const parcelJson = await parcelRes.json();
-//         const parcelInfo = parcelJson?.result?.[0];
-//         if (!parcelInfo) throw new Error('No parcel data found');
-
-//         const geoParams = new URLSearchParams({
-//             viewparams: `utmmap:${parcelInfo.utm1}${parcelInfo.utm2}${parcelInfo.utm3}`,
-//             service: 'WMS',
-//             version: '1.1.1',
-//             request: 'GetFeatureInfo',
-//             layers: 'LANDSMAPS:V_PARCEL47,LANDSMAPS:V_PARCEL48',
-//             bbox: `${parcelInfo.parcellon},${parcelInfo.parcellat},${(Number(parcelInfo.parcellon) + 0.000001).toFixed(6)},${(Number(parcelInfo.parcellat) + 0.000001).toFixed(6)}`,
-//             width: '256',
-//             height: '256',
-//             srs: 'EPSG:4326',
-//             query_layers: 'LANDSMAPS:V_PARCEL47,LANDSMAPS:V_PARCEL48',
-//             info_format: 'application/json',
-//             x: '128',
-//             y: '128'
-//         });
-//         const url = `https://landsmaps.dol.go.th/geoserver/LANDSMAPS/wms?${geoParams}`;
-//         console.log(url)
-//         const geoResponse = await fetch(url);
-//         if (!geoResponse.ok) throw new Error(`Geo API failed with status ${geoResponse.status}`);
-
-//         const geoData = await geoResponse.json();
-//         if (!geoData?.features?.[0]) throw new Error('No geo features found');
-
-//         geoData.features[0].properties = {
-//             ...parcelInfo,
-//             ...geoData.features[0].properties
-//         };
-
-//         res.status(200)
-//             .set('Cache-Control', 'public, max-age=300')
-//             .json(geoData);
+//         res.json({ success: true, geom: collectedGeom });
 
 //     } catch (error) {
-//         console.error(`[${new Date().toISOString()}] Error: ${error.message}`);
-
-//         const statusCode = error.message.includes('failed with status') ? 502 : 500;
-//         res.status(statusCode).json({
-//             error: statusCode === 502 ? 'Upstream service error' : 'Internal server error',
-//             details: process.env.NODE_ENV === 'development' ? error.message : undefined
-//         });
+//         console.error(error);
+//         res.status(500).json({ error: error.message });
 //     }
 // });
 
-// app.get('/api/ldd_getpacelbypacelnumber2/:province/:amphur/:parcelnumber', async (req, res) => {
-//     try {
-//         const province = req.params.province;
-//         const amphur = req.params.amphur;
-//         const parcelnumber = req.params.parcelnumber;
-//         if (!province || !amphur || !parcelnumber) {
-//             return res.status(400).json({ error: 'Province, amphur and parcelnumber are required' });
-//         }
-//         const response_token = await fetch('https://landsmaps.dol.go.th/apiService/JWT/GetJWTAccessToken');
-//         const token = await response_token.json();
-//         const API_TOKEN = token.result[0].access_token;
-//         const url = `https://landsmaps.dol.go.th/apiService/LandsMaps/GetParcelByParcelNo/${province}/${amphur}/${parcelnumber}`;
-//         const response = await fetch(url, {
-//             method: 'GET',
-//             headers: {
-//                 'Authorization': `Bearer ${API_TOKEN}`,
-//                 'Accept': 'application/json'
-//             }
-//         });
-//         if (!response.ok) {
-//             throw new Error(`HTTP error! status: ${response.status}`);
-//         }
+// api/collected_feat
+app.post('/api/collected_feat', async (req, res) => {
+    try {
+        const { id_list, tb, displayName } = req.body;
+        if (!Array.isArray(id_list) || id_list.length < 2) {
+            return res.status(400).json({ success: false, error: 'ต้องมี polygon อย่างน้อย 2 อัน' });
+        }
 
-//         const ressonse_json = await response.json();
-//         // console.log(ressonse_json);
+        const placeholders = id_list.map((_, i) => `$${i + 1}`).join(',');
 
-//         const utm1 = ressonse_json.result[0].utm1;
-//         const utm2 = ressonse_json.result[0].utm2;
-//         const utm3 = ressonse_json.result[0].utm3;
-//         const lat = ressonse_json.result[0].parcellat;
-//         const lng = ressonse_json.result[0].parcellon;
+        // รวม polygon แบบ make valid ก่อน union
+        const sql = `
+            WITH polys AS (
+                SELECT ST_Transform(ST_MakeValid(geom), 32647) AS geom_proj
+                FROM public.reclass_${tb}
+                WHERE sub_id IN (${placeholders}) AND classtype='rubber'
+            )
+            SELECT 
+                ST_AsGeoJSON(ST_Transform(ST_Union(geom_proj), 4326)) AS geom,
+                SUM(ST_Area(geom_proj)) AS shpsplit_sqm
+            FROM polys;
+        `;
 
-//         const urlGeo = `https://landsmaps.dol.go.th/geoserver/LANDSMAPS/wms?viewparams=utmmap:${utm1}${utm2}${utm3}&service=WMS&version=1.1.1&request=GetFeatureInfo&layers=LANDSMAPS:V_PARCEL48&bbox=${lng},${lat},${Number(lng) + 0.000001},${Number(lat) + 0.000001}&width=256&height=256&srs=EPSG:4326&query_layers=LANDSMAPS:V_PARCEL48&info_format=application/json&x=103&y=85`;
+        const result = await pool.query(sql, id_list);
 
-//         const response_feat = await fetch(urlGeo);
+        if (!result.rows[0] || !result.rows[0].geom) {
+            return res.status(400).json({ success: false, error: 'ไม่สามารถรวม polygon ได้ (ตรวจสอบ polygon ใน DB หรือ geometry invalid)' });
+        }
 
-//         if (!response_feat.ok) {
-//             throw new Error(`HTTP error! status: ${response_feat.status}`);
-//         }
-//         const data_feat = await response_feat.json();
-//         data_feat.features[0].properties = ressonse_json.result[0];
+        const geomJSON = JSON.parse(result.rows[0].geom);
+        const area = Number(result.rows[0].shpsplit_sqm.toFixed(2));
 
-//         res.status(200).json(data_feat);
-//     } catch (error) {
-//         res.status(500).json({ error: error.message });
-//     }
-// })
+        // อัปเดต polygon แรก
+        await pool.query(
+            `UPDATE public.reclass_${tb}
+             SET geom = ST_SetSRID(ST_GeomFromGeoJSON($1), 4326),
+                 shpsplit_sqm = $2,
+                 editor = $3
+             WHERE sub_id = $4 AND classtype='rubber'`,
+            [JSON.stringify(geomJSON), area, displayName, id_list[0]]
+        );
+
+        // ลบ polygon อื่น
+        const idsToDelete = id_list.slice(1);
+        if (idsToDelete.length > 0) {
+            const delPlaceholders = idsToDelete.map((_, i) => `$${i + 1}`).join(',');
+            await pool.query(
+                `DELETE FROM public.reclass_${tb} WHERE sub_id IN (${delPlaceholders}) AND classtype='rubber'`,
+                idsToDelete
+            );
+        }
+
+        res.json({ success: true, geom: geomJSON, shpsplit_sqm: area });
+
+    } catch (err) {
+        console.error('Collected_feat error:', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
 
 
-// app.post('/api/ldd_loadwms', async (req, res) => {
-//     try {
-//         const { urlText } = req.body;
-//         console.log(urlText);
 
-//         const response_feat = await fetch(urlText);
+// Multer configuration for file upload
+const upload = multer({ dest: 'uploads/' });
 
-//         if (!response_feat.ok) {
-//             throw new Error(`HTTP error! status: ${response_feat.status}`);
-//         }
-//         const data_feat = await response_feat.json();
+// Upload Shapefile endpoint
+app.post('/api/upload-shapefile', upload.single('shpFile'), async (req, res) => {
+    const { tb_name, remark } = req.body;
+    const zipFilePath = req.file.path;
 
-//         console.log(data_feat);
+    if (!tb_name || !zipFilePath) {
+        return res.status(400).json({ error: 'Table name and shapefile are required' });
+    }
 
-//         data_feat.features[0].properties = ressonse_json.result[0];
+    const extractDir = path.join('uploads', `extract_${Date.now()}`);
 
-//         res.status(200).json(data_feat);
-//     } catch (error) {
-//         res.status(500).json({ error: error.message });
-//     }
-// })
+    try {
+        // Extract ZIP file
+        await fs.promises.mkdir(extractDir, { recursive: true });
+        await new Promise((resolve, reject) => {
+            fs.createReadStream(zipFilePath)
+                .pipe(unzipper.Extract({ path: extractDir }))
+                .on('close', resolve)
+                .on('error', reject);
+        });
 
+        // Find shapefile files
+        const files = fs.readdirSync(extractDir);
+        const shpFile = files.find(f => f.endsWith('.shp'));
+        const dbfFile = files.find(f => f.endsWith('.dbf'));
+
+        if (!shpFile) {
+            throw new Error('No .shp file found in the ZIP');
+        }
+
+        const shpPath = path.join(extractDir, shpFile);
+        const dbfPath = dbfFile ? path.join(extractDir, dbfFile) : null;
+
+        // Read shapefile
+        const source = await shapefile.open(shpPath, dbfPath);
+        const features = [];
+
+        let result = await source.read();
+        while (!result.done) {
+            features.push(result.value);
+            result = await source.read();
+        }
+
+        if (features.length === 0) {
+            throw new Error('No features found in shapefile');
+        }
+
+        // Determine geometry type
+        const geomType = features[0].geometry.type;
+        if (!geomType) {
+            throw new Error('Invalid geometry type in shapefile');
+        }
+        let geometryType;
+        if (geomType === 'Point') {
+            geometryType = 'GEOMETRY(Point, 4326)';
+        } else if (geomType === 'MultiPoint') {
+            geometryType = 'GEOMETRY(MultiPoint, 4326)';
+        } else if (geomType === 'LineString' || geomType === 'MultiLineString') {
+            geometryType = 'GEOMETRY(MultiLineString, 4326)';
+        } else if (geomType === 'Polygon' || geomType === 'MultiPolygon') {
+            geometryType = 'GEOMETRY(MultiPolygon, 4326)';
+        } else {
+            geometryType = 'GEOMETRY(Geometry, 4326)';
+        }
+
+        // Create table
+        const createTableSql = `
+            CREATE TABLE ${tb_name} (
+                id SERIAL PRIMARY KEY,
+                geom ${geometryType},
+                geom_point GEOMETRY(Point, 4326),
+                shparea_sqm NUMERIC,
+                xls_sqm NUMERIC,
+                app_no TEXT,
+                farm_name TEXT,
+                f_name TEXT,
+                l_name TEXT,
+                age NUMERIC,
+                refinal TEXT,
+                classified BOOLEAN DEFAULT FALSE,
+                shparea_sqm_geom NUMERIC,
+                editor TEXT,
+                ts TIMESTAMP DEFAULT NOW()
+            )
+        `;
+        await pool.query(createTableSql);
+
+        // Insert features
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            for (const feature of features) {
+                const geom = JSON.stringify(feature.geometry);
+                const properties = feature.properties || {};
+
+                // Calculate centroid for geom_point
+                let geomPointSql = 'ST_Centroid(ST_SetSRID(ST_GeomFromGeoJSON($1), 4326))';
+                let areaSql = 'NULL';
+                if (geomType.includes('Polygon')) {
+                    areaSql = 'ST_Area(ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON($1), 4326), 32647))';
+                }
+
+                const insertSql = `
+                    INSERT INTO ${tb_name} (
+                        geom, geom_point, shparea_sqm, app_no, farm_name, f_name, l_name, age, refinal
+                    ) VALUES (
+                        ST_SetSRID(ST_GeomFromGeoJSON($1), 4326),
+                        ${geomPointSql},
+                        ${areaSql},
+                        $2, $3, $4, $5, $6, $7
+                    )
+                `;
+                await client.query(insertSql, [
+                    geom,
+                    properties.app_no || null,
+                    properties.farm_name || null,
+                    properties.f_name || null,
+                    properties.l_name || null,
+                    properties.age || null,
+                    properties.refinal || null
+                ]);
+            }
+
+            await client.query('COMMIT');
+
+            // Add to layerlist
+            const layerlistSql = `
+                INSERT INTO layerlist (tb_name, remark)
+                VALUES ($1, $2)
+                ON CONFLICT (tb_name) DO NOTHING
+            `;
+            await pool.query(layerlistSql, [tb_name, remark]);
+
+            // Create reclass table
+            const createReclassSql = `
+                CREATE TABLE reclass_${tb_name} (
+                    fid SERIAL PRIMARY KEY,
+                    id INTEGER,
+                    sub_id TEXT,
+                    app_no TEXT,
+                    shpsplit_sqm NUMERIC,
+                    geom ${geometryType},
+                    classtype TEXT DEFAULT '${geomType.includes('Point') ? 'point' : 'rubber'}',
+                    editor TEXT,
+                    ts TIMESTAMP DEFAULT NOW()
+                )
+            `;
+            await pool.query(createReclassSql);
+
+            res.json({ success: true, message: 'Shapefile uploaded and processed successfully', recordCount: features.length });
+
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
+
+    } catch (error) {
+        console.error('Upload error:', error);
+        res.status(500).json({ error: error.message });
+    } finally {
+        // Cleanup
+        if (fs.existsSync(extractDir)) {
+            fs.rmSync(extractDir, { recursive: true, force: true });
+        }
+        if (req.file && fs.existsSync(req.file.path)) {
+            fs.unlinkSync(req.file.path);
+        }
+    }
+});
 
 // export module
 module.exports = app;

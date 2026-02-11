@@ -193,28 +193,62 @@ function showFeaturePanel(feature, layer) {
 
 
 const getFeatureStyle = (feature) => {
+    let color, fillOpacity;
 
-    const color = feature.properties.classtype === 'rubber'
-        ? '#006d2c'
-        : feature.properties.classtype === 'non-rubber'
-            ? '#d7191c'
-            : feature.properties.classtype === 'other'
-                ? '#ff00ff'
-                : feature.properties.classtype === 'not-rubber'
-                    ? '#1683ffff'
-                    : '#fdae61';
+    switch (feature.properties.classtype) {
+        case 'rubber':
+            color = '#006d2c'; // ยางพาราที่ลงทะเบียน
+            fillOpacity = 0.2;
+            break;
+        case 'non-rubber':
+            color = '#d7191c'; // ไม่ใช่ยางพารา
+            fillOpacity = 0.2;
+            break;
+        case 'other':
+            color = '#ff00ff'; // ยางพาราที่ไม่ได้ลงทะเบียน
+            fillOpacity = 0.2;
+            break;
+        case 'A':
+            color = '#7d61fdff'// พื้นที่กันออกย่อย A
+            fillOpacity = 0.2;
+            break;
+        case 'B':
+            color = '#ffbb00ff'; // พื้นที่กันออกย่อย B
+            fillOpacity = 0.2;
+            break;
+        case 'C':
+            color = '#00ffddff'; // พื้นที่กันออกย่อย C
+            fillOpacity = 0.2;
+            break;
+        case 'D':
+            color = '#ff009dff'; // พื้นที่กันออกย่อย D
+            fillOpacity = 0.2;
+            break;
+        case 'not-rubber':
+            color = '#dee3e7ff'; // พื้นที่กันออกหลัก
+            fillOpacity = 0;    // ไม่เติมสี
+            break;
+        default:
+            color = '#fdae61'; // สี default
+            fillOpacity = 0.2;
+    }
+
+
     return {
         fillColor: color,
         weight: 2,
         opacity: 1,
         color: 'white',
         dashArray: '3',
-        fillOpacity: 0.2
+        fillOpacity: fillOpacity
     };
 };
 
+
 var selectedPolygon = null;
 let highlightedLayer = null; // Track the currently highlighted layer
+let mergeMode = false; // Track merge mode state
+let selectedPolygonsForMerge = []; // Track polygons selected for merge
 
 function onEachFeature(feature, layer) {
     featureGroup.addLayer(layer);
@@ -222,6 +256,35 @@ function onEachFeature(feature, layer) {
 
     layer.on({
         click: function (e) {
+            // ถ้าเข้าโหมด Merge ให้เพิ่ม/ลบจากรายการแทน
+            if (mergeMode) {
+                const subId = feature.properties.sub_id;
+                const index = selectedPolygonsForMerge.findIndex(p => p.subId === subId);
+
+                if (index === -1) {
+                    // เพิ่มเข้ารายการ
+                    selectedPolygonsForMerge.push({
+                        layer: layer,
+                        feature: feature,
+                        subId: subId
+                    });
+                    layer.setStyle({
+                        weight: 4,
+                        color: '#ffff00',
+                        dashArray: '5,5',
+                        fillOpacity: 0.4
+                    });
+                } else {
+                    // ลบออกจากรายการ
+                    selectedPolygonsForMerge.splice(index, 1);
+                    resetHighlight({ target: layer });
+                }
+
+                updateMergeList();
+                return;
+            }
+
+            // Normal selection mode
             selectedPolygon = layer;
             showFeaturePanel(feature, layer);
             if (highlightedLayer === e.target) {
@@ -327,6 +390,38 @@ const handleLayerCreate = (e) => {
 };
 
 
+// ฟังก์ชันอัพเดตรายการ polygon ที่เลือก
+function updateMergeList() {
+    const listDiv = document.getElementById('selectedPolygonsList');
+
+    if (selectedPolygonsForMerge.length === 0) {
+        listDiv.innerHTML = '<small class="text-muted">ยังไม่มี polygon ที่เลือก</small>';
+        document.getElementById('collectedBtn').disabled = true;
+    } else {
+        let html = '<ul class="list-group">';
+        selectedPolygonsForMerge.forEach((item, idx) => {
+            html += `<li class="list-group-item d-flex justify-content-between align-items-center">
+                <span>${item.subId} (${Number(item.feature.properties.shpsplit_sqm || 0).toFixed(0)} m²)</span>
+                <button class="btn btn-sm btn-danger" onclick="removeFromMergeList(${idx})">ลบ</button>
+            </li>`;
+        });
+        html += '</ul>';
+        listDiv.innerHTML = html;
+
+        // เปิด button Merge ถ้าเลือก 2 ตัวขึ้นไป
+        document.getElementById('collectedBtn').disabled = selectedPolygonsForMerge.length < 2;
+    }
+}
+
+// ฟังก์ชันลบ polygon ออกจากรายการ
+function removeFromMergeList(index) {
+    const item = selectedPolygonsForMerge[index];
+    resetHighlight({ target: item.layer });
+    selectedPolygonsForMerge.splice(index, 1);
+    updateMergeList();
+}
+
+
 
 
 function enableEditAndListen(layer) {
@@ -352,8 +447,17 @@ const legend = L.control({ position: 'bottomright' });
 
 legend.onAdd = function (map) {
     const div = L.DomUtil.create('div', 'legend'),
-        categories = ['rubber', 'not-rubber', 'other', 'non-rubber',],
-        labels = ['ยางพาราที่ลงทะเบียน', 'พื้นที่กันออก', 'ยางพาราที่ไม่ได้ลงทะเบียน', 'ไม่ใช่ยางพารา'];
+        categories = ['rubber', 'other', 'non-rubber', 'A', 'B', 'C', 'D'],
+        labels = [
+            'ยางพาราที่ลงทะเบียน',
+            'ยางพาราที่ไม่ได้ลงทะเบียน',
+            'ไม่ใช่ยางพารา',
+            'พื้นที่กันออก A',
+            'พื้นที่กันออก B',
+            'พื้นที่กันออก C',
+            'พื้นที่กันออก D'
+        ];
+
 
     for (let i = 0; i < categories.length; i++) {
         const dummy = { properties: { classtype: categories[i] } },
@@ -508,6 +612,35 @@ document.getElementById('v3').addEventListener('click', (e) => {
     window.location.href = './../testv3/index.html?tb=' + tb;
 });
 
+// Event listener สำหรับ Merge Mode
+document.getElementById('mergeModeBtn').addEventListener('click', () => {
+    mergeMode = !mergeMode;
+
+    if (mergeMode) {
+        // เข้าโหมด Merge
+        document.getElementById('mergePanel').style.display = 'block';
+        document.getElementById('mergeModeBtn').textContent = 'เข้าโหมด Merge อยู่';
+        document.getElementById('mergeModeBtn').classList.add('active');
+        selectedPolygonsForMerge = [];
+        updateMergeList();
+    } else {
+        // ออกจากโหมด Merge
+        document.getElementById('mergePanel').style.display = 'none';
+        document.getElementById('mergeModeBtn').textContent = 'เข้าโหมด Merge';
+        document.getElementById('mergeModeBtn').classList.remove('active');
+
+        // รีเซ็ต highlight
+        selectedPolygonsForMerge.forEach(item => {
+            resetHighlight({ target: item.layer });
+        });
+        selectedPolygonsForMerge = [];
+    }
+});
+
+document.getElementById('exitMergeBtn').addEventListener('click', () => {
+    document.getElementById('mergeModeBtn').click();
+});
+
 const initApp = async () => {
     try {
         const urlParams = new URLSearchParams(window.location.search);
@@ -563,4 +696,163 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error('Failed to fetch user:', err);
     }
 });
+
+// //collected_feat
+// document.getElementById('collectedBtn').addEventListener('click', async () => {
+//     const tb = document.getElementById('tb').value;
+//     const displayName = document.getElementById('displayName').value;
+
+//     // ดึง id_list จาก input และแปลงเป็น array
+//     const idInput = document.getElementById('collectedIds').value;
+//     if (!idInput) {
+//         alert('กรุณากรอก SubID อย่างน้อย 2 ค่า');
+//         return;
+//     }
+
+//     const id_list = idInput.split(',').map(s => s.trim());
+//     if (id_list.length < 2) {
+//         alert('ต้องเลือก polygon อย่างน้อย 2 อันเพื่อรวม');
+//         return;
+//     }
+
+//     try {
+//         // ส่งไป backend
+//         const res = await fetch('/rub/api/collected_feat', {
+//             method: 'POST',
+//             headers: { 'Content-Type': 'application/json' },
+//             body: JSON.stringify({ id_list, tb, displayName })
+//         });
+
+//         const data = await res.json();
+//         if (data.success) {
+//             // ลบเฉพาะ polygon rubber เดิม ไม่กระทบ polygon ประเภทอื่น
+//             featureGroup.eachLayer(layer => {
+//                 if (layer.feature?.properties?.classtype === 'rubber') {
+//                     featureGroup.removeLayer(layer);
+//                 }
+//             });
+
+//             // สร้าง polygon ใหม่จาก geom ที่ backend คืน
+//             const collectedFeature = {
+//                 type: 'Feature',
+//                 geometry: data.geom,
+//                 properties: {
+//                     sub_id: id_list[0],
+//                     classtype: 'rubber',
+//                 }
+//             };
+
+//             const newLayer = L.geoJson(collectedFeature, {
+//                 style: getFeatureStyle,
+//                 onEachFeature: onEachFeature
+//             }).addTo(featureGroup);
+
+//             // คำนวณพื้นที่สำหรับ polygon ใหม่
+//             newLayer.eachLayer(async (layer) => {
+//                 await updateAreaDisplay(layer);
+//             });
+
+//             // เก็บ reference ของ polygon ที่เลือกล่าสุด
+//             selectedPolygon = newLayer.getLayers()[0];
+
+//             // แสดง popup success
+//             L.popup()
+//                 .setLatLng(map.getCenter())
+//                 .setContent('รวม polygon rubber สำเร็จ!')
+//                 .openOn(map);
+
+//         } else {
+//             alert('Collected failed: ' + data.error);
+//         }
+//     } catch (err) {
+//         console.error(err);
+//         alert('เกิดข้อผิดพลาดขณะรวม polygon');
+//     }
+// });
+
+document.getElementById('collectedBtn').addEventListener('click', async () => {
+    if (selectedPolygonsForMerge.length < 2) {
+        alert('กรุณาเลือก polygon อย่างน้อย 2 ตัว');
+        return;
+    }
+
+    const tb = document.getElementById('tb').value;
+    const displayName = document.getElementById('displayName').value;
+    const id_list = selectedPolygonsForMerge.map(p => p.subId);
+
+    try {
+        const res = await fetch('/rub/api/collected_feat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_list, tb, displayName })
+        });
+
+        const data = await res.json();
+
+        if (!data.success) {
+            alert('Merge failed: ' + data.error);
+            return;
+        }
+
+        // ลบ polygon rubber เดิมทั้งหมด
+        const layersToRemove = [];
+        featureGroup.eachLayer(layer => {
+            if (layer.feature?.properties?.classtype === 'rubber') {
+                layersToRemove.push(layer);
+            }
+        });
+        layersToRemove.forEach(layer => featureGroup.removeLayer(layer));
+
+        // สร้าง polygon ใหม่
+        const collectedFeature = {
+            type: 'Feature',
+            geometry: data.geom,
+            properties: {
+                sub_id: id_list[0],
+                classtype: 'rubber',
+                shpsplit_sqm: Number(data.shpsplit_sqm) || 0
+            }
+        };
+
+        const newLayer = L.geoJson(collectedFeature, {
+            style: getFeatureStyle,
+            onEachFeature: onEachFeature
+        }).addTo(featureGroup);
+
+        // แสดงพื้นที่ในตาราง (pure JS)
+        newLayer.eachLayer(layer => {
+            const row = document.querySelector(`#row_${layer.feature.properties.sub_id}`);
+            if (row) {
+                const area = Number(layer.feature.properties.shpsplit_sqm) || 0;
+                // td index 4
+                const cells = row.getElementsByTagName('td');
+                if (cells.length > 4) {
+                    cells[4].textContent = area.toFixed(0);
+                }
+            }
+        });
+
+        // รีเซ็ต merge mode
+        mergeMode = false;
+        selectedPolygonsForMerge = [];
+        document.getElementById('mergePanel').style.display = 'none';
+        document.getElementById('mergeModeBtn').textContent = 'เข้าโหมด Merge';
+        updateMergeList();
+
+        // แสดง popup ยืนยัน
+        L.popup()
+            .setLatLng(map.getCenter())
+            .setContent('รวม polygon rubber สำเร็จ!')
+            .openOn(map);
+
+    } catch (err) {
+        console.error(err);
+        alert('เกิดข้อผิดพลาดขณะรวม polygon: ' + err.message);
+    }
+});
+
+
+
+
+
 
