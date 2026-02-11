@@ -49,6 +49,8 @@ services:
       - DB_USER=postgres
       - DB_PASSWORD=rub1234
       - DB_NAME=rub
+    env_file:
+      - .env
 
     depends_on:
       - postgis
