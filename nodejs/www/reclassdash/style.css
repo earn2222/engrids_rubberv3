@@ -417,7 +417,51 @@ hr {
 
 /* ===== Highcharts Container ===== */
 #container,
-#count-rai {
+#count-rai,
+#areaCompareChart {
     border-radius: 14px;
     overflow: hidden;
+}
+
+/* ===== Table Data Styling ===== */
+.area-num {
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+    font-size: 0.9rem;
+    color: #2e3a2e;
+}
+
+.area-target {
+    color: #c2185b; /* Crimson/Dark Pink to distinguish from orange */
+    font-weight: 700;
+}
+
+.area-yang {
+    color: #ef6c00; /* Darker orange for emphasis */
+    font-weight: 600;
+}
+
+/* ===== Delete Button ===== */
+.btn-delete-row {
+    background: linear-gradient(135deg, #ef5350, #c62828);
+    border: none;
+    color: #fff;
+    padding: 0.25rem 0.6rem;
+    font-size: 0.85rem;
+    box-shadow: 0 2px 6px rgba(244, 67, 54, 0.2);
+    border-radius: 8px;
+    transition: all 0.25s ease;
+}
+
+.btn-delete-row:hover {
+    background: linear-gradient(135deg, #e53935, #d32f2f);
+    box-shadow: 0 4px 12px rgba(244, 67, 54, 0.35);
+    transform: translateY(-1px);
+    color: #fff;
+}
+
+.btn-delete-row:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
 }

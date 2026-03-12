@@ -117,15 +117,15 @@ const getFeatureStyle = (feature) => {
             ? '#d7191c'
             : feature.properties.classtype === 'other'
                 ? '#ff00ff'
-                : feature.properties.classtype === 'A'
+                : feature.properties.classtype === 'พื้นที่กันออก (บ่อน้ำ)'
                     ? '#7d61fdff'
-                    : feature.properties.classtype === 'B'
+                    : feature.properties.classtype === 'พื้นที่กันออก (สิ่งปกคลุมดินอื่นๆ)'
                         ? '#ffbb00ff'
-                        : feature.properties.classtype === 'C'
+                        : feature.properties.classtype === 'พื้นที่กันออก (สิ่งปลูกสร้าง)'
                             ? '#00ffddff'
-                            : feature.properties.classtype === 'D'
+                            : feature.properties.classtype === 'พื้นที่กันออก (ลำน้ำ)'
                                 ? '#ff009dff'
-                                : feature.properties.classtype === 'E'
+                                : feature.properties.classtype === 'พื้นที่กันออก (ยางพาราไม่ลงทะเบียน)'
                                     ? '#003cffff'
                                     : feature.properties.classtype === 'not-rubber'
                                         ? 'transparent'   // ไม่มีสี
@@ -171,6 +171,10 @@ const loadGeoData = async () => {
             refinal: item.refinal,
             geom: JSON.parse(item.geom),
             app_no: item.app_no,
+            farm_name: item.farm_name || '',
+            age: item.age || '',
+            sqm_pacel: item.sqm_pacel || 0,
+            sqm_yang: item.sqm_yang || 0,
             shparea_sqm: item.shparea_sqm,
             shpsplit_sqm: item.shpsplit_sqm,
             classtype: item.classtype,
@@ -183,51 +187,71 @@ const loadGeoData = async () => {
 
         const dataTable = $('#featureTable').DataTable({
             data: tableData,
+            scrollX: true,
             columns: [
                 {
                     data: null,
                     title: 'Zoom',
+                    orderable: false,
                     render: (data, type, row) => {
                         const _geojson = JSON.stringify(row.geom);
-                        return `<a class="btn btn-success map-btn" 
+                        return `<a class="btn btn-success btn-sm map-btn" 
                                     data-refid="${row.id}" 
                                     data-geojson='${_geojson}'
-                                    href="#">
-                                    <em class="icon ni ni-zoom-in"></em>&nbsp;ซูม
-                                </a>`
+                                    href="#"><i class="bi bi-zoom-in"></i> ซูม</a>`
                     }
                 },
                 { data: 'app_no', title: 'Application No' },
-                { data: 'id', title: 'id' },
+                { data: 'id', title: 'ID' },
+                {
+                    data: 'farm_name',
+                    title: 'ชื่อเกษตรกร',
+                    render: (data) => data ? `<span title="${data}">${data}</span>` : '<span class="text-muted">-</span>'
+                },
+                {
+                    data: 'age',
+                    title: 'อายุ (ปี)',
+                    render: (data) => data ? `<b>${Number(data).toFixed(0)}</b>` : '<span class="text-muted">-</span>'
+                },
+                {
+                    data: 'sqm_pacel',
+                    title: 'เนื้อที่เป้าหมายโฉนด (m²)',
+                    render: (data) => `<span class="area-num area-target">${Number(data).toLocaleString('th-TH', { maximumFractionDigits: 0 })}</span>`
+                },
                 {
                     data: 'shparea_sqm',
-                    title: 'เนื้อที่โฉนด (m²)',
-                    render: (data) => {
-                        return Number(data).toFixed(0);
-                    }
+                    title: 'เนื้อที่ขณะนี้โฉนด (m²)',
+                    render: (data) => `<span class="area-num">${Number(data).toLocaleString('th-TH', { maximumFractionDigits: 0 })}</span>`
+                },
+                {
+                    data: 'sqm_yang',
+                    title: 'เนื้อที่ยางพารา (m²)',
+                    render: (data) => `<span class="area-num area-yang">${Number(data).toLocaleString('th-TH', { maximumFractionDigits: 0 })}</span>`
                 },
                 {
                     data: 'shpsplit_sqm',
-                    title: 'เนื้อที่ส่วนนี้ (m²)',
-                    render: (data) => {
-                        return Number(data).toFixed(0);
-                    }
+                    title: 'เนื้อที่ขณะนี้แยกประเภท (m²)',
+                    render: (data) => `<span class="area-num">${Number(data).toLocaleString('th-TH', { maximumFractionDigits: 0 })}</span>`
                 },
                 {
                     data: 'classtype',
                     title: 'ประเภท',
                     render: (data) => {
-
-                        return data === 'rubber' ? 'แปลงยาง'
-                            : data === 'not-rubber' ? 'พื้นที่กันออก'
-                                : data === 'other' ? 'ยางพาราที่ไม่ได้ลงทะเบียน'
-                                    : data === 'non-rubber' ? 'ไม่ใช่ยางพารา'
-                                        : data === 'A' ? 'พื้นที่กันออก (บ่อน้ำ)'
-                                            : data === 'B' ? 'พื้นที่กันออก (สิ่งปกคลุมดินอื่นๆ)'
-                                                : data === 'C' ? 'พื้นที่กันออก (สิ่งปลูกสร้าง)'
-                                                    : data === 'D' ? 'พื้นที่กันออก (ลำน้ำ)'
-                                                        : data === 'E' ? 'พื้นที่กันออก (ยางพาราไม่ลงทะเบียน)'
-                                                            : 'อื่นๆ';
+                        const labelMap = {
+                            'rubber': 'แปลงยาง', 'not-rubber': 'พื้นที่กันออก',
+                            'other': 'ยางพาราไม่ลงทะเบียน', 'non-rubber': 'ไม่ใช่ยางพารา',
+                            'A': 'กันออก (บ่อน้ำ)', 'B': 'กันออก (สิ่งปกคลุม)',
+                            'C': 'กันออก (สิ่งปลูกสร้าง)', 'D': 'กันออก (ลำน้ำ)',
+                            'E': 'กันออก (ยางไม่ลงทะเบียน)'
+                        };
+                        const colorMap = {
+                            'rubber': '#2e7d32', 'not-rubber': '#757575', 'other': '#e91e63',
+                            'non-rubber': '#d32f2f', 'A': '#7d61fd', 'B': '#f9a825',
+                            'C': '#00838f', 'D': '#1565c0', 'E': '#6a1b9a'
+                        };
+                        const label = labelMap[data] || 'อื่นๆ';
+                        const c = colorMap[data] || '#90a4ae';
+                        return `<span class="classtype-badge" style="background:${c}18;color:${c};border:1px solid ${c}55;padding:2px 7px;border-radius:999px;font-size:0.78rem;font-weight:600;white-space:nowrap">${label}</span>`;
                     }
                 },
                 {
@@ -299,6 +323,16 @@ const loadGeoData = async () => {
                     render: (data, type, row) => {
                         return `<button class="btn btn-sm btn-save-review" data-subid="${row.sub_id}">
                                     <i class="bi bi-floppy"></i> บันทึก
+                                </button>`;
+                    }
+                },
+                {
+                    data: null,
+                    title: 'ลบ',
+                    orderable: false,
+                    render: (data, type, row) => {
+                        return `<button class="btn btn-sm btn-delete-row" data-subid="${row.sub_id}" data-parentid="${row.id}" title="ลบแถวนี้">
+                                    <i class="bi bi-trash3-fill"></i>
                                 </button>`;
                     }
                 },
@@ -438,6 +472,31 @@ const loadGeoData = async () => {
             }
         });
 
+        // Delete row handler
+        $('#featureTable tbody').on('click', '.btn-delete-row', async function () {
+            const btn = $(this);
+            const subId = btn.data('subid');
+            const tb = document.getElementById('tb').value;
+            if (!confirm(`ยืนยันลบรายการ sub_id: ${subId} ใช่หรือไม่?`)) return;
+            btn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i>');
+            try {
+                const res = await fetch(`/rub/api/delete_reclass_feature/${tb}/${subId}`, {
+                    method: 'DELETE'
+                });
+                const result = await res.json();
+                if (result.success) {
+                    const row = btn.closest('tr');
+                    dataTable.row(row).remove().draw();
+                } else {
+                    alert('ลบไม่สำเร็จ: ' + (result.error || 'Unknown error'));
+                    btn.prop('disabled', false).html('<i class="bi bi-trash3-fill"></i>');
+                }
+            } catch (err) {
+                alert('เกิดข้อผิดพลาด: ' + err.message);
+                btn.prop('disabled', false).html('<i class="bi bi-trash3-fill"></i>');
+            }
+        });
+
     } catch (error) {
         console.error('Error loading data:', error);
         alert('Failed to load spatial data');
@@ -448,15 +507,16 @@ const legend = L.control({ position: 'bottomright' });
 
 legend.onAdd = function (map) {
     const div = L.DomUtil.create('div', 'legend'),
-        categories = ['rubber', 'other', 'non-rubber', 'A', 'B', 'C', 'D'],
+        categories = ['rubber', 'other', 'non-rubber', 'พื้นที่กันออก (บ่อน้ำ)', 'พื้นที่กันออก (สิ่งปกคลุมดินอื่นๆ)', 'พื้นที่กันออก (สิ่งปลูกสร้าง)', 'พื้นที่กันออก (ลำน้ำ)', 'พื้นที่กันออก (ยางพาราไม่ลงทะเบียน)'],
         labels = [
             'ยางพาราที่ลงทะเบียน',
             'ยางพาราที่ไม่ได้ลงทะเบียน',
             'ไม่ใช่ยางพารา',
-            'พื้นที่กันออก A',
-            'พื้นที่กันออก B',
-            'พื้นที่กันออก C',
-            'พื้นที่กันออก D',
+            'พื้นที่กันออก (บ่อน้ำ)',
+            'พื้นที่กันออก (สิ่งปกคลุมดินอื่นๆ)',
+            'พื้นที่กันออก (สิ่งปลูกสร้าง)',
+            'พื้นที่กันออก (ลำน้ำ)',
+            'พื้นที่กันออก (ยางพาราไม่ลงทะเบียน)',
             'ขอบเขต Reshape'
         ];
 
@@ -590,7 +650,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 dataLabels: { enabled: true, format: '{y}' }
             }],
             credits: { enabled: false },
-            legend: { enabled: false }
         });
 
     } catch (err) {

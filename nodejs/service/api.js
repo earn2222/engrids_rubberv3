@@ -715,6 +715,10 @@ app.get('/api/getreclassfeatures/:tb', async (req, res) => {
                     b.refinal,
                     a.classtype, 
                     a.app_no,
+                    CONCAT_WS(' ', b.f_name, b.l_name) AS farm_name,
+                    b.age,
+                    b.sqm_pacel,
+                    b.sqm_yang,
                     b.shparea_sq AS shparea_sqm,
                     a.shpsplit_sqm,
                     a.check_area,
@@ -764,6 +768,25 @@ app.put('/api/update_review/:tb', async (req, res) => {
         }
 
         res.status(200).json({ success: true, data: result.rows });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// DELETE a single reclass feature by sub_id
+app.delete('/api/delete_reclass_feature/:tb/:sub_id', async (req, res) => {
+    try {
+        const { tb, sub_id } = req.params;
+        if (!tb || !sub_id) {
+            return res.status(400).json({ error: 'Table name and sub_id are required' });
+        }
+        const sql = `DELETE FROM reclass_${tb} WHERE sub_id = $1 RETURNING sub_id`;
+        const result = await pool.query(sql, [sub_id]);
+        if (result.rowCount === 0) {
+            return res.status(404).json({ success: false, error: 'Feature not found' });
+        }
+        res.status(200).json({ success: true, deleted: sub_id });
     } catch (err) {
         console.error(err);
         res.status(500).json({ success: false, error: err.message });
