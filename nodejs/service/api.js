@@ -83,13 +83,13 @@ app.get('/api/getfeatures/:tb/:fid', async (req, res) => {
             sql = `SELECT r.id, 
                         r.sub_id, 
                         r.classtype, 
-                        r.app_no, 
+                        r.id_farmer, 
                         r.shpsplit_sqm, 
                         t.sqm_yang,
                         ST_ASGeoJSON(r.geom) AS geom,
                         ST_ASGeoJSON(st_makepoint(100, 18)) AS geom_point
                     FROM ${reclassTableName} r
-                    JOIN ${tb} t ON r.app_no = t.id_farmer
+                    JOIN ${tb} t ON r.id_farmer = t.id_farmer
                     WHERE r.geom IS NOT NULL AND r.id = $1`;
             values = [fid];
         } else {
@@ -97,7 +97,7 @@ app.get('/api/getfeatures/:tb/:fid', async (req, res) => {
             sql = `SELECT id, 
                         id as sub_id, 
                         'rubber' as classtype, 
-                        id_farmer as app_no, 
+                        id_farmer, 
                         shparea_sq as shpsplit_sqm, 
                         sqm_yang,
                         ST_ASGeoJSON(geom) AS geom,
@@ -183,7 +183,7 @@ app.get('/api/getfeaturesv3/:tb/:fid', async (req, res) => {
             SELECT id, 
                    sub_id, 
                    classtype, 
-                   app_no, 
+                   id_farmer, 
                    shpsplit_sqm, 
                    ST_AsGeoJSON(geom) AS geom,
                    ${geomPointSelect}
@@ -714,8 +714,7 @@ app.get('/api/getreclassfeatures/:tb', async (req, res) => {
                     a.sub_id,
                     b.refinal,
                     a.classtype, 
-                    a.app_no,
-                    b.id_farmer,
+                    a.id_farmer,
                     CONCAT_WS(' ', b.f_name, b.l_name) AS farm_name,
                     b.age,
                     b.sqm_pacel,
@@ -886,11 +885,11 @@ app.post('/api/create_reclass_feature/:tb', async (req, res) => {
                 WHERE id = $1
                 RETURNING id  
             )
-            INSERT INTO reclass_${tb} (id, sub_id, app_no, shpsplit_sqm, geom)
+            INSERT INTO reclass_${tb} (id, sub_id, id_farmer, shpsplit_sqm, geom)
             SELECT id, $2, id_farmer, shparea_sq, geom
             FROM ${tb}
             WHERE id = $1
-            RETURNING id, app_no, ST_AsGeoJSON(geom) AS geom;
+            RETURNING id, id_farmer, ST_AsGeoJSON(geom) AS geom;
         `;
         const values = [id, sub_id];
         const result = await pool.query(sql, values);
@@ -933,7 +932,7 @@ app.post('/api/create_reclass_layer', async (req, res) => {
                 fid serial not null,
                 id integer,
                 sub_id text COLLATE pg_catalog."default",
-                app_no text COLLATE pg_catalog."default",
+                id_farmer text COLLATE pg_catalog."default",
                 shpsplit_sqm numeric,
                 geom geometry(MultiPolygon,4326),
                 classtype text COLLATE pg_catalog."default",
@@ -953,7 +952,7 @@ app.post('/api/create_reclass_layer', async (req, res) => {
                     a.id,
                     a.farm_name,
                     a.farm_idc,
-                    a.app_no,
+                    a.id_farmer,
                     a.land_seq,
                     a.land_right,
                     a.land_name,
@@ -995,7 +994,7 @@ app.post('/api/create_reclass_layer', async (req, res) => {
                     r.fid           AS reclass_fid,
                     r.id            AS reclass_parent_id,
                     r.sub_id        AS reclass_sub_id,
-                    r.app_no        AS reclass_app_no,
+                     r.id_farmer     AS reclass_id_farmer,
                     r.shpsplit_sqm,
                     r.classtype,
                     r.editor        AS reclass_editor,
@@ -1031,8 +1030,8 @@ app.post('/api/splitfeature/:tb', async (req, res) => {
 
         console.log(`Splitting feature in table ${tb} with ID ${id} and sub_id ${sub_id}`);
 
-        if (!properties?.id_farmer && !properties?.app_no) {
-            return res.status(400).json({ error: 'id_farmer or app_no is required in properties' });
+        if (!properties?.id_farmer) {
+            return res.status(400).json({ error: 'id_farmer is required in properties' });
         }
 
         if (!polygon?.type || !['Polygon', 'MultiPolygon'].includes(polygon.type) || !polygon.coordinates) {
@@ -1069,7 +1068,7 @@ app.post('/api/splitfeature/:tb', async (req, res) => {
                 FROM split
             ),
             inserted AS (
-                INSERT INTO reclass_${tb} (app_no, geom, sub_id, id, classtype, shpsplit_sqm, editor)
+                INSERT INTO reclass_${tb} (id_farmer, geom, sub_id, id, classtype, shpsplit_sqm, editor)
                 SELECT 
                     $4, 
                     ST_Transform(geom_projected, 4326), 
@@ -1086,7 +1085,7 @@ app.post('/api/splitfeature/:tb', async (req, res) => {
                 id, 
                 sub_id, 
                 classtype, 
-                app_no, 
+                id_farmer, 
                 shpsplit_sqm, 
                 ST_ASGeoJSON(geom) AS geom
             FROM inserted
@@ -1094,7 +1093,7 @@ app.post('/api/splitfeature/:tb', async (req, res) => {
             JSON.stringify(polygon),
             JSON.stringify(line),
             srid || 32647,
-            properties.app_no,
+            properties.id_farmer || properties.app_no,
             sub_id,
             id,
             properties.classtype,
@@ -1693,7 +1692,7 @@ app.post('/api/upload-shapefile', upload.single('shpFile'), async (req, res) => 
             CREATE INDEX idx_${tb_name}_geom_point ON ${tb_name} USING GIST(geom_point);
 
             CREATE TABLE reclass_${tb_name} (
-                fid SERIAL PRIMARY KEY, id INTEGER, sub_id TEXT, app_no TEXT, shpsplit_sqm NUMERIC, geom GEOMETRY(MultiPolygon, 4326), geom_point GEOMETRY(Point, 4326), classtype TEXT DEFAULT '${geom_type}', editor TEXT, ts TIMESTAMP DEFAULT NOW(), created_at timestamp DEFAULT NOW()
+                fid SERIAL PRIMARY KEY, id INTEGER, sub_id TEXT, id_farmer TEXT, shpsplit_sqm NUMERIC, geom GEOMETRY(MultiPolygon, 4326), geom_point GEOMETRY(Point, 4326), classtype TEXT DEFAULT '${geom_type}', editor TEXT, ts TIMESTAMP DEFAULT NOW(), created_at timestamp DEFAULT NOW()
             );
             CREATE INDEX idx_reclass_${tb_name}_geom ON reclass_${tb_name} USING GIST(geom);
 
@@ -1743,10 +1742,10 @@ app.post('/api/upload-shapefile', upload.single('shpFile'), async (req, res) => 
                     WITH main_ins AS (
                         INSERT INTO ${tb_name} (remark, agency, id_farmer, regis_no, no_plot, titl_nam, f_name, l_name, address, sub_dis, district, province, status, title_no, title_type, yang_rai, rai, ng, sgw, pacel_rai, age, x, y, sqm_yang, sqm_pacel, shparea_sq, shpsplit_sqm, lu_type, app_no, refinal, xls_sqm, diff_chk, chk, check_area, check_shape, geom, geom_point)
                         VALUES ($2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, ${geomVal}, ${geomPointVal})
-                        RETURNING id, app_no, shpsplit_sqm, geom, geom_point
+                        RETURNING id, id_farmer, shpsplit_sqm, geom, geom_point
                     )
-                    INSERT INTO reclass_${tb_name} (id, sub_id, app_no, shpsplit_sqm, geom, geom_point, classtype)
-                    SELECT id, id::text, app_no, shpsplit_sqm, geom, geom_point, '${geom_type}' FROM main_ins;
+                    INSERT INTO reclass_${tb_name} (id, sub_id, id_farmer, shpsplit_sqm, geom, geom_point, classtype)
+                    SELECT id, id::text, id_farmer, shpsplit_sqm, geom, geom_point, '${geom_type}' FROM main_ins;
                 `;
                 const params = [ geomJson, norm.remark, norm.agency, norm.id_farmer, norm.regis_no, norm.no_plot, norm.titl_nam, norm.f_name, norm.l_name, norm.address, norm.sub_dis, norm.district, norm.province, norm.status, norm.title_no, norm.title_type, norm.yang_rai, norm.rai, norm.ng, norm.sgw, norm.pacel_rai, norm.age, norm.x, norm.y, norm.sqm_yang, norm.sqm_pacel, norm.shparea_sq, norm.shpsplit_sqm, norm.lu_type, norm.app_no, norm.refinal, norm.xls_sqm, norm.diff_chk, norm.chk, norm.check_area, norm.check_shape ];
                 await client.query(insertSql, params);
@@ -1867,7 +1866,7 @@ app.post('/api/create-project', async (req, res) => {
                 fid          SERIAL PRIMARY KEY,
                 id           INTEGER,
                 sub_id       TEXT,
-                app_no       TEXT,
+                id_farmer    TEXT,
                 shpsplit_sqm NUMERIC,
                 geom         GEOMETRY(MultiPolygon, 4326),
                 geom_point   GEOMETRY(Point, 4326),
@@ -2039,10 +2038,10 @@ app.post('/api/upload-shapefile-to-table', upload.single('shpFile'), async (req,
                             $30,$31,$32,$33,$34,$35,$36,
                             ${geomVal}, ${geomPointVal}
                         )
-                        RETURNING id, app_no, shpsplit_sqm, geom, geom_point
+                        RETURNING id, id_farmer, shpsplit_sqm, geom, geom_point
                     )
-                    INSERT INTO reclass_${tb_name} (id, sub_id, app_no, shpsplit_sqm, geom, geom_point, classtype)
-                    SELECT id, id::text, app_no, shpsplit_sqm, geom, geom_point, '${geom_type}' FROM main_ins;
+                    INSERT INTO reclass_${tb_name} (id, sub_id, id_farmer, shpsplit_sqm, geom, geom_point, classtype)
+                    SELECT id, id::text, id_farmer, shpsplit_sqm, geom, geom_point, '${geom_type}' FROM main_ins;
                 `;
                 const params = [
                     geomJson,
