@@ -457,6 +457,23 @@ a:hover {
     font-size: 0.85rem;
     color: #2e7d32;
     font-weight: 500;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.btn-remove-file {
+    color: #ef5350;
+    cursor: pointer;
+    margin-left: 10px;
+    padding: 0 2px;
+    display: flex;
+    align-items: center;
+    transition: color 0.2s ease;
+}
+
+.btn-remove-file:hover {
+    color: #c62828;
 }
 
 /* ═══════════════════════════════════════

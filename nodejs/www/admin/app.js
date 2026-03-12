@@ -346,8 +346,17 @@ fileInput.addEventListener('change', function () {
 
 function setSelectedFile(file) {
     const display = document.getElementById('fileNameDisplay');
-    display.textContent = `📁 ${file.name}`;
-    display.style.display = 'block';
+    display.innerHTML = `
+        <span><i class="bi bi-file-earmark-zip me-1"></i>${file.name}</span>
+        <i class="bi bi-x-circle-fill btn-remove-file" id="btnRemoveFile" title="ลบไฟล์"></i>
+    `;
+    display.style.display = 'flex';
+
+    document.getElementById('btnRemoveFile').addEventListener('click', () => {
+        fileInput.value = '';
+        display.innerHTML = '';
+        display.style.display = 'none';
+    });
     // Assign file to input (for browsers that support DataTransfer)
     try {
         const dt = new DataTransfer();
