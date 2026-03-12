@@ -236,7 +236,7 @@ function showFeaturePanel(feature, layer) {
     id.value = feature.properties.id;
     xls_app_no.value = feature.properties.id_farmer || '';
     xls_sqm.value = feature.properties.sqm_pacel || 0;
-    document.getElementById('shparea_sqm').value = feature.properties.shparea_sq || 0;
+    document.getElementById('shparea_sqm').value = Number(feature.properties.shparea_sq || 0).toFixed(0);
     refinal.value = feature.properties.refinal || '';
 
     // Only update area label if explicitly editing or needed,
