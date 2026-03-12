@@ -125,9 +125,11 @@ const getFeatureStyle = (feature) => {
                             ? '#00ffddff'
                             : feature.properties.classtype === 'D'
                                 ? '#ff009dff'
-                                : feature.properties.classtype === 'not-rubber'
-                                    ? 'transparent'   // ไม่มีสี
-                                    : '#fdae61';
+                                : feature.properties.classtype === 'E'
+                                    ? '#003cffff'
+                                    : feature.properties.classtype === 'not-rubber'
+                                        ? 'transparent'   // ไม่มีสี
+                                        : '#fdae61';
     return {
         fillColor: color,
         weight: 2,
@@ -220,11 +222,12 @@ const loadGeoData = async () => {
                             : data === 'not-rubber' ? 'พื้นที่กันออก'
                                 : data === 'other' ? 'ยางพาราที่ไม่ได้ลงทะเบียน'
                                     : data === 'non-rubber' ? 'ไม่ใช่ยางพารา'
-                                        : data === 'A' ? 'พื้นที่กันออก A'
-                                            : data === 'B' ? 'พื้นที่กันออก B'
-                                                : data === 'C' ? 'พื้นที่กันออก C'
-                                                    : data === 'D' ? 'พื้นที่กันออก D'
-                                                        : 'อื่นๆ';
+                                        : data === 'A' ? 'พื้นที่กันออก (บ่อน้ำ)'
+                                            : data === 'B' ? 'พื้นที่กันออก (สิ่งปกคลุมดินอื่นๆ)'
+                                                : data === 'C' ? 'พื้นที่กันออก (สิ่งปลูกสร้าง)'
+                                                    : data === 'D' ? 'พื้นที่กันออก (ลำน้ำ)'
+                                                        : data === 'E' ? 'พื้นที่กันออก (ยางพาราไม่ลงทะเบียน)'
+                                                            : 'อื่นๆ';
                     }
                 },
                 {

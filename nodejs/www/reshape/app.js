@@ -117,9 +117,9 @@ map.pm.addControls({
     position: 'topright',
     drawCircle: false,
     drawMarker: false,
-    drawPolyline: true,
+    drawPolyline: false,
     drawRectangle: false,
-    drawPolygon: false,
+    drawPolygon: true,
     editMode: true,
     dragMode: false,
     cutPolygon: false,
@@ -129,7 +129,45 @@ map.pm.addControls({
     drawCircleMarker: false,
 });
 
+map.on('pm:create', (e) => {
+    const layer = e.layer;
+    featureGroup.addLayer(layer);
+    layer.pm.enable();
+    
+    // If a point is selected, replace it with this new polygon
+    if (selectedLayer && selectedLayer instanceof L.Marker) {
+        const properties = selectedLayer.options.properties || (selectedLayer.feature && selectedLayer.feature.properties) || {};
+        layer.feature = { type: 'Feature', properties: { ...properties } };
+        
+        featureGroup.removeLayer(selectedLayer);
+        selectedLayer = layer;
+        layerEdited = true;
+        
+        layer.bindPopup(`${properties.id}`);
+        layer.on('click', (ev) => {
+            showFeaturePanel(layer.feature, layer);
+            featureGroup.eachLayer(l => l.pm.disable());
+            layer.pm.enable();
+            layerEdited = false;
+            selectedLayer = layer;
+        });
+        
+        layer.on('pm:edit pm:dragend pm:change', () => {
+            layerEdited = true;
+            updateAreaLabel();
+        });
+        
+        updateAreaLabel();
+    } else {
+        // If nothing was selected or a polygon was selected, just set as selected
+        selectedLayer = layer;
+        layerEdited = true;
+        updateAreaLabel();
+    }
+});
+
 // Area calculation utilities
+
 const formatArea = (area) => {
     return area >= 1e6
         ? `${(area / 1e6).toLocaleString(undefined, { maximumFractionDigits: 2 })} km²`
@@ -141,11 +179,21 @@ const updateAreaLabel = async () => {
     if (!selectedLayer) return;
     try {
         const geojsonFeature = selectedLayer.toGeoJSON();
-        const geometry = geojsonFeature.geometry || (geojsonFeature.features && geojsonFeature.features[0]?.geometry);
+        let geometry = geojsonFeature.geometry || (geojsonFeature.features && geojsonFeature.features[0]?.geometry);
 
         if (!geometry) {
             console.warn('updateAreaLabel: no geometry found on selectedLayer');
             return;
+        }
+
+        if (geometry.type === 'LineString' || geometry.type === 'MultiLineString') {
+            if (typeof turf !== 'undefined' && turf.lineToPolygon) {
+                try {
+                    geometry = turf.lineToPolygon(geojsonFeature).geometry;
+                } catch (e) {
+                    // Let it pass with warning if it's an incomplete line
+                }
+            }
         }
 
         console.log('Calculating area for geometry:', JSON.stringify(geometry).substring(0, 100));
@@ -413,10 +461,12 @@ const loadGeoData = async () => {
                     if (layer instanceof L.Marker) {
                         if (layer.options.properties.id === refid) {
                             selectedLayer = layer;
+                            showFeaturePanel({ properties: layer.options.properties }, layer);
                         }
                     } else if (layer instanceof L.Path) {
                         if (layer.feature.properties.id === refid) {
                             selectedLayer = layer;
+                            showFeaturePanel(layer.feature, layer);
                         }
                     }
                 });
@@ -451,7 +501,24 @@ document.getElementById('save').addEventListener('click', async () => {
     const currentShpareaSq = document.getElementById('shparea_sqm').value;
 
     const features = [];
-    features.push(selectedLayer.toGeoJSON());
+    const geojson = selectedLayer.toGeoJSON();
+    let finalGeojson = geojson;
+    if (geojson.geometry.type === 'LineString' || geojson.geometry.type === 'MultiLineString') {
+        if (typeof turf !== 'undefined' && turf.lineToPolygon) {
+            try {
+                // Try to auto-close the line if it was drawn as Polyline
+                finalGeojson = turf.lineToPolygon(geojson);
+                finalGeojson.properties = geojson.properties;
+            } catch (e) {
+                alert('กรุณาวาดเส้นให้บรรจบกันเป็นรูปปิด (Polygon)');
+                return;
+            }
+        } else {
+            alert('กรุณาวาดรูปปิด (Polygon) แทนการวาดเส้น');
+            return;
+        }
+    }
+    features.push(finalGeojson);
 
     try {
         const tb = document.getElementById('tb').value;

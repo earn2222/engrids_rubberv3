@@ -226,6 +226,10 @@ const getFeatureStyle = (feature) => {
             color = '#ff009dff'; // พื้นที่กันออกย่อย D
             fillOpacity = 0.2;
             break;
+        case 'E':
+            color = '#003cffff'; // พื้นที่กันออกย่อย E
+            fillOpacity = 0.2;
+            break;
         case 'not-rubber':
             color = '#dee3e7ff'; // พื้นที่กันออกหลัก
             fillOpacity = 0;    // ไม่เติมสี
@@ -450,15 +454,16 @@ const legend = L.control({ position: 'bottomright' });
 
 legend.onAdd = function (map) {
     const div = L.DomUtil.create('div', 'legend'),
-        categories = ['rubber', 'other', 'non-rubber', 'A', 'B', 'C', 'D'],
+        categories = ['rubber', 'other', 'non-rubber', 'A', 'B', 'C', 'D', 'E'],
         labels = [
             'ยางพาราที่ลงทะเบียน',
             'ยางพาราที่ไม่ได้ลงทะเบียน',
             'ไม่ใช่ยางพารา',
-            'พื้นที่กันออก A',
-            'พื้นที่กันออก B',
-            'พื้นที่กันออก C',
-            'พื้นที่กันออก D'
+            'พื้นที่กันออก (บ่อน้ำ)',
+            'พื้นที่กันออก (สิ่งปกคลุมดินอื่นๆ)',
+            'พื้นที่กันออก (สิ่งปลูกสร้าง)',
+            'พื้นที่กันออก (ลำน้ำ)',
+            'พื้นที่กันออก (ยางพาราไม่ลงทะเบียน)'
         ];
 
 

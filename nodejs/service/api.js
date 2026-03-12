@@ -414,7 +414,7 @@ app.post('/api/updatefeatures/:tb', async (req, res) => {
                 // ✅ บันทึกลงฐานข้อมูล
                 await client.query(`
                     UPDATE ${tb}
-                    SET geom = ST_SetSRID(ST_GeomFromGeoJSON($1), 4326),
+                    SET geom = ST_Multi(ST_SetSRID(ST_GeomFromGeoJSON($1), 4326)),
                         shparea_sq = $3,
                         refinal = $4,
                         editor = $5
