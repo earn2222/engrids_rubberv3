@@ -114,13 +114,13 @@ map.on('click', (e) => {
 })
 // Configure Geoman controls
 map.pm.addControls({
-    position: 'topleft',
+    position: 'topright',
     drawCircle: false,
     drawMarker: false,
-    drawPolyline: false,
+    drawPolyline: true,
     drawRectangle: false,
     drawPolygon: false,
-    editMode: false,
+    editMode: true,
     dragMode: false,
     cutPolygon: false,
     removalMode: false,
@@ -136,15 +136,24 @@ const formatArea = (area) => {
         : `${area.toLocaleString(undefined, { maximumFractionDigits: 2 })} m²`;
 };
 
-// Label management
-const updateAreaLabel = async (layer) => {
+// Label management - always uses selectedLayer to avoid stale/wrong closure references
+const updateAreaLabel = async () => {
+    if (!selectedLayer) return;
     try {
-        const geojsonFeature = layer.toGeoJSON();
+        const geojsonFeature = selectedLayer.toGeoJSON();
+        const geometry = geojsonFeature.geometry || (geojsonFeature.features && geojsonFeature.features[0]?.geometry);
+
+        if (!geometry) {
+            console.warn('updateAreaLabel: no geometry found on selectedLayer');
+            return;
+        }
+
+        console.log('Calculating area for geometry:', JSON.stringify(geometry).substring(0, 100));
 
         const res = await fetch(`/rub/api/area`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ geometry: geojsonFeature.geometry })
+            body: JSON.stringify({ geometry })
         });
 
         if (!res.ok) {
@@ -153,10 +162,11 @@ const updateAreaLabel = async (layer) => {
         }
 
         const { area } = await res.json();
-        const xls_sqm = document.getElementById('xls_sqm').value;
+        const sqm_pacel = document.getElementById('xls_sqm').value;
 
+        console.log(`Area result: ${area}, target: ${sqm_pacel}`);
         document.getElementById('shparea_sqm').value = area.toFixed(0);
-        const diff = Math.abs(area - xls_sqm);
+        const diff = Math.abs(area - sqm_pacel);
 
         if (diff >= 100) {
             document.getElementById('message').innerHTML = '<h5><span class="badge bg-danger">เนื้อที่ยังไม่เท่ากัน</span></h5>';
@@ -176,23 +186,30 @@ function showFeaturePanel(feature, layer) {
     const refinal = document.getElementById('refinal');
 
     id.value = feature.properties.id;
-    xls_app_no.value = feature.properties.app_no;
-    xls_sqm.value = feature.properties.xls_sqm;
-    refinal.value = feature.properties.refinal;
+    xls_app_no.value = feature.properties.id_farmer || '';
+    xls_sqm.value = feature.properties.sqm_pacel || 0;
+    document.getElementById('shparea_sqm').value = feature.properties.shparea_sq || 0;
+    refinal.value = feature.properties.refinal || '';
 
-    // For Point geometries, skip area calculation
-    if (feature.geometry && feature.geometry.type !== 'Point') {
-        updateAreaLabel(layer);
+    // Only update area label if explicitly editing or needed,
+    // but don't overwrite the initial database value shparea_sq immediately on click
+    // if the user wants to see the column value.
+    const currentMsg = document.getElementById('message');
+    const target = Number(feature.properties.sqm_pacel || 0);
+    const current = Number(feature.properties.shparea_sq || 0);
+    const diff = Math.abs(target - current);
+
+    if (diff <= 100) {
+        currentMsg.innerHTML = '<h5><span class="badge bg-success">เนื้อที่ใกล้เคียงกัน</span></h5>';
     } else {
-        document.getElementById('shparea_sqm').value = 'N/A';
-        document.getElementById('message').innerHTML = '<h5><span class="badge bg-info">Point Geometry</span></h5>';
+        currentMsg.innerHTML = '<h5><span class="badge bg-danger">เนื้อที่ยังไม่เท่ากัน</span></h5>';
     }
 }
 
 const getFeatureStyle = (feature) => {
-    const xls = Number(feature.properties.xls_sqm);
-    const shp = Number(feature.properties.shparea_sqm);
-    const diff = xls - shp;
+    const target = Number(feature.properties.sqm_pacel || 0);
+    const shp = Number(feature.properties.shparea_sq || 0);
+    const diff = target - shp;
     const isEqual = Math.abs(diff) <= 100;
 
     return {
@@ -204,19 +221,41 @@ const getFeatureStyle = (feature) => {
     };
 };
 
+// Track whether the user has actually edited the selected polygon
+let layerEdited = false;
+
 const onEachFeature = (feature, layer) => {
     layer.bindPopup(`${feature.properties.id}`);
 
     layer.on('click', (e) => {
-        // map.fitBounds(layer.getBounds());
         showFeaturePanel(feature, layer);
         featureGroup.eachLayer(l => l.pm.disable());
         layer.pm.enable();
-
+        layerEdited = false; // reset on new selection
         selectedLayer = layer;
     });
 
-    layer.on('pm:edit pm:dragend pm:update pm:change', () => updateAreaLabel(layer));
+    // Listen to pm:enable to attach a real-time change listener.
+    // Skip the FIRST pm:change (auto-fired by pm.enable itself), then respond to all actual user edits.
+    layer.on('pm:enable', () => {
+        let firstChange = true;
+        const onGeomChange = () => {
+            if (firstChange) { firstChange = false; return; } // ignore enable-triggered change
+            layerEdited = true;
+            updateAreaLabel(); // uses selectedLayer internally
+        };
+        layer.on('pm:change', onGeomChange);
+        // Clean up listener when editing is disabled
+        layer.once('pm:disable', () => {
+            layer.off('pm:change', onGeomChange);
+        });
+    });
+
+    // Also fire once on final edit/dragend
+    layer.on('pm:edit pm:dragend', () => {
+        layerEdited = true;
+        updateAreaLabel(); // uses selectedLayer internally
+    });
 }
 
 var selectedLayer = null;
@@ -236,14 +275,14 @@ const loadGeoData = async () => {
             return {
                 id: item.id,
                 refinal: item.refinal,
-                farm_name: item.farm_name,
+                farm_name: `${item.f_name || ''} ${item.l_name || ''}`.trim(),
                 f_name: item.f_name,
                 l_name: item.l_name,
                 age: item.age,
                 geom: geom,
-                app_no: item.app_no,
-                xls_sqm: item.xls_sqm,
-                shparea_sqm: item.shparea_sqm,
+                id_farmer: item.id_farmer,
+                sqm_pacel: item.sqm_pacel,
+                shparea_sq: item.shparea_sq,
                 classified: item.classified,
             };
         }).filter(item => item.geom !== null); // Filter out items without geometry
@@ -270,20 +309,20 @@ const loadGeoData = async () => {
                 { data: 'f_name', title: 'f_name' },
                 { data: 'l_name', title: 'l_name' },
                 { data: 'age', title: 'age' },
-                { data: 'app_no', title: 'Application No' },
-                { data: 'xls_sqm', title: 'เนื้อที่เป้าหมาย (m²)' },
+                { data: 'id_farmer', title: 'Application No' },
+                { data: 'sqm_pacel', title: 'เนื้อที่เป้าหมาย (m²)' },
                 {
-                    data: 'shparea_sqm',
+                    data: 'shparea_sq',
                     title: 'เนื้อที่ขณะนี้ (m²)',
-                    render: (data, type, row) => Number(data).toFixed(0)
+                    render: (data, type, row) => Number(data || 0).toFixed(0)
                 },
                 {
                     data: null,
                     title: 'ตรวจสอบ (m²)',
                     render: (data, type, row) => {
-                        const xls = Number(data.xls_sqm);
-                        const shp = Number(data.shparea_sqm);
-                        const diff = xls - shp;
+                        const target = Number(row.sqm_pacel || 0);
+                        const current = Number(row.shparea_sq || 0);
+                        const diff = target - current;
                         const color = Math.abs(diff) <= 100 ? 'green' : 'red';
                         const diffStyle = `color: ${color}; font-weight: bold;`;
                         return `<span style="${diffStyle}">
@@ -320,9 +359,9 @@ const loadGeoData = async () => {
                     properties: {
                         id: row.id,
                         refinal: row.refinal,
-                        app_no: row.app_no,
-                        xls_sqm: row.xls_sqm,
-                        shparea_sqm: row.shparea_sqm
+                        id_farmer: row.id_farmer,
+                        sqm_pacel: row.sqm_pacel,
+                        shparea_sq: row.shparea_sq
                     }
                 }
 
@@ -406,9 +445,10 @@ document.getElementById('save').addEventListener('click', async () => {
         return;
     }
 
-    const id = document.getElementById('id').value
+    const id = document.getElementById('id').value;
     const refinal = document.getElementById('refinal').value;
     const displayName = document.getElementById('displayName').value;
+    const currentShpareaSq = document.getElementById('shparea_sqm').value;
 
     const features = [];
     features.push(selectedLayer.toGeoJSON());
@@ -418,21 +458,33 @@ document.getElementById('save').addEventListener('click', async () => {
         const response = await fetch(`/rub/api/updatefeatures/${tb}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id, refinal, features, displayName })
+            body: JSON.stringify({ id, refinal, features, displayName, geometryChanged: layerEdited, currentShpareaSq })
         });
         const result = await response.json();
-        alert(`อัพเดท features ${result.updated} เรียบร้อย`);
 
         if (result.success) {
+            layerEdited = false; // reset flag after successful save
             featureGroup.eachLayer(layer => {
                 layer.pm.disable();
                 layer.areaLabel?.remove();
             });
 
             featureGroup.clearLayers();
-            loadGeoData();
+            await loadGeoData(); // Wait for reload
+
+            // After reload, re-select the saved feature and restore sidebar from DB values
+            const savedId = Number(id);
+            featureGroup.eachLayer(layer => {
+                if (layer.feature && layer.feature.properties.id === savedId) {
+                    selectedLayer = layer;
+                    showFeaturePanel(layer.feature, layer);
+                    layer.pm.enable();
+                }
+            });
+
+            alert(`อัพเดท features เรียบร้อย (ID: ${id})`);
         } else {
-            alert('Failed to update features');
+            alert('Failed to update features: ' + (result.error || ''));
         }
     } catch (error) {
         console.error('Error saving data:', error);

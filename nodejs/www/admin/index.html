@@ -49,7 +49,10 @@
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <div class="label">แปลงยาง</div>
-                            <button class="btn btn-light" id="addData">เพิ่ม</button>
+                            <div>
+                                <button class="btn btn-warning me-2" id="exportSqlBtn">Export rub2.sql</button>
+                                <button class="btn btn-light" id="addData">เพิ่ม</button>
+                            </div>
                         </div>
                         <div class="mt-3" id="layerList"> </div>
                     </div>
@@ -78,15 +81,27 @@
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label for="tb_name" class="form-label">ชื่อย่อ</label>
-                        <input type="text" class="form-control" id="tb_name" placeholder="ชื่อ table">
+                        <label for="province" class="form-label">จังหวัด *</label>
+                        <input type="text" class="form-control" id="province" placeholder="ชื่อจังหวัด เช่น champhon">
                     </div>
                     <div class="mb-3">
-                        <label for="remark" class="form-label">remark</label>
-                        <input type="text" class="form-control" id="tb_remark">
+                        <label for="person_name" class="form-label">ชื่อบุคคล *</label>
+                        <input type="text" class="form-control" id="person_name" placeholder="เช่น earn">
                     </div>
                     <div class="mb-3">
-                        <label for="shpFile" class="form-label">อัปโหลด Shapefile (ZIP)</label>
+                        <label for="remark" class="form-label">Remark</label>
+                        <textarea class="form-control" id="tb_remark" rows="2" placeholder="หมายเหตุ"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="geom_type" class="form-label">ประเภทข้อมูล *</label>
+                        <select class="form-select" id="geom_type">
+                            <option value="">-- เลือกประเภท --</option>
+                            <option value="polygon">Polygon (พื้นที่)</option>
+                            <option value="point">Point (จุด)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="shpFile" class="form-label">อัปโหลด Shapefile (ZIP) *</label>
                         <input type="file" class="form-control" id="shpFile" accept=".zip">
                         <small class="text-muted">โปรดเลือก ZIP file ที่มี .shp, .shx, .dbf, .prj</small>
                     </div>

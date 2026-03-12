@@ -179,12 +179,14 @@ function addRealTimeAreaCalculation(layer) {
 
 const sub_id = document.getElementById('sub_id');
 const xls_app_no = document.getElementById('xls_app_no');
+const xls_sqm = document.getElementById('xls_sqm');
 const shpsplit_sqm = document.getElementById('shpsplit_sqm');
 const classtype = document.getElementById('classtype');
 
 function showFeaturePanel(feature, layer) {
     sub_id.value = feature.properties.sub_id;
     xls_app_no.value = feature.properties.app_no;
+    xls_sqm.value = feature.properties.sqm_yang || 0;
     shpsplit_sqm.value = Number(feature.properties.shpsplit_sqm).toFixed(0);
     classtype.value = feature.properties.classtype;
 }
@@ -344,6 +346,7 @@ const loadGeoData = async (id) => {
                     sub_id: item.sub_id,
                     app_no: item.app_no,
                     xls_sqm: item.xls_sqm,
+                    sqm_yang: item.sqm_yang,
                     shpsplit_sqm: item.shpsplit_sqm,
                     classtype: item.classtype,
                 }
@@ -596,6 +599,12 @@ document.getElementById('save').addEventListener('click', () => {
 });
 
 document.getElementById('reshape').addEventListener('click', (e) => {
+    e.preventDefault();
+    const tb = document.getElementById('tb').value;
+    window.location.href = './../reshape/index.html?tb=' + tb;
+})
+
+document.getElementById('reshapeBottom').addEventListener('click', (e) => {
     e.preventDefault();
     const tb = document.getElementById('tb').value;
     window.location.href = './../reshape/index.html?tb=' + tb;

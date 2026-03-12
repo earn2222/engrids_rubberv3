@@ -30,29 +30,26 @@ app.get('/api/getfeatures/:tb', async (req, res) => {
             return res.status(400).json({ error: 'Table name is required' });
         }
 
-        // ตรวจสอบว่าตารางมีคอลัมน์ geom_point หรือไม่
-        const colCheck = await pool.query(
-            "SELECT column_name FROM information_schema.columns WHERE table_name = $1 AND column_name = 'geom_point'",
+        // Get all columns from the table
+        const colsResult = await pool.query(
+            "SELECT column_name FROM information_schema.columns WHERE table_name = $1 ORDER BY ordinal_position",
             [tb]
         );
-        const hasGeomPoint = colCheck.rowCount > 0;
 
-        const geomPointSelect = hasGeomPoint ? 'ST_ASGeoJSON(geom_point) AS geom_point' : "NULL::json AS geom_point";
+        if (colsResult.rowCount === 0) {
+            return res.status(404).json({ error: 'Table not found' });
+        }
 
-        const sql = `SELECT id,
-                        farm_name,
-                        f_name,
-                        l_name,
-                        age,
-                        refinal,
-                        app_no,
-                        xls_sqm,
-                        shparea_sqm,
-                        classified,
-                        ST_ASGeoJSON(geom) AS geom,
-                        ${geomPointSelect}
-                    FROM ${tb}
-                    WHERE geom IS NOT NULL ${hasGeomPoint ? 'OR geom_point IS NOT NULL' : ''}`;
+        // Build SELECT clause with geometry columns converted to GeoJSON
+        const columns = colsResult.rows.map(r => r.column_name);
+        const selectColumns = columns.map(col => {
+            if (col === 'geom' || col === 'geom_point') {
+                return `ST_AsGeoJSON(${col}) AS ${col}`;
+            }
+            return col;
+        }).join(',\n');
+
+        const sql = `SELECT ${selectColumns} FROM ${tb} WHERE geom IS NOT NULL OR geom_point IS NOT NULL`;
 
         const result = await pool.query(sql);
         res.status(200).json({ success: true, data: result.rows });
@@ -83,23 +80,26 @@ app.get('/api/getfeatures/:tb/:fid', async (req, res) => {
 
         let sql, values;
         if (reclassTableExists) {
-            sql = `SELECT id, 
-                        sub_id, 
-                        classtype, 
-                        app_no, 
-                        shpsplit_sqm, 
-                        ST_ASGeoJSON(geom) AS geom,
+            sql = `SELECT r.id, 
+                        r.sub_id, 
+                        r.classtype, 
+                        r.app_no, 
+                        r.shpsplit_sqm, 
+                        t.sqm_yang,
+                        ST_ASGeoJSON(r.geom) AS geom,
                         ST_ASGeoJSON(st_makepoint(100, 18)) AS geom_point
-                    FROM ${reclassTableName}
-                    WHERE geom IS NOT NULL AND id = $1`;
+                    FROM ${reclassTableName} r
+                    JOIN ${tb} t ON r.app_no = t.id_farmer
+                    WHERE r.geom IS NOT NULL AND r.id = $1`;
             values = [fid];
         } else {
             // Fallback to original table
             sql = `SELECT id, 
                         id as sub_id, 
                         'rubber' as classtype, 
-                        app_no, 
-                        shparea_sqm as shpsplit_sqm, 
+                        id_farmer as app_no, 
+                        shparea_sq as shpsplit_sqm, 
+                        sqm_yang,
                         ST_ASGeoJSON(geom) AS geom,
                         ST_ASGeoJSON(st_makepoint(100, 18)) AS geom_point
                     FROM ${tb}
@@ -139,14 +139,13 @@ app.get('/api/getfeaturesv3/:tb', async (req, res) => {
 
         const sql = `
             SELECT id,
-                farm_name,
                 f_name,
                 l_name,
                 age,
                 refinal,
-                app_no,
-                xls_sqm,
-                shparea_sqm,
+                id_farmer,
+                sqm_pacel,
+                shparea_sq,
                 classified,
                 ST_AsGeoJSON(geom) AS geom,
                 ${geomPointSelect}
@@ -222,7 +221,7 @@ app.get('/api/getsinglefeature/:tb/:fid', async (req, res) => {
                         app_no, 
                         refinal,
                         xls_sqm,
-                        shparea_sqm, 
+                        shparea_sq, 
                         ST_ASGeoJSON(geom) AS geom
                     FROM ${tb}
                     WHERE geom IS NOT NULL AND id = $1`;
@@ -331,7 +330,7 @@ app.post('/api/updatefeatures/:tb', async (req, res) => {
             return res.status(400).json({ error: 'Table name is required' });
         }
 
-        const { id, refinal, features, displayName } = req.body;
+        const { id, refinal, features, displayName, geometryChanged, currentShpareaSq } = req.body;
 
         const client = await pool.connect();
 
@@ -388,26 +387,35 @@ app.post('/api/updatefeatures/:tb', async (req, res) => {
 
             for (const feature of features) {
                 const geometry = feature.geometry;
-                const epsg = getEPSGFromGeoJSON(geometry);
                 const geojsonStr = JSON.stringify(geometry);
 
-                // ✅ คำนวณพื้นที่แบบ UTM
-                const areaSql = `
-                    SELECT ST_Area(
-                        ST_Transform(
-                            ST_SetSRID(ST_GeomFromGeoJSON($1), 4326),
-                            ${epsg}
-                        )
-                    ) AS area
-                `;
-                const areaResult = await client.query(areaSql, [geojsonStr]);
-                const area = areaResult.rows[0].area;
+                let area;
+                if (geometryChanged) {
+                    // ✅ คำนวณพื้นที่ใหม่เมื่อผู้ใช้แก้ไข geometry จริงๆ
+                    const epsg = getEPSGFromGeoJSON(geometry);
+                    const areaSql = `
+                        SELECT ST_Area(
+                            ST_Transform(
+                                ST_SetSRID(ST_GeomFromGeoJSON($1), 4326),
+                                ${epsg}
+                            )
+                        ) AS area
+                    `;
+                    const areaResult = await client.query(areaSql, [geojsonStr]);
+                    area = areaResult.rows[0].area;
+                    console.log(`Geometry changed for ID ${id}, recalculating area: ${area}`);
+                } else {
+                    // ✅ ใช้ค่าจากฐานข้อมูลเดิม ไม่คำนวณใหม่
+                    const existingRes = await client.query(`SELECT shparea_sq FROM ${tb} WHERE id = $1`, [id]);
+                    area = existingRes.rows[0]?.shparea_sq || currentShpareaSq || 0;
+                    console.log(`Geometry unchanged for ID ${id}, preserving area: ${area}`);
+                }
 
                 // ✅ บันทึกลงฐานข้อมูล
                 await client.query(`
                     UPDATE ${tb}
                     SET geom = ST_SetSRID(ST_GeomFromGeoJSON($1), 4326),
-                        shparea_sqm = $3,
+                        shparea_sq = $3,
                         refinal = $4,
                         editor = $5
                     WHERE id = $2
@@ -523,7 +531,7 @@ app.post('/api/updatefeaturesv3/:tb', async (req, res) => {
         const updateSql = `
             UPDATE ${tb}
             SET geom = ST_SetSRID(ST_GeomFromGeoJSON($1), 4326),
-                shparea_sqm = $3,
+                shparea_sq = $3,
                 refinal = $4,
                 editor = $5
             WHERE id = $2
@@ -647,7 +655,7 @@ app.post('/api/savefeature/:tb', async (req, res) => {
                     UPDATE ${tb}
                     SET 
                         geom = ST_GeomFromEWKT($1),
-                        shparea_sqm = $3,
+                        shparea_sq = $3,
                         refinal = $4,
                         editor = $5
                     WHERE id = $2
@@ -771,9 +779,9 @@ app.get('/api/getreshapefeatures/:tb', async (req, res) => {
         }
 
         const sql = `SELECT id,
-                        app_no,
-                        xls_sqm,
-                        shparea_sqm,
+                        id_farmer,
+                        sqm_pacel,
+                        shparea_sq,
                         ST_ASGeoJSON(geom) AS geom
                     FROM ${tb}
                     WHERE geom IS NOT NULL`;
@@ -796,7 +804,7 @@ app.get('/api/countsfeatures/:tb', async (req, res) => {
         WITH a AS (
             SELECT COUNT(*) AS reshp
             FROM ${tb}
-            WHERE ABS(xls_sqm - shparea_sqm) <= 100
+            WHERE ABS(sqm_pacel - shparea_sq) <= 100
         ),
         c AS (
             SELECT COUNT(DISTINCT id) AS reclass
@@ -855,7 +863,7 @@ app.post('/api/create_reclass_feature/:tb', async (req, res) => {
                 RETURNING id  
             )
             INSERT INTO reclass_${tb} (id, sub_id, app_no, shpsplit_sqm, geom)
-            SELECT id, $2, app_no, shparea_sqm, geom
+            SELECT id, $2, id_farmer, shparea_sq, geom
             FROM ${tb}
             WHERE id = $1
             RETURNING id, app_no, ST_AsGeoJSON(geom) AS geom;
@@ -951,7 +959,7 @@ app.post('/api/create_reclass_layer', async (req, res) => {
                     a.age,
                     a.x,
                     a.y,
-                    a.xls_sqm,
+                    a.sqm_pacel,
                     a.chk,
                     a.diff_chk,
                     a.remark        AS a_remark,
@@ -959,7 +967,7 @@ app.post('/api/create_reclass_layer', async (req, res) => {
                     a.editor        AS a_editor,
                     a.ts            AS a_ts,
                     a.classified,
-                    a.shparea_sqm,
+                    a.shparea_sq,
                     r.fid           AS reclass_fid,
                     r.id            AS reclass_parent_id,
                     r.sub_id        AS reclass_sub_id,
@@ -999,8 +1007,8 @@ app.post('/api/splitfeature/:tb', async (req, res) => {
 
         console.log(`Splitting feature in table ${tb} with ID ${id} and sub_id ${sub_id}`);
 
-        if (!properties?.app_no) {
-            return res.status(400).json({ error: 'app_no is required in properties' });
+        if (!properties?.id_farmer && !properties?.app_no) {
+            return res.status(400).json({ error: 'id_farmer or app_no is required in properties' });
         }
 
         if (!polygon?.type || !['Polygon', 'MultiPolygon'].includes(polygon.type) || !polygon.coordinates) {
@@ -1492,7 +1500,6 @@ app.post('/api/split', async (req, res) => {
 //     }
 // });
 
-// api/collected_feat
 app.post('/api/collected_feat', async (req, res) => {
     try {
         const { id_list, tb, displayName } = req.body;
@@ -1501,8 +1508,6 @@ app.post('/api/collected_feat', async (req, res) => {
         }
 
         const placeholders = id_list.map((_, i) => `$${i + 1}`).join(',');
-
-        // รวม polygon แบบ make valid ก่อน union
         const sql = `
             WITH polys AS (
                 SELECT ST_Transform(ST_MakeValid(geom), 32647) AS geom_proj
@@ -1516,15 +1521,13 @@ app.post('/api/collected_feat', async (req, res) => {
         `;
 
         const result = await pool.query(sql, id_list);
-
         if (!result.rows[0] || !result.rows[0].geom) {
-            return res.status(400).json({ success: false, error: 'ไม่สามารถรวม polygon ได้ (ตรวจสอบ polygon ใน DB หรือ geometry invalid)' });
+            return res.status(400).json({ success: false, error: 'ไม่สามารถรวม polygon ได้' });
         }
 
         const geomJSON = JSON.parse(result.rows[0].geom);
         const area = Number(result.rows[0].shpsplit_sqm.toFixed(2));
 
-        // อัปเดต polygon แรก
         await pool.query(
             `UPDATE public.reclass_${tb}
              SET geom = ST_SetSRID(ST_GeomFromGeoJSON($1), 4326),
@@ -1534,7 +1537,6 @@ app.post('/api/collected_feat', async (req, res) => {
             [JSON.stringify(geomJSON), area, displayName, id_list[0]]
         );
 
-        // ลบ polygon อื่น
         const idsToDelete = id_list.slice(1);
         if (idsToDelete.length > 0) {
             const delPlaceholders = idsToDelete.map((_, i) => `$${i + 1}`).join(',');
@@ -1545,31 +1547,68 @@ app.post('/api/collected_feat', async (req, res) => {
         }
 
         res.json({ success: true, geom: geomJSON, shpsplit_sqm: area });
-
     } catch (err) {
         console.error('Collected_feat error:', err);
         res.status(500).json({ success: false, error: err.message });
     }
 });
 
-
-
 // Multer configuration for file upload
 const upload = multer({ dest: 'uploads/' });
 
+// Helper to normalize properties: lowercase keys and values, ensure all template columns exist
+const normalizeProperties = (props) => {
+    const templateCols = [
+        'id', 'remark', 'agency', 'id_farmer', 'regis_no', 'no_plot', 'titl_nam', 'f_name',
+        'l_name', 'address', 'sub_dis', 'district', 'province', 'status', 'title_no',
+        'title_type', 'yang_rai', 'rai', 'ng', 'sgw', 'pacel_rai', 'age', 'x', 'y',
+        'sqm_yang', 'sqm_pacel', 'shparea_sq', 'shpsplit_sqm', 'lu_type', 'app_no', 'refinal', 'xls_sqm',
+        'diff_chk', 'chk', 'check_area', 'check_shape'
+    ];
+
+    const normalized = {};
+    const sourceLower = {};
+    for (let key in props) {
+        sourceLower[key.toLowerCase()] = props[key];
+    }
+
+    templateCols.forEach(col => {
+        let val = sourceLower[col];
+        if (val === undefined || val === null) {
+            if (['no_plot', 'yang_rai', 'rai', 'ng', 'sgw', 'pacel_rai', 'age', 'x', 'y', 'sqm_yang', 'sqm_pacel', 'shparea_sq', 'shpsplit_sqm', 'xls_sqm', 'diff_chk'].includes(col)) {
+                normalized[col] = 0;
+            } else {
+                normalized[col] = '';
+            }
+        } else {
+            if (typeof val === 'string') {
+                normalized[col] = val.toLowerCase();
+            } else {
+                normalized[col] = val;
+            }
+        }
+    });
+
+    // Robust fallbacks for Thai rubber shapefiles
+    if (normalized['sqm_pacel'] === 0 && sourceLower['xls_sqm']) normalized['sqm_pacel'] = sourceLower['xls_sqm'];
+    if (normalized['shparea_sq'] === 0 && sourceLower['shparea_sqm']) normalized['shparea_sq'] = sourceLower['shparea_sqm'];
+    if (!normalized['id_farmer'] && sourceLower['app_no']) normalized['id_farmer'] = sourceLower['app_no'];
+
+    return normalized;
+};
+
 // Upload Shapefile endpoint
 app.post('/api/upload-shapefile', upload.single('shpFile'), async (req, res) => {
-    const { tb_name, remark } = req.body;
-    const zipFilePath = req.file.path;
+    const { tb_name, geom_type, remark } = req.body;
+    const zipFilePath = req.file?.path;
 
-    if (!tb_name || !zipFilePath) {
-        return res.status(400).json({ error: 'Table name and shapefile are required' });
+    if (!tb_name || !zipFilePath || !geom_type) {
+        return res.status(400).json({ error: 'Table name, geometry type and shapefile are required' });
     }
 
     const extractDir = path.join('uploads', `extract_${Date.now()}`);
 
     try {
-        // Extract ZIP file
         await fs.promises.mkdir(extractDir, { recursive: true });
         await new Promise((resolve, reject) => {
             fs.createReadStream(zipFilePath)
@@ -1578,157 +1617,148 @@ app.post('/api/upload-shapefile', upload.single('shpFile'), async (req, res) => 
                 .on('error', reject);
         });
 
-        // Find shapefile files
-        const files = fs.readdirSync(extractDir);
-        const shpFile = files.find(f => f.endsWith('.shp'));
-        const dbfFile = files.find(f => f.endsWith('.dbf'));
+        const findFiles = (dir, ext) => {
+            let results = [];
+            const list = fs.readdirSync(dir);
+            list.forEach(file => {
+                const fullPath = path.join(dir, file);
+                const stat = fs.statSync(fullPath);
+                if (stat && stat.isDirectory()) {
+                    results = results.concat(findFiles(fullPath, ext));
+                } else if (fullPath.toLowerCase().endsWith(ext)) {
+                    results.push(fullPath);
+                }
+            });
+            return results;
+        };
 
-        if (!shpFile) {
-            throw new Error('No .shp file found in the ZIP');
+        const shpFiles = findFiles(extractDir, '.shp');
+        const dbfFiles = findFiles(extractDir, '.dbf');
+        const cpgFiles = findFiles(extractDir, '.cpg');
+
+        if (shpFiles.length === 0) throw new Error('No .shp file found in the ZIP');
+
+        let encoding = 'tis-620'; // Default to Thai encoding
+        if (cpgFiles.length > 0) {
+            try {
+                const cpgContent = fs.readFileSync(cpgFiles[0], 'utf8').trim().toLowerCase();
+                if (cpgContent) encoding = cpgContent;
+            } catch (e) {
+                console.error('Error reading CPG:', e);
+            }
         }
 
-        const shpPath = path.join(extractDir, shpFile);
-        const dbfPath = dbfFile ? path.join(extractDir, dbfFile) : null;
-
-        // Read shapefile
-        const source = await shapefile.open(shpPath, dbfPath);
+        const source = await shapefile.open(shpFiles[0], dbfFiles.length > 0 ? dbfFiles[0] : null, { encoding });
         const features = [];
-
         let result = await source.read();
         while (!result.done) {
             features.push(result.value);
             result = await source.read();
         }
 
-        if (features.length === 0) {
-            throw new Error('No features found in shapefile');
-        }
+        if (features.length === 0) throw new Error('No features found in shapefile');
 
-        // Determine geometry type
-        const geomType = features[0].geometry.type;
-        if (!geomType) {
-            throw new Error('Invalid geometry type in shapefile');
-        }
-        let geometryType;
-        if (geomType === 'Point') {
-            geometryType = 'GEOMETRY(Point, 4326)';
-        } else if (geomType === 'MultiPoint') {
-            geometryType = 'GEOMETRY(MultiPoint, 4326)';
-        } else if (geomType === 'LineString' || geomType === 'MultiLineString') {
-            geometryType = 'GEOMETRY(MultiLineString, 4326)';
-        } else if (geomType === 'Polygon' || geomType === 'MultiPolygon') {
-            geometryType = 'GEOMETRY(MultiPolygon, 4326)';
-        } else {
-            geometryType = 'GEOMETRY(Geometry, 4326)';
-        }
+        let useGeomPoint = geom_type === 'point';
 
-        // Create table
         const createTableSql = `
             CREATE TABLE ${tb_name} (
-                id SERIAL PRIMARY KEY,
-                geom ${geometryType},
-                geom_point GEOMETRY(Point, 4326),
-                shparea_sqm NUMERIC,
-                xls_sqm NUMERIC,
-                app_no TEXT,
-                farm_name TEXT,
-                f_name TEXT,
-                l_name TEXT,
-                age NUMERIC,
-                refinal TEXT,
-                classified BOOLEAN DEFAULT FALSE,
-                shparea_sqm_geom NUMERIC,
-                editor TEXT,
-                ts TIMESTAMP DEFAULT NOW()
-            )
+                id SERIAL PRIMARY KEY, remark text, agency text, id_farmer text, regis_no text, no_plot numeric, titl_nam text, f_name text, l_name text, address text, sub_dis text, district text, province text, status text, title_no text, title_type text, yang_rai numeric, rai numeric, ng numeric, sgw numeric, pacel_rai numeric, age numeric, x numeric, y numeric, sqm_yang numeric, sqm_pacel numeric, shparea_sq numeric, shpsplit_sqm numeric, lu_type text, geom GEOMETRY(MultiPolygon, 4326), geom_point GEOMETRY(Point, 4326), app_no text, refinal text, xls_sqm numeric, classified boolean DEFAULT FALSE, diff_chk numeric, chk text, check_area text, check_shape text, editor text, ts timestamp DEFAULT NOW(), created_at timestamp DEFAULT NOW(), updated_at timestamp DEFAULT NOW()
+            );
+            CREATE INDEX idx_${tb_name}_geom ON ${tb_name} USING GIST(geom);
+            CREATE INDEX idx_${tb_name}_geom_point ON ${tb_name} USING GIST(geom_point);
+
+            CREATE TABLE reclass_${tb_name} (
+                fid SERIAL PRIMARY KEY, id INTEGER, sub_id TEXT, app_no TEXT, shpsplit_sqm NUMERIC, geom GEOMETRY(MultiPolygon, 4326), geom_point GEOMETRY(Point, 4326), classtype TEXT DEFAULT '${geom_type}', editor TEXT, ts TIMESTAMP DEFAULT NOW(), created_at timestamp DEFAULT NOW()
+            );
+            CREATE INDEX idx_reclass_${tb_name}_geom ON reclass_${tb_name} USING GIST(geom);
+
+            CREATE VIEW v_reclass_${tb_name} AS SELECT
+                a.id, a.remark AS a_remark, a.agency, a.id_farmer, a.regis_no, a.no_plot, a.titl_nam, a.f_name, a.l_name, a.address, a.sub_dis, a.district, a.province, a.status, a.title_no, a.title_type, a.yang_rai, a.rai, a.ng, a.sgw, a.pacel_rai, a.age, a.x, a.y, a.sqm_yang, a.sqm_pacel, a.shparea_sq, a.shpsplit_sqm AS a_shpsplit_sqm, a.lu_type, a.app_no, a.refinal, a.xls_sqm, a.classified, a.editor AS a_editor, a.ts AS a_ts,
+                r.fid AS reclass_fid, r.sub_id AS reclass_sub_id, r.shpsplit_sqm AS r_shpsplit_sqm, r.classtype, r.editor AS reclass_editor, r.ts AS r_ts, r.geom
+            FROM ${tb_name} AS a
+            JOIN reclass_${tb_name} AS r ON a.id = r.id;
         `;
+        await pool.query(`DROP VIEW IF EXISTS v_reclass_${tb_name}`);
+        await pool.query(`DROP TABLE IF EXISTS reclass_${tb_name}`);
+        await pool.query(`DROP TABLE IF EXISTS ${tb_name}`);
         await pool.query(createTableSql);
 
-        // Insert features
+        // Detect Source SRID (Automatic UTM vs WGS84 detection)
+        let sourceSrid = 4326;
+        if (features.length > 0 && features[0].geometry) {
+            const getFirstCoord = (geom) => {
+                if (geom.type === 'Point') return geom.coordinates;
+                if (geom.type === 'Polygon') return geom.coordinates[0][0];
+                if (geom.type === 'MultiPolygon') return geom.coordinates[0][0][0];
+                return null;
+            };
+            const firstCoord = getFirstCoord(features[0].geometry);
+            if (firstCoord && (Math.abs(firstCoord[0]) > 400 || Math.abs(firstCoord[1]) > 400)) {
+                sourceSrid = 32647; // Assume UTM Zone 47N (Common for Thailand)
+                console.log(`Detected Projected Coordinates. Using source SRID: ${sourceSrid}`);
+            }
+        }
+
         const client = await pool.connect();
         try {
             await client.query('BEGIN');
-
-            for (const feature of features) {
-                const geom = JSON.stringify(feature.geometry);
-                const properties = feature.properties || {};
-
-                // Calculate centroid for geom_point
-                let geomPointSql = 'ST_Centroid(ST_SetSRID(ST_GeomFromGeoJSON($1), 4326))';
-                let areaSql = 'NULL';
-                if (geomType.includes('Polygon')) {
-                    areaSql = 'ST_Area(ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON($1), 4326), 32647))';
+            for (let f of features) {
+                const norm = normalizeProperties(f.properties);
+                const geomJson = JSON.stringify(f.geometry);
+                let geomVal, geomPointVal;
+                if (geom_type === 'point') {
+                    geomPointVal = `ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON($1), ${sourceSrid}), 4326)`;
+                    geomVal = `NULL`;
+                } else {
+                    geomVal = `ST_Multi(ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON($1), ${sourceSrid}), 4326))`;
+                    geomPointVal = `ST_Centroid(ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON($1), ${sourceSrid}), 4326))`;
                 }
 
                 const insertSql = `
-                    INSERT INTO ${tb_name} (
-                        geom, geom_point, shparea_sqm, app_no, farm_name, f_name, l_name, age, refinal
-                    ) VALUES (
-                        ST_SetSRID(ST_GeomFromGeoJSON($1), 4326),
-                        ${geomPointSql},
-                        ${areaSql},
-                        $2, $3, $4, $5, $6, $7
+                    WITH main_ins AS (
+                        INSERT INTO ${tb_name} (remark, agency, id_farmer, regis_no, no_plot, titl_nam, f_name, l_name, address, sub_dis, district, province, status, title_no, title_type, yang_rai, rai, ng, sgw, pacel_rai, age, x, y, sqm_yang, sqm_pacel, shparea_sq, shpsplit_sqm, lu_type, app_no, refinal, xls_sqm, diff_chk, chk, check_area, check_shape, geom, geom_point)
+                        VALUES ($2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, ${geomVal}, ${geomPointVal})
+                        RETURNING id, app_no, shpsplit_sqm, geom, geom_point
                     )
+                    INSERT INTO reclass_${tb_name} (id, sub_id, app_no, shpsplit_sqm, geom, geom_point, classtype)
+                    SELECT id, id::text, app_no, shpsplit_sqm, geom, geom_point, '${geom_type}' FROM main_ins;
                 `;
-                await client.query(insertSql, [
-                    geom,
-                    properties.app_no || null,
-                    properties.farm_name || null,
-                    properties.f_name || null,
-                    properties.l_name || null,
-                    properties.age || null,
-                    properties.refinal || null
-                ]);
+                const params = [ geomJson, norm.remark, norm.agency, norm.id_farmer, norm.regis_no, norm.no_plot, norm.titl_nam, norm.f_name, norm.l_name, norm.address, norm.sub_dis, norm.district, norm.province, norm.status, norm.title_no, norm.title_type, norm.yang_rai, norm.rai, norm.ng, norm.sgw, norm.pacel_rai, norm.age, norm.x, norm.y, norm.sqm_yang, norm.sqm_pacel, norm.shparea_sq, norm.shpsplit_sqm, norm.lu_type, norm.app_no, norm.refinal, norm.xls_sqm, norm.diff_chk, norm.chk, norm.check_area, norm.check_shape ];
+                await client.query(insertSql, params);
             }
-
             await client.query('COMMIT');
 
-            // Add to layerlist
-            const layerlistSql = `
-                INSERT INTO layerlist (tb_name, remark)
-                VALUES ($1, $2)
-                ON CONFLICT (tb_name) DO NOTHING
-            `;
-            await pool.query(layerlistSql, [tb_name, remark]);
+            await pool.query(`INSERT INTO layerlist (tb_name, remark) VALUES ($1, $2) ON CONFLICT (tb_name) DO UPDATE SET updated_at = NOW()`, [tb_name, remark || `${geom_type} layer`]);
 
-            // Create reclass table
-            const createReclassSql = `
-                CREATE TABLE reclass_${tb_name} (
-                    fid SERIAL PRIMARY KEY,
-                    id INTEGER,
-                    sub_id TEXT,
-                    app_no TEXT,
-                    shpsplit_sqm NUMERIC,
-                    geom ${geometryType},
-                    classtype TEXT DEFAULT '${geomType.includes('Point') ? 'point' : 'rubber'}',
-                    editor TEXT,
-                    ts TIMESTAMP DEFAULT NOW()
-                )
-            `;
-            await pool.query(createReclassSql);
-
-            res.json({ success: true, message: 'Shapefile uploaded and processed successfully', recordCount: features.length });
-
+            res.json({ success: true, message: 'Shapefile uploaded successfully', recordCount: features.length, tableName: tb_name });
         } catch (err) {
             await client.query('ROLLBACK');
             throw err;
         } finally {
             client.release();
         }
-
     } catch (error) {
         console.error('Upload error:', error);
         res.status(500).json({ error: error.message });
     } finally {
-        // Cleanup
-        if (fs.existsSync(extractDir)) {
-            fs.rmSync(extractDir, { recursive: true, force: true });
-        }
-        if (req.file && fs.existsSync(req.file.path)) {
-            fs.unlinkSync(req.file.path);
-        }
+        if (fs.existsSync(extractDir)) fs.rmSync(extractDir, { recursive: true, force: true });
+        if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
     }
 });
 
-// export module
+app.get('/api/export-sql', async (req, res) => {
+    try {
+        const { exec } = require('child_process');
+        const fileName = 'rub2.sql';
+        const filePath = path.join(__dirname, '..', 'uploads', fileName);
+        if (!fs.existsSync(path.join(__dirname, '..', 'uploads'))) fs.mkdirSync(path.join(__dirname, '..', 'uploads'));
+        process.env.PGPASSWORD = process.env.DB_PASSWORD;
+        const command = `pg_dump -h ${process.env.DB_HOST} -U ${process.env.DB_USER} -d ${process.env.DB_NAME} -f "${filePath}"`;
+        exec(command, (error) => {
+            if (error) return res.status(500).json({ error: 'Failed' });
+            res.download(filePath, fileName);
+        });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 module.exports = app;

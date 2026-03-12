@@ -20,21 +20,18 @@
 
 <body>
     <div class="container-fluid app-wrapper px-3">
-        <div class="row main-row">
-            <!-- Left Column: Map and Table -->
-            <div class="col-sm-8 map-col">
-                <div class="card" id="map"></div>
 
-                <!-- Table in a card below map -->
-                <div class="card mt-2" style="flex: 0 0 35%; min-height: 200px; display: flex; flex-direction: column;">
-                    <div class="card-body" style="overflow: auto;">
-                        <table id="featureTable" class="display nowrap" style="width: 100%;"></table>
-                    </div>
-                </div>
+        <!-- ================= ROW 1 ================= -->
+        <div class="row main-row">
+
+            <!-- Left Column: Map -->
+            <div class="col-sm-8 map-col d-flex">
+                <div class="card flex-fill" id="map"></div>
             </div>
 
             <!-- Right Column: Sidebar -->
             <div class="col-sm-4 sidebar-col">
+
                 <!-- User Panel -->
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <div></div>
@@ -42,14 +39,14 @@
                         <div id="profile-section" class="dropdown d-flex align-items-center"
                             style="display: none !important;">
                             <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle"
-                                data-bs-toggle="dropdown" aria-expanded="false">
+                                data-bs-toggle="dropdown">
                                 <img id="profile-image" class="rounded-circle me-2"
-                                    style="width: 32px; height: 32px; object-fit: cover" alt="Profile picture">
+                                    style="width: 32px; height: 32px; object-fit: cover">
                                 <span id="display-name" class="fw-medium"></span>
                                 <input type="hidden" id="displayName">
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end">
-                                <li><a class="dropdown-item " href="#" id="logout-link">Logout</a></li>
+                                <li><a class="dropdown-item" href="#" id="logout-link">Logout</a></li>
                             </ul>
                         </div>
                         <a href="/rub/auth/google" id="google-login-link">
@@ -62,7 +59,9 @@
                 <!-- Navigation Menu -->
                 <div class="card mb-2">
                     <div class="card-body nav-buttons">
-                        <div class="section-title"><i class="bi bi-compass"></i> เมนู</div>
+                        <div class="section-title">
+                            <i class="bi bi-compass"></i> เมนู
+                        </div>
                         <div class="d-flex flex-wrap gap-2">
                             <a class="btn btn-secondary" href="./../index.html">
                                 <i class="bi bi-house-heart-fill"></i> Home
@@ -75,7 +74,9 @@
                 <!-- Feature Info & Tools -->
                 <div class="card">
                     <div class="card-body">
-                        <div class="section-title"><i class="bi bi-layers"></i> ข้อมูลแปลง</div>
+                        <div class="section-title">
+                            <i class="bi bi-layers"></i> ข้อมูลแปลง
+                        </div>
 
                         <div id="featurePanel">
                             <div class="mb-2">
@@ -104,7 +105,9 @@
 
                         <hr>
 
-                        <div class="section-title"><i class="bi bi-tools"></i> เครื่องมือ</div>
+                        <div class="section-title">
+                            <i class="bi bi-tools"></i> เครื่องมือ
+                        </div>
                         <div class="d-flex flex-wrap gap-2">
                             <button class="btn btn-info" id="save">Save</button>
                             <button class="btn btn-success" id="classify">Classify แปลงที่นี้</button>
@@ -113,8 +116,22 @@
                         </div>
                     </div>
                 </div>
+
             </div>
         </div>
+
+        <!-- ================= ROW 2 (TABLE) ================= -->
+        <div class="row mt-3">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <table id="featureTable" class="display nowrap" style="width:100%;">
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <!-- Modals -->

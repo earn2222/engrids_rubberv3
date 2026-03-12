@@ -1,20 +1,365 @@
+/* ===== Global Reset & Typography ===== */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html,
 body {
-    font-family: "Noto Sans Thai", serif !important;
+    min-height: 100vh;
+    font-family: "Noto Sans Thai", 'Inter', sans-serif;
     font-optical-sizing: auto;
     font-weight: 400;
     font-style: normal;
     font-variation-settings: "wdth" 100;
+    background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 40%, #e0f2f1 100%);
+    color: #2e3a2e;
 }
 
-h1 h2 h3 h4 h5 h6 {
-    font-family: "Noto Sans Thai", serif !important;
+/* ===== Page Header / Title ===== */
+.page-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 0.5rem;
 }
 
-.btn,
-.f {
-    font-family: "Noto Sans Thai", serif !important;
+.page-header .page-icon {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, #66bb6a, #2e7d32);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 1.5rem;
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+    flex-shrink: 0;
+}
+
+.page-header h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #2e7d32;
+    margin: 0;
+    letter-spacing: 0.02em;
+}
+
+.page-header p {
+    font-size: 1rem;
+    color: #689f63;
+    margin: 0;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-family: "Noto Sans Thai", sans-serif;
+}
+
+/* ===== Cards ===== */
+.card {
+    background: rgba(255, 255, 255, 0.82);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(76, 175, 80, 0.18);
+    border-radius: 14px;
+    box-shadow: 0 2px 16px rgba(76, 175, 80, 0.08),
+        0 1px 4px rgba(0, 0, 0, 0.03);
+    transition: box-shadow 0.3s ease, transform 0.2s ease;
+}
+
+.card:hover {
+    box-shadow: 0 4px 24px rgba(76, 175, 80, 0.14),
+        0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.card-body {
+    padding: 1rem 1.25rem;
+}
+
+/* ===== Section Titles (Labels) ===== */
+.label,
+.section-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #388e3c;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.label i,
+.section-title i {
+    font-size: 1rem;
+    color: #43a047;
+}
+
+/* ===== User Panel ===== */
+#user-panel {
+    gap: 8px;
+}
+
+#user-panel .dropdown-toggle {
+    color: #2e7d32;
+    font-weight: 500;
+    font-size: 1rem;
+}
+
+#user-panel .dropdown-toggle:hover {
+    color: #1b5e20;
+}
+
+#user-panel .dropdown-menu {
+    background: #ffffff;
+    border: 1px solid rgba(76, 175, 80, 0.2);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+#user-panel .dropdown-item:hover {
+    background: #e8f5e9;
+    color: #2e7d32;
+}
+
+/* ===== Buttons ===== */
+.btn {
+    font-family: "Noto Sans Thai", sans-serif !important;
+    font-size: 1rem;
+    border-radius: 10px;
+    font-weight: 500;
+    transition: all 0.25s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #66bb6a, #43a047);
+    border: none;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.2);
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #4caf50, #2e7d32);
+    box-shadow: 0 4px 16px rgba(76, 175, 80, 0.35);
+    transform: translateY(-1px);
+    color: #fff;
+}
+
+.btn-secondary {
+    background: linear-gradient(135deg, #78909c, #546e7a);
+    border: none;
+    color: #fff;
+}
+
+.btn-secondary:hover {
+    background: linear-gradient(135deg, #607d8b, #37474f);
+    transform: translateY(-1px);
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #66bb6a, #2e7d32);
+    border: none;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(46, 125, 50, 0.2);
+}
+
+.btn-success:hover {
+    background: linear-gradient(135deg, #4caf50, #1b5e20);
+    box-shadow: 0 4px 14px rgba(46, 125, 50, 0.35);
+    transform: translateY(-1px);
+}
+
+.btn-info {
+    background: linear-gradient(135deg, #26c6da, #00acc1);
+    border: none;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(0, 172, 193, 0.2);
+}
+
+.btn-info:hover {
+    background: linear-gradient(135deg, #00bcd4, #00838f);
+    box-shadow: 0 4px 14px rgba(0, 172, 193, 0.35);
+    transform: translateY(-1px);
+    color: #fff;
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #ef5350, #c62828);
+    border: none;
+    color: #fff;
+}
+
+.btn-danger:hover {
+    background: linear-gradient(135deg, #e53935, #b71c1c);
+    transform: translateY(-1px);
+}
+
+.btn-light {
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(76, 175, 80, 0.2);
+    color: #388e3c;
+}
+
+.btn-light:hover {
+    background: #e8f5e9;
+    border-color: rgba(76, 175, 80, 0.35);
+    color: #2e7d32;
+    transform: translateY(-1px);
+}
+
+/* ===== Alert Overrides ===== */
+.alert {
+    border-radius: 12px;
+    border: none;
+    font-size: 1rem;
+    transition: all 0.25s ease;
+}
+
+.alert-info {
+    background: rgba(232, 245, 233, 0.7);
+    border: 1px solid rgba(76, 175, 80, 0.2);
+    color: #2e3a2e;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.06);
+}
+
+.alert-info:hover {
+    background: rgba(232, 245, 233, 0.9);
+    box-shadow: 0 4px 16px rgba(76, 175, 80, 0.12);
+}
+
+.alert-success {
+    background: rgba(200, 230, 201, 0.5);
+    border: 1px solid rgba(76, 175, 80, 0.2);
+    color: #2e3a2e;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.06);
+}
+
+.alert-success:hover {
+    background: rgba(200, 230, 201, 0.75);
+    box-shadow: 0 4px 16px rgba(76, 175, 80, 0.12);
+}
+
+.alert strong {
+    color: #2e7d32;
 }
 
 .alert-dismissible {
     padding-right: 1rem !important;
+}
+
+/* ===== Alert Button Spacing ===== */
+.alert .btn {
+    font-size: 1rem;
+    padding: 0.3rem 0.7rem;
+    border-radius: 8px;
+}
+
+/* ===== Form Controls ===== */
+.form-control,
+.form-select {
+    background: #f9fdf9;
+    border: 1px solid rgba(76, 175, 80, 0.25);
+    border-radius: 8px;
+    color: #2e3a2e;
+    font-size: 0.95rem;
+    padding: 0.4rem 0.7rem;
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: #66bb6a;
+    box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.15);
+    background: #ffffff;
+    outline: none;
+}
+
+.form-control:disabled {
+    background: #f1f8e9;
+    color: #5a6b5a;
+    border-color: rgba(76, 175, 80, 0.12);
+    opacity: 0.85;
+}
+
+.form-label {
+    color: #388e3c;
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: 0.25rem;
+}
+
+/* ===== Modal Overrides ===== */
+.modal-content {
+    border-radius: 16px;
+    border: none;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
+    overflow: hidden;
+}
+
+.modal-header {
+    background: linear-gradient(135deg, #e8f5e9, #f1f8e9);
+    border-bottom: 1px solid rgba(76, 175, 80, 0.1);
+    padding: 1rem 1.25rem;
+}
+
+.modal-title {
+    color: #2e7d32;
+    font-weight: 600;
+}
+
+.modal-footer {
+    border-top: 1px solid rgba(76, 175, 80, 0.1);
+    padding: 0.75rem 1.25rem;
+}
+
+/* ===== Dividers ===== */
+hr {
+    border: none;
+    border-top: 1px solid rgba(76, 175, 80, 0.15);
+    margin: 0.75rem 0;
+}
+
+/* ===== Custom Scrollbar ===== */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #a5d6a7;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #66bb6a;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 768px) {
+    .page-header h1 {
+        font-size: 1.25rem;
+    }
+
+    .page-header .page-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 1.2rem;
+    }
 }

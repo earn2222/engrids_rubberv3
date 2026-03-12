@@ -1,13 +1,24 @@
+/* ===== Admin Page – Bright Green Theme (matching Reclass) ===== */
+
+/* ── Base / Body ── */
 body {
     font-family: "Noto Sans Thai", serif !important;
     font-optical-sizing: auto;
     font-weight: 400;
     font-style: normal;
     font-variation-settings: "wdth" 100;
+    background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 40%, #e0f2f1 100%) !important;
+    color: #2e3a2e !important;
 }
 
-h1 h2 h3 h4 h5 h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
     font-family: "Noto Sans Thai", serif !important;
+    color: #2e7d32 !important;
 }
 
 .btn,
@@ -15,10 +26,315 @@ h1 h2 h3 h4 h5 h6 {
     font-family: "Noto Sans Thai", serif !important;
 }
 
+/* ── Alert dismiss fix ── */
 .alert-dismissible {
     padding-right: 1rem !important;
 }
 
+/* ── Border radius ── */
 .border {
     border-radius: 10px;
+}
+
+/* ── Cards ── */
+.card {
+    background: rgba(255, 255, 255, 0.82) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(76, 175, 80, 0.18) !important;
+    border-radius: 14px !important;
+    box-shadow: 0 2px 16px rgba(76, 175, 80, 0.08), 0 1px 4px rgba(0, 0, 0, 0.03) !important;
+    transition: box-shadow 0.3s ease, transform 0.2s ease;
+}
+
+.card:hover {
+    box-shadow: 0 4px 24px rgba(76, 175, 80, 0.14), 0 2px 8px rgba(0, 0, 0, 0.05) !important;
+}
+
+.card-body {
+    color: #2e3a2e;
+}
+
+/* ── Card labels / section titles ── */
+.card-body .label {
+    font-size: 1.15rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #388e3c;
+}
+
+/* ── User Panel ── */
+#user-panel .dropdown-toggle {
+    color: #2e7d32;
+    font-weight: 500;
+}
+
+#user-panel .dropdown-toggle:hover {
+    color: #1b5e20;
+}
+
+#user-panel .dropdown-menu {
+    background: #ffffff;
+    border: 1px solid rgba(76, 175, 80, 0.2);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+#user-panel .dropdown-item:hover {
+    background: #e8f5e9;
+    color: #2e7d32;
+}
+
+/* ── Form Controls ── */
+.form-control,
+.form-select {
+    background: #f9fdf9 !important;
+    border: 1px solid rgba(76, 175, 80, 0.25) !important;
+    border-radius: 8px !important;
+    color: #2e3a2e !important;
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: #66bb6a !important;
+    box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.15) !important;
+    background: #ffffff !important;
+    outline: none;
+}
+
+.form-control:disabled {
+    background: #f1f8e9 !important;
+    color: #5a6b5a !important;
+    border-color: rgba(76, 175, 80, 0.12) !important;
+    opacity: 0.85;
+}
+
+.form-label {
+    color: #388e3c !important;
+    font-weight: 600;
+}
+
+/* ── Buttons ── */
+.btn {
+    border-radius: 10px;
+    font-weight: 500;
+    transition: all 0.25s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-light {
+    background: linear-gradient(135deg, #66bb6a, #43a047) !important;
+    border: none !important;
+    color: #fff !important;
+    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.2);
+}
+
+.btn-light:hover {
+    background: linear-gradient(135deg, #4caf50, #2e7d32) !important;
+    box-shadow: 0 4px 16px rgba(76, 175, 80, 0.35) !important;
+    transform: translateY(-1px);
+    color: #fff !important;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #66bb6a, #2e7d32) !important;
+    border: none !important;
+    color: #fff !important;
+    box-shadow: 0 2px 8px rgba(46, 125, 50, 0.2);
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #4caf50, #1b5e20) !important;
+    box-shadow: 0 4px 14px rgba(46, 125, 50, 0.35) !important;
+    transform: translateY(-1px);
+}
+
+.btn-secondary {
+    background: linear-gradient(135deg, #78909c, #546e7a) !important;
+    border: none !important;
+    color: #fff !important;
+}
+
+.btn-secondary:hover {
+    background: linear-gradient(135deg, #607d8b, #37474f) !important;
+    transform: translateY(-1px);
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #66bb6a, #2e7d32) !important;
+    border: none !important;
+    color: #fff !important;
+    box-shadow: 0 2px 8px rgba(46, 125, 50, 0.2);
+}
+
+.btn-success:hover {
+    background: linear-gradient(135deg, #4caf50, #1b5e20) !important;
+    box-shadow: 0 4px 14px rgba(46, 125, 50, 0.35) !important;
+    transform: translateY(-1px);
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #ef5350, #c62828) !important;
+    border: none !important;
+    color: #fff !important;
+}
+
+.btn-danger:hover {
+    background: linear-gradient(135deg, #e53935, #b71c1c) !important;
+    transform: translateY(-1px);
+}
+
+.btn-warning {
+    background: linear-gradient(135deg, #ffca28, #f9a825) !important;
+    border: none !important;
+    color: #3e2723 !important;
+    box-shadow: 0 2px 8px rgba(249, 168, 37, 0.2);
+}
+
+.btn-warning:hover {
+    background: linear-gradient(135deg, #ffc107, #f57f17) !important;
+    box-shadow: 0 4px 14px rgba(249, 168, 37, 0.35) !important;
+    transform: translateY(-1px);
+}
+
+.btn-info {
+    background: linear-gradient(135deg, #26c6da, #00acc1) !important;
+    border: none !important;
+    color: #fff !important;
+    box-shadow: 0 2px 8px rgba(0, 172, 193, 0.2);
+}
+
+.btn-info:hover {
+    background: linear-gradient(135deg, #00bcd4, #00838f) !important;
+    box-shadow: 0 4px 14px rgba(0, 172, 193, 0.35) !important;
+    transform: translateY(-1px);
+    color: #fff !important;
+}
+
+/* ── Modal ── */
+.modal-content {
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(76, 175, 80, 0.18) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 8px 40px rgba(76, 175, 80, 0.12), 0 2px 12px rgba(0, 0, 0, 0.06) !important;
+}
+
+.modal-header {
+    border-bottom: 1px solid rgba(76, 175, 80, 0.15) !important;
+    background: linear-gradient(135deg, rgba(232, 245, 233, 0.6), rgba(241, 248, 233, 0.6)) !important;
+    border-radius: 16px 16px 0 0 !important;
+}
+
+.modal-title {
+    color: #2e7d32 !important;
+    font-weight: 700;
+}
+
+.modal-footer {
+    border-top: 1px solid rgba(76, 175, 80, 0.15) !important;
+    background: rgba(232, 245, 233, 0.3) !important;
+    border-radius: 0 0 16px 16px !important;
+}
+
+/* ── Progress Bar ── */
+.progress {
+    border-radius: 8px;
+    background: #e8f5e9 !important;
+    overflow: hidden;
+}
+
+.progress-bar {
+    background: linear-gradient(135deg, #66bb6a, #43a047) !important;
+}
+
+/* ── Table overrides ── */
+.table {
+    color: #2e3a2e !important;
+}
+
+.table thead th {
+    background: linear-gradient(135deg, #e8f5e9, #c8e6c9) !important;
+    color: #2e7d32 !important;
+    border-bottom: 2px solid rgba(76, 175, 80, 0.25) !important;
+    font-weight: 600;
+}
+
+.table tbody tr:hover {
+    background: rgba(200, 230, 201, 0.3) !important;
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+    background-color: rgba(232, 245, 233, 0.4) !important;
+}
+
+.table td,
+.table th {
+    border-color: rgba(76, 175, 80, 0.1) !important;
+}
+
+/* ── Dividers ── */
+hr {
+    border: none;
+    border-top: 1px solid rgba(76, 175, 80, 0.15);
+}
+
+/* ── Text muted override ── */
+.text-muted {
+    color: #689f63 !important;
+}
+
+/* ── Links ── */
+a {
+    color: #2e7d32;
+    text-decoration: none;
+}
+
+a:hover {
+    color: #1b5e20;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #a5d6a7;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #66bb6a;
+}
+
+/* ── Badge ── */
+.badge.bg-primary {
+    background: linear-gradient(135deg, #66bb6a, #43a047) !important;
+}
+
+.badge.bg-success {
+    background: linear-gradient(135deg, #66bb6a, #2e7d32) !important;
+}
+
+.badge.bg-danger {
+    background: linear-gradient(135deg, #ef5350, #c62828) !important;
+}
+
+.badge.bg-warning {
+    background: linear-gradient(135deg, #ffca28, #f9a825) !important;
+    color: #3e2723 !important;
+}
+
+/* ── Container spacing adjustment ── */
+.container {
+    color: #2e3a2e;
 }

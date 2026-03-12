@@ -231,6 +231,10 @@ const loadGeoData = async () => {
                     data: 'check_area',
                     title: 'ตรวจสอบโฉนด',
                     render: (data, type, row) => {
+                        // Return plain value for sorting/filtering
+                        if (type === 'sort' || type === 'type' || type === 'filter') {
+                            return data || '';
+                        }
                         const passSelected = data === 'ผ่าน' ? 'selected' : '';
                         const failSelected = data === 'ไม่ผ่าน' ? 'selected' : '';
                         return `<select class="form-select form-select-sm review-check-area" data-subid="${row.sub_id}">
@@ -244,6 +248,10 @@ const loadGeoData = async () => {
                     data: 'check_shape',
                     title: 'ตรวจสอบยางพารา',
                     render: (data, type, row) => {
+                        // Return plain value for sorting/filtering
+                        if (type === 'sort' || type === 'type' || type === 'filter') {
+                            return data || '';
+                        }
                         const passSelected = data === 'ผ่าน' ? 'selected' : '';
                         const failSelected = data === 'ไม่ผ่าน' ? 'selected' : '';
                         return `<select class="form-select form-select-sm review-check-shape" data-subid="${row.sub_id}">
@@ -293,10 +301,8 @@ const loadGeoData = async () => {
                 },
             ],
             pageLength: 10,
-            responsive: true,
             select: true,
             destroy: true,
-            scrollX: true,
         });
 
         const updateMap = () => {

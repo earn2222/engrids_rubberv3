@@ -226,116 +226,104 @@ document.getElementById("addData").addEventListener("click", () => {
 
 document.getElementById('btnAdd').addEventListener("click", async () => {
     try {
-        const tb_name = document.getElementById("tb_name").value;
+        const province = document.getElementById("province").value.trim();
+        const person_name = document.getElementById("person_name").value.trim();
+        const geom_type = document.getElementById("geom_type").value;
         const remark = document.getElementById("tb_remark").value;
         const shpFile = document.getElementById("shpFile").files[0];
 
-        if (!tb_name) {
-            alert('กรุณากรอกชื่อย่อ');
+        // Validation
+        if (!province) {
+            alert('กรุณากรอกชื่อจังหวัด');
+            return;
+        }
+        if (!person_name) {
+            alert('กรุณากรอกชื่อบุคคล');
+            return;
+        }
+        if (!geom_type) {
+            alert('กรุณาเลือกประเภทข้อมูล');
             return;
         }
 
-        // ถ้ามีการอัปโหลด SHP file
-        if (shpFile) {
-            const formData = new FormData();
-            formData.append('file', shpFile);
-            formData.append('tb_name', tb_name);
+        // Create table name: tb_[province]_[person_name]
+        const tb_name = `tb_${province}_${person_name}`.toLowerCase();
 
-            document.getElementById('uploadProgress').style.display = 'block';
-            document.getElementById('progressBar').style.width = '0%';
-
-            const xhr = new XMLHttpRequest();
-
-            // Track progress
-            xhr.upload.addEventListener('progress', (e) => {
-                if (e.lengthComputable) {
-                    const percentComplete = (e.loaded / e.total) * 100;
-                    document.getElementById('progressBar').style.width = percentComplete + '%';
-                    document.getElementById('progressText').textContent = `อัปโหลด ${Math.round(percentComplete)}%`;
-                }
-            });
-
-            xhr.addEventListener('load', async () => {
-                try {
-                    const shpResult = JSON.parse(xhr.responseText);
-
-                    if (xhr.status === 200 && shpResult.success) {
-                        // 1. อัปโหลด SHP สำเร็จ
-                        document.getElementById('progressText').textContent = 'กำลังสร้าง layer...';
-                        document.getElementById('progressBar').style.width = '75%';
-
-                        // 2. สร้าง reclass layer
-                        const response_reclass = await fetch(`/rub/api/create_reclass_layer`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ tb: tb_name })
-                        });
-
-                        const result_reclass = await response_reclass.json();
-                        document.getElementById('progressBar').style.width = '100%';
-
-                        // สำเร็จ
-                        document.getElementById("tb_name").value = "";
-                        document.getElementById("tb_remark").value = "";
-                        document.getElementById("shpFile").value = "";
-                        setTimeout(() => {
-                            document.getElementById('uploadProgress').style.display = 'none';
-                            alert(`อัพเดท ${tb_name} เรียบร้อย (${shpResult.recordCount} records)`);
-                            initApp();
-                        }, 500);
-                    } else {
-                        const errorMsg = shpResult.error || 'Unknown error';
-                        alert(`เกิดข้อผิดพลาดในการอัปโหลด: ${errorMsg}`);
-                        document.getElementById('uploadProgress').style.display = 'none';
-                        console.error('Upload error:', shpResult);
-                    }
-                } catch (parseErr) {
-                    console.error('Parse error:', parseErr, 'Response:', xhr.responseText);
-                    alert(`เกิดข้อผิดพลาดในการประมวลผล: ${parseErr.message}`);
-                    document.getElementById('uploadProgress').style.display = 'none';
-                }
-            });
-
-            xhr.addEventListener('error', () => {
-                alert('เกิดข้อผิดพลาดในการอัปโหลด (Network Error)');
-                document.getElementById('uploadProgress').style.display = 'none';
-                console.error('XHR error');
-            });
-
-            xhr.addEventListener('abort', () => {
-                alert('การอัปโหลดถูกยกเลิก');
-                document.getElementById('uploadProgress').style.display = 'none';
-            });
-
-            xhr.open('POST', '/rub/api/upload-shapefile', true);
-            xhr.send(formData);
-        } else {
-            // ไม่มี SHP file - สร้าง layer ว่างเปล่า
-            const response = await fetch(`/rub/api/layerlist`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ tb_name, remark })
-            });
-
-            const result = await response.json();
-
-            const response_reclass = await fetch(`/rub/api/create_reclass_layer`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ tb: tb_name })
-            });
-
-            const result_reclass = await response_reclass.json();
-
-            if (result.success) {
-                document.getElementById("tb_name").value = "";
-                document.getElementById("tb_remark").value = "";
-                alert(`อัพเดท ${tb_name} เรียบร้อย`);
-                await initApp();
-            } else {
-                alert(`เกิดข้อผิดพลาด: ${result.error}`);
-            }
+        if (!shpFile) {
+            alert('กรุณาเลือกไฟล์ Shapefile');
+            return;
         }
+
+        // Upload shapefile
+        const formData = new FormData();
+        formData.append('shpFile', shpFile);
+        formData.append('tb_name', tb_name);
+        formData.append('geom_type', geom_type);
+        formData.append('remark', remark);
+
+        document.getElementById('uploadProgress').style.display = 'block';
+        document.getElementById('progressBar').style.width = '0%';
+
+        const xhr = new XMLHttpRequest();
+
+        // Track progress
+        xhr.upload.addEventListener('progress', (e) => {
+            if (e.lengthComputable) {
+                const percentComplete = (e.loaded / e.total) * 100;
+                document.getElementById('progressBar').style.width = percentComplete + '%';
+                document.getElementById('progressText').textContent = `อัปโหลด ${Math.round(percentComplete)}%`;
+            }
+        });
+
+        xhr.addEventListener('load', async () => {
+            try {
+                const shpResult = JSON.parse(xhr.responseText);
+
+                if (xhr.status === 200 && shpResult.success) {
+                    // 1. อัปโหลด SHP สำเร็จ
+                    document.getElementById('progressText').textContent = 'กำลังสร้าง layer...';
+                    document.getElementById('progressBar').style.width = '75%';
+
+                    document.getElementById('progressBar').style.width = '100%';
+
+                    // Clear form
+                    document.getElementById("province").value = "";
+                    document.getElementById("person_name").value = "";
+                    document.getElementById("geom_type").value = "";
+                    document.getElementById("tb_remark").value = "";
+                    document.getElementById("shpFile").value = "";
+
+                    setTimeout(() => {
+                        document.getElementById('uploadProgress').style.display = 'none';
+                        alert(`สร้าง ${tb_name} เรียบร้อย (${shpResult.recordCount} records, ประเภท: ${geom_type})`);
+                        initApp();
+                    }, 500);
+                } else {
+                    const errorMsg = shpResult.error || 'Unknown error';
+                    alert(`เกิดข้อผิดพลาดในการอัปโหลด: ${errorMsg}`);
+                    document.getElementById('uploadProgress').style.display = 'none';
+                    console.error('Upload error:', shpResult);
+                }
+            } catch (parseErr) {
+                console.error('Parse error:', parseErr, 'Response:', xhr.responseText);
+                alert(`เกิดข้อผิดพลาดในการประมวลผล: ${parseErr.message}`);
+                document.getElementById('uploadProgress').style.display = 'none';
+            }
+        });
+
+        xhr.addEventListener('error', () => {
+            alert('เกิดข้อผิดพลาดในการอัปโหลด (Network Error)');
+            document.getElementById('uploadProgress').style.display = 'none';
+            console.error('XHR error');
+        });
+
+        xhr.addEventListener('abort', () => {
+            alert('การอัปโหลดถูกยกเลิก');
+            document.getElementById('uploadProgress').style.display = 'none';
+        });
+
+        xhr.open('POST', '/rub/api/upload-shapefile', true);
+        xhr.send(formData);
 
     } catch (error) {
         console.error('Failed:', error);
@@ -343,6 +331,10 @@ document.getElementById('btnAdd').addEventListener("click", async () => {
         document.getElementById('uploadProgress').style.display = 'none';
     }
 })
+
+document.getElementById('exportSqlBtn').addEventListener('click', () => {
+    window.location.href = '/rub/api/export-sql';
+});
 
 document.addEventListener('DOMContentLoaded', async () => {
     try {

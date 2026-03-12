@@ -14,9 +14,7 @@ async function getEEdata() {
             .filter(ee.Filter.eq('country_na', 'Thailand'));
         // print the geometry bounds
         if (geometry.size().getInfo() === 0) {
-            console.error('❌ No geometry found for the specified country.');
-            res.status(404).send('No geometry found for the specified country.');
-            return;
+            throw new Error('No geometry found for the specified country.');
         }
         // console.log('✅ Geometry bounds:', );
 
@@ -89,7 +87,7 @@ async function getEEdata() {
 
     } catch (error) {
         console.error('❌ Error fetching Earth Engine data:', error);
-        res.status(500).send('Error fetching Earth Engine data');
+        throw error;
     }
 }
 
