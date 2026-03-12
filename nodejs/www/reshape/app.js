@@ -133,16 +133,16 @@ map.on('pm:create', (e) => {
     const layer = e.layer;
     featureGroup.addLayer(layer);
     layer.pm.enable();
-    
+
     // If a point is selected, replace it with this new polygon
     if (selectedLayer && selectedLayer instanceof L.Marker) {
         const properties = selectedLayer.options.properties || (selectedLayer.feature && selectedLayer.feature.properties) || {};
         layer.feature = { type: 'Feature', properties: { ...properties } };
-        
+
         featureGroup.removeLayer(selectedLayer);
         selectedLayer = layer;
         layerEdited = true;
-        
+
         layer.bindPopup(`${properties.id}`);
         layer.on('click', (ev) => {
             showFeaturePanel(layer.feature, layer);
@@ -151,12 +151,12 @@ map.on('pm:create', (e) => {
             layerEdited = false;
             selectedLayer = layer;
         });
-        
+
         layer.on('pm:edit pm:dragend pm:change', () => {
             layerEdited = true;
             updateAreaLabel();
         });
-        
+
         updateAreaLabel();
     } else {
         // If nothing was selected or a polygon was selected, just set as selected
@@ -702,9 +702,5 @@ document.getElementById('dashboard').addEventListener('click', (e) => {
     window.location.href = './../reclassdash/index.html?tb=' + tb;
 });
 
-document.getElementById('digitize').addEventListener('click', function () {
-    const tb = document.getElementById('tb').value;
-    const id = document.getElementById('id').value;
-    window.location.href = `./../digitize/index.html?tb=${tb}&id=${id}`;
-});
+
 

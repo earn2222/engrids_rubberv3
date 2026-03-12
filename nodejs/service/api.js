@@ -1206,36 +1206,112 @@ app.put('/api/update_geometry/:tb', async (req, res) => {
 app.get('/api/download/reshape/:tb', async (req, res) => {
     try {
         const tb = req.params.tb;
+        if (!tb) return res.status(400).json({ error: 'Table name is required' });
 
-        if (!tb) {
-            return res.status(400).json({ error: 'Table name is required' });
+        let sql;
+        // ─── Case 1: Download reclassify (v_reclass_xxx) ───────────────────────────
+        if (tb.startsWith('v_reclass_')) {
+            const baseTb = tb.replace('v_reclass_', '');
+            sql = `
+                SELECT json_build_object(
+                    'type', 'FeatureCollection',
+                    'features', COALESCE(json_agg(f.feat) FILTER (WHERE f.feat IS NOT NULL), '[]'::json)
+                ) AS geojson
+                FROM (
+                    SELECT json_build_object(
+                        'type', 'Feature',
+                        'geometry', ST_AsGeoJSON(r.geom)::json,
+                        'properties', jsonb_build_object(
+                            'classtype',    r.classtype,
+                            'shpsplit_sqm', r.shpsplit_sqm,
+                            'remark',       m.remark,
+                            'agency',       m.agency,
+                            'id_farmer',    m.id_farmer,
+                            'regis_no',     m.regis_no,
+                            'no_plot',      m.no_plot,
+                            'titl_nam',     m.titl_nam,
+                            'f_name',       m.f_name,
+                            'l_name',       m.l_name,
+                            'address',      m.address,
+                            'sub_dis',      m.sub_dis,
+                            'district',     m.district,
+                            'province',     m.province,
+                            'status',       m.status,
+                            'title_no',     m.title_no,
+                            'title_type',   m.title_type,
+                            'yang_rai',     m.yang_rai,
+                            'rai',          m.rai,
+                            'ng',           m.ng,
+                            'sgw',          m.sgw,
+                            'pacel_rai',    m.pacel_rai,
+                            'age',          m.age,
+                            'x',            m.x,
+                            'y',            m.y,
+                            'sqm_yang',     m.sqm_yang,
+                            'sqm_pacel',    m.sqm_pacel,
+                            'shparea_sq',   m.shparea_sq,
+                            'geom_point',   ST_AsGeoJSON(m.geom_point)::json
+                        )
+                    ) AS feat
+                    FROM reclass_${baseTb} r
+                    JOIN ${baseTb} m ON r.id = m.id
+                    WHERE r.geom IS NOT NULL
+                ) f;
+            `;
+        } 
+        // ─── Case 2: Download แปลงยาง (Main Table) ─────────────────────────────────
+        else {
+            sql = `
+                SELECT json_build_object(
+                    'type', 'FeatureCollection',
+                    'features', COALESCE(json_agg(f.feat) FILTER (WHERE f.feat IS NOT NULL), '[]'::json)
+                ) AS geojson
+                FROM (
+                    SELECT json_build_object(
+                        'type', 'Feature',
+                        'geometry', ST_AsGeoJSON(m.geom)::json,
+                        'properties', jsonb_build_object(
+                            'id',           m.id,
+                            'remark',       m.remark,
+                            'agency',       m.agency,
+                            'id_farmer',    m.id_farmer,
+                            'regis_no',     m.regis_no,
+                            'no_plot',      m.no_plot,
+                            'titl_nam',     m.titl_nam,
+                            'f_name',       m.f_name,
+                            'l_name',       m.l_name,
+                            'address',      m.address,
+                            'sub_dis',      m.sub_dis,
+                            'district',     m.district,
+                            'province',     m.province,
+                            'status',       m.status,
+                            'title_no',     m.title_no,
+                            'title_type',   m.title_type,
+                            'yang_rai',     m.yang_rai,
+                            'rai',          m.rai,
+                            'ng',           m.ng,
+                            'sgw',          m.sgw,
+                            'pacel_rai',    m.pacel_rai,
+                            'age',          m.age,
+                            'x',            m.x,
+                            'y',            m.y,
+                            'sqm_yang',     m.sqm_yang,
+                            'sqm_pacel',    m.sqm_pacel,
+                            'shparea_sq',   m.shparea_sq,
+                            'geom_point',   ST_AsGeoJSON(m.geom_point)::json
+                        )
+                    ) AS feat
+                    FROM ${tb} m
+                    WHERE m.geom IS NOT NULL
+                ) f;
+            `;
         }
-        const { rows } = await pool.query(`
-        SELECT json_build_object(
-          'type',     'FeatureCollection',
-          'features', json_agg(features.feature)
-        ) AS geojson
-        FROM (
-          SELECT json_build_object(
-            'type',       'Feature',
-            'geometry',   ST_AsGeoJSON(geom)::json,
-            'properties', to_jsonb(props) - 'geom'
-          ) AS feature
-          FROM (
-            SELECT *
-            FROM ${tb}
-            WHERE geom IS NOT NULL
-          ) AS props
-        ) AS features;
-      `);
 
-        const geojson = rows[0].geojson;
+        const { rows } = await pool.query(sql);
+        const geojson = rows[0]?.geojson || { type: 'FeatureCollection', features: [] };
 
         res.setHeader('Content-Type', 'application/json');
-        res.setHeader(
-            'Content-Disposition',
-            'attachment; filename="data.geojson"'
-        );
+        res.setHeader('Content-Disposition', `attachment; filename="${tb}.geojson"`);
         res.send(JSON.stringify(geojson));
     } catch (err) {
         console.error(err);
