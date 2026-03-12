@@ -216,26 +216,35 @@ document.getElementById('createProjectBtn').addEventListener('click', () => {
         createProjectModal = new bootstrap.Modal(document.getElementById('createProjectModal'));
     }
     // reset form
-    document.getElementById('cp_province').value = '';
-    document.getElementById('cp_person').value = '';
-    document.getElementById('cp_remark').value = '';
+    const cpProv = document.getElementById('cp_province');
+    const cpPers = document.getElementById('cp_person');
+    const cpRem = document.getElementById('cp_remark');
+    if(cpProv) cpProv.value = '';
+    if(cpPers) cpPers.value = '';
+    if(cpRem) cpRem.value = '';
     document.getElementById('tableNamePreview').style.display = 'none';
     createProjectModal.show();
 });
 
 /* Live preview of table name */
 ['cp_province', 'cp_person'].forEach(id => {
-    document.getElementById(id).addEventListener('input', updateTableNamePreview);
+    const el = document.getElementById(id);
+    if (el) {
+        el.addEventListener('input', updateTableNamePreview);
+    }
 });
 
 function updateTableNamePreview() {
-    const province = document.getElementById('cp_province').value.trim().toLowerCase().replace(/\s+/g, '_');
-    const person   = document.getElementById('cp_person').value.trim().toLowerCase().replace(/\s+/g, '_');
+    const provEl = document.getElementById('cp_province');
+    const persEl = document.getElementById('cp_person');
+    
+    const province = provEl ? provEl.value.trim().toLowerCase().replace(/\s+/g, '_') : '';
+    const person   = persEl ? persEl.value.trim().toLowerCase().replace(/\s+/g, '_') : '';
     const preview  = document.getElementById('tableNamePreview');
     const nameEl   = document.getElementById('previewTableName');
 
-    if (province && person) {
-        nameEl.textContent = `tb_${province}_${person}`;
+    if (province) {
+        nameEl.textContent = person ? `tb_${province}_${person}` : `tb_${province}`;
         preview.style.display = 'block';
     } else {
         preview.style.display = 'none';
@@ -243,14 +252,17 @@ function updateTableNamePreview() {
 }
 
 document.getElementById('btnCreateProject').addEventListener('click', async () => {
-    const province = document.getElementById('cp_province').value.trim().toLowerCase().replace(/\s+/g, '_');
-    const person   = document.getElementById('cp_person').value.trim().toLowerCase().replace(/\s+/g, '_');
-    const remark   = document.getElementById('cp_remark').value.trim();
+    const provEl = document.getElementById('cp_province');
+    const persEl = document.getElementById('cp_person');
+    const remEl  = document.getElementById('cp_remark');
+    
+    const province = provEl ? provEl.value.trim().toLowerCase().replace(/\s+/g, '_') : '';
+    const person   = persEl ? persEl.value.trim().toLowerCase().replace(/\s+/g, '_') : '';
+    const remark   = remEl ? remEl.value.trim() : '';
 
     if (!province) { alert('กรุณากรอกชื่อจังหวัด'); return; }
-    if (!person)   { alert('กรุณากรอกชื่อบุคคล');   return; }
 
-    const tb_name = `tb_${province}_${person}`;
+    const tb_name = person ? `tb_${province}_${person}` : `tb_${province}`;
 
     const btn = document.getElementById('btnCreateProject');
     btn.disabled = true;
@@ -412,10 +424,7 @@ document.getElementById('btnAddData').addEventListener('click', async () => {
     xhr.send(formData);
 });
 
-/* ── Export SQL ── */
-document.getElementById('exportSqlBtn').addEventListener('click', () => {
-    window.location.href = '/rub/api/export-sql';
-});
+
 
 /* ── Bootstrap DOMContentLoaded: auth check → init ── */
 document.addEventListener('DOMContentLoaded', async () => {

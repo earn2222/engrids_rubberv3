@@ -48,9 +48,6 @@
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <div class="label">แปลงยาง</div>
                             <div class="d-flex gap-2">
-                                <button class="btn btn-warning" id="exportSqlBtn">
-                                    <i class="bi bi-database-down me-1"></i>Export rub2.sql
-                                </button>
                                 <button class="btn btn-light" id="createProjectBtn">
                                     <i class="bi bi-folder-plus me-1"></i>สร้าง Project
                                 </button>
@@ -74,7 +71,8 @@
     <!-- ═══════════════════════════════════════════════════════
          MODAL 1: สร้าง Project (create table only, no upload)
     ═══════════════════════════════════════════════════════ -->
-    <div class="modal fade" id="createProjectModal" tabindex="-1" aria-labelledby="createProjectModalLabel" aria-hidden="true">
+    <div class="modal fade" id="createProjectModal" tabindex="-1" aria-labelledby="createProjectModalLabel"
+        aria-hidden="true">
         <div class="modal-dialog modal-md">
             <div class="modal-content">
                 <div class="modal-header">
@@ -85,18 +83,16 @@
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label for="cp_province" class="form-label">ชื่อจังหวัด <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="cp_province" placeholder="เช่น champhon, krabi, suratthani">
-                        <small class="text-muted">ใช้ตัวอักษรภาษาอังกฤษ ตัวเล็ก ไม่มีเว้นวรรค</small>
-                    </div>
-                    <div class="mb-3">
-                        <label for="cp_person" class="form-label">ชื่อบุคคล <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="cp_person" placeholder="เช่น earn, noi, kung">
+                        <label for="cp_province" class="form-label">ชื่อจังหวัด <span
+                                class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="cp_province"
+                            placeholder="เช่น champhon, krabi, suratthani">
                         <small class="text-muted">ใช้ตัวอักษรภาษาอังกฤษ ตัวเล็ก ไม่มีเว้นวรรค</small>
                     </div>
                     <div class="mb-3">
                         <label for="cp_remark" class="form-label">Remark</label>
-                        <textarea class="form-control" id="cp_remark" rows="2" placeholder="หมายเหตุ (ไม่บังคับ)"></textarea>
+                        <textarea class="form-control" id="cp_remark" rows="2"
+                            placeholder="หมายเหตุ (ไม่บังคับ)"></textarea>
                     </div>
                     <!-- Preview table name -->
                     <div class="table-name-preview" id="tableNamePreview" style="display:none;">
@@ -149,7 +145,8 @@
                         <input type="hidden" id="ad_geom_type" value="">
                     </div>
                     <div class="mb-3">
-                        <label for="ad_shpFile" class="form-label">อัปโหลด Shapefile (ZIP) <span class="text-danger">*</span></label>
+                        <label for="ad_shpFile" class="form-label">อัปโหลด Shapefile (ZIP) <span
+                                class="text-danger">*</span></label>
                         <div class="upload-zone" id="uploadZone">
                             <i class="bi bi-cloud-arrow-up-fill upload-zone-icon"></i>
                             <div class="upload-zone-text">คลิกหรือลากไฟล์มาวางที่นี่</div>
