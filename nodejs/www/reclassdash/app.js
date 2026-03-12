@@ -541,11 +541,7 @@ document.getElementById('reshape').addEventListener('click', (e) => {
     window.location.href = './../reshape/index.html?tb=' + tb;
 });
 
-document.getElementById('v3').addEventListener('click', (e) => {
-    e.preventDefault();
-    const tb = document.getElementById('tb').value;
-    window.location.href = './../testv3/index.html?tb=' + tb;
-});
+
 
 document.addEventListener('DOMContentLoaded', async () => {
     try {
