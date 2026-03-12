@@ -830,17 +830,21 @@ app.get('/api/countsfeatures/:tb', async (req, res) => {
             WHERE ABS(sqm_pacel - shparea_sq) <= 100
         ),
         c AS (
-            SELECT COUNT(DISTINCT id) AS reclass
-            FROM reclass_${tb}
+            SELECT 
+                CASE 
+                    WHEN to_regclass('reclass_${tb}') IS NOT NULL THEN (SELECT COUNT(DISTINCT id) FROM reclass_${tb})
+                    ELSE 0 
+                END AS reclass
         )
-        SELECT (SELECT COUNT(*) FROM ${tb}) AS total,
-                c.reclass,
-                a.reshp
+        SELECT 
+            (SELECT COUNT(*) FROM ${tb}) AS total,
+            c.reclass,
+            a.reshp
         FROM a
         CROSS JOIN c;
-      `;
+        `;
         const result = await pool.query(query);
-        res.json(result.rows[0]);
+        res.json(result.rows[0] || { total: 0, reclass: 0, reshp: 0 });
     } catch (err) {
         console.error(err.stack);
         res.status(500).json({ error: 'Database query failed' });
