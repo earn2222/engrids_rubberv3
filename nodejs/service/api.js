@@ -715,7 +715,7 @@ app.get('/api/getreclassfeatures/:tb', async (req, res) => {
                     b.refinal,
                     a.classtype, 
                     a.app_no,
-                    b.shparea_sqm,
+                    b.shparea_sq AS shparea_sqm,
                     a.shpsplit_sqm,
                     a.check_area,
                     a.check_shape,
