@@ -824,24 +824,20 @@ app.get('/api/countsfeatures/:tb', async (req, res) => {
             return res.status(400).json({ error: 'Table name is required' });
         }
         const query = `
-        WITH a AS (
-            SELECT COUNT(*) AS reshp
-            FROM ${tb}
-            WHERE ABS(sqm_pacel - shparea_sq) <= 100
-        ),
-        c AS (
-            SELECT 
-                CASE 
-                    WHEN to_regclass('reclass_${tb}') IS NOT NULL THEN (SELECT COUNT(DISTINCT id) FROM reclass_${tb})
-                    ELSE 0 
-                END AS reclass
-        )
         SELECT 
             (SELECT COUNT(*) FROM ${tb}) AS total,
-            c.reclass,
-            a.reshp
-        FROM a
-        CROSS JOIN c;
+            (SELECT COUNT(*) FROM ${tb} WHERE classified = TRUE) AS reclass,
+            (
+                CASE 
+                    WHEN to_regclass('reclass_${tb}') IS NOT NULL THEN (
+                        SELECT COUNT(DISTINCT r.id) 
+                        FROM reclass_${tb} r
+                        JOIN ${tb} m ON r.id = m.id
+                        WHERE r.editor IS NOT NULL AND ABS(r.shpsplit_sqm - m.sqm_pacel) <= 100
+                    )
+                    ELSE 0 
+                END
+            ) AS reshp
         `;
         const result = await pool.query(query);
         res.json(result.rows[0] || { total: 0, reclass: 0, reshp: 0 });
