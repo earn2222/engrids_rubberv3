@@ -168,7 +168,7 @@ const loadGeoData = async () => {
             sub_id: item.sub_id,
             refinal: item.refinal,
             geom: JSON.parse(item.geom),
-            app_no: item.app_no,
+            app_no: item.id_farmer || '',
             farm_name: item.farm_name || '',
             age: item.age || '',
             sqm_pacel: item.sqm_pacel || 0,
@@ -199,7 +199,7 @@ const loadGeoData = async () => {
                                     href="#"><i class="bi bi-zoom-in"></i> ซูม</a>`
                     }
                 },
-                { data: 'app_no', title: 'Application No' },
+                { data: 'app_no', title: 'App No' },
                 { data: 'id', title: 'ID' },
                 {
                     data: 'farm_name',
@@ -237,7 +237,7 @@ const loadGeoData = async () => {
                     render: (data) => {
                         const labelMap = {
                             'rubber': 'ยางพาราที่ลงทะเบียน', 'not-rubber': 'ยางพาราที่ไม่ได้ลงทะเบียน',
-                            'Other': 'ไม่ใช่ยางพารา', 'ex-pond': 'พื้นที่กันออก (บ่อน้ำ)', 
+                            'Other': 'ไม่ใช่ยางพารา', 'ex-pond': 'พื้นที่กันออก (บ่อน้ำ)',
                             'ex-landcover': 'พื้นที่กันออก (สิ่งปกคลุมดินอื่นๆ)',
                             'ex-building': 'พื้นที่กันออก (สิ่งปลูกสร้าง)', 'ex-river': 'พื้นที่กันออก (ลำน้ำ)',
                             'ex-unreg-rubber': 'พื้นที่กันออก (ยางพาราไม่ลงทะเบียน)'
@@ -575,7 +575,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         geometry: geom,
                         properties: {
                             id: item.id,
-                            app_no: item.app_no,
+                            app_no: item.id_farmer,
                             xls_sqm: item.xls_sqm,
                             shparea_sqm: item.shparea_sqm
                         }
@@ -590,7 +590,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             fillOpacity: 0.12
                         }),
                         onEachFeature: (feature, layer) => {
-                            layer.bindPopup(`<b>Reshape</b><br>ID: ${feature.properties.id}<br>App: ${feature.properties.app_no}`);
+                            layer.bindPopup(`<b>Reshape</b><br>ID: ${feature.properties.id}<br>เลขบัตรประชาชน: ${feature.properties.app_no}`);
                         }
                     }).addTo(reshapeFeatureGroup);
                 });

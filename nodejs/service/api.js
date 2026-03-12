@@ -715,6 +715,7 @@ app.get('/api/getreclassfeatures/:tb', async (req, res) => {
                     b.refinal,
                     a.classtype, 
                     a.app_no,
+                    b.id_farmer,
                     CONCAT_WS(' ', b.f_name, b.l_name) AS farm_name,
                     b.age,
                     b.sqm_pacel,
