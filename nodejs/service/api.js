@@ -1262,9 +1262,10 @@ app.get('/api/layerlist', async (req, res) => {
             const createTableSql = `
                 CREATE TABLE layerlist (
                     id SERIAL PRIMARY KEY,
-                    tb_name TEXT NOT NULL,
+                    tb_name TEXT NOT NULL UNIQUE,
                     remark TEXT,
-                    created_at TIMESTAMP DEFAULT NOW()
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    updated_at TIMESTAMP DEFAULT NOW()
                 )
             `;
             await pool.query(createTableSql);
@@ -1761,4 +1762,300 @@ app.get('/api/export-sql', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+/* ────────────────────────────────────────────────────────────
+   NEW: Create Project – build empty table from template
+   POST /api/create-project
+   body: { tb_name: "tb_champhon_earn", remark: "..." }
+──────────────────────────────────────────────────────────── */
+app.post('/api/create-project', async (req, res) => {
+    const { tb_name, remark } = req.body;
+
+    if (!tb_name) {
+        return res.status(400).json({ error: 'tb_name is required' });
+    }
+
+    // Validate table name (letters, numbers, underscore only)
+    if (!/^[a-z][a-z0-9_]*$/.test(tb_name)) {
+        return res.status(400).json({ error: 'Table name must start with a letter and contain only lowercase letters, numbers and underscores' });
+    }
+
+    try {
+        // Drop existing objects first (idempotent re-create)
+        await pool.query(`DROP VIEW IF EXISTS v_reclass_${tb_name}`);
+        await pool.query(`DROP TABLE IF EXISTS reclass_${tb_name}`);
+        await pool.query(`DROP TABLE IF EXISTS ${tb_name}`);
+
+        // Create main rubber table with full template schema
+        const createMainTable = `
+            CREATE TABLE ${tb_name} (
+                id           SERIAL PRIMARY KEY,
+                remark       text,
+                agency       text,
+                id_farmer    text,
+                regis_no     text,
+                no_plot      numeric,
+                titl_nam     text,
+                f_name       text,
+                l_name       text,
+                address      text,
+                sub_dis      text,
+                district     text,
+                province     text,
+                status       text,
+                title_no     text,
+                title_type   text,
+                yang_rai     numeric,
+                rai          numeric,
+                ng           numeric,
+                sgw          numeric,
+                pacel_rai    numeric,
+                age          numeric,
+                x            numeric,
+                y            numeric,
+                sqm_yang     numeric,
+                sqm_pacel    numeric,
+                shparea_sq   numeric,
+                shpsplit_sqm numeric,
+                lu_type      text,
+                geom         GEOMETRY(MultiPolygon, 4326),
+                geom_point   GEOMETRY(Point, 4326),
+                app_no       text,
+                refinal      text,
+                xls_sqm      numeric,
+                classified   boolean DEFAULT FALSE,
+                diff_chk     numeric,
+                chk          text,
+                check_area   text,
+                check_shape  text,
+                editor       text,
+                ts           timestamp DEFAULT NOW(),
+                created_at   timestamp DEFAULT NOW(),
+                updated_at   timestamp DEFAULT NOW()
+            );
+            CREATE INDEX idx_${tb_name}_geom       ON ${tb_name} USING GIST(geom);
+            CREATE INDEX idx_${tb_name}_geom_point ON ${tb_name} USING GIST(geom_point);
+        `;
+        await pool.query(createMainTable);
+
+        // Create companion reclass table
+        const createReclassTable = `
+            CREATE TABLE reclass_${tb_name} (
+                fid          SERIAL PRIMARY KEY,
+                id           INTEGER,
+                sub_id       TEXT,
+                app_no       TEXT,
+                shpsplit_sqm NUMERIC,
+                geom         GEOMETRY(MultiPolygon, 4326),
+                geom_point   GEOMETRY(Point, 4326),
+                classtype    TEXT,
+                editor       TEXT,
+                ts           TIMESTAMP DEFAULT NOW(),
+                created_at   timestamp DEFAULT NOW()
+            );
+            CREATE INDEX idx_reclass_${tb_name}_geom ON reclass_${tb_name} USING GIST(geom);
+        `;
+        await pool.query(createReclassTable);
+
+        // Create view
+        const createView = `
+            CREATE VIEW v_reclass_${tb_name} AS
+            SELECT
+                a.id, a.remark AS a_remark, a.agency, a.id_farmer, a.regis_no,
+                a.no_plot, a.titl_nam, a.f_name, a.l_name, a.address,
+                a.sub_dis, a.district, a.province, a.status, a.title_no, a.title_type,
+                a.yang_rai, a.rai, a.ng, a.sgw, a.pacel_rai, a.age, a.x, a.y,
+                a.sqm_yang, a.sqm_pacel, a.shparea_sq, a.shpsplit_sqm AS a_shpsplit_sqm,
+                a.lu_type, a.app_no, a.refinal, a.xls_sqm, a.classified,
+                a.editor AS a_editor, a.ts AS a_ts,
+                r.fid AS reclass_fid, r.sub_id AS reclass_sub_id,
+                r.shpsplit_sqm AS r_shpsplit_sqm, r.classtype,
+                r.editor AS reclass_editor, r.ts AS r_ts, r.geom
+            FROM ${tb_name} AS a
+            JOIN reclass_${tb_name} AS r ON a.id = r.id;
+        `;
+        await pool.query(createView);
+
+        // Register in layerlist (idempotent – skip if already exists)
+        await pool.query(
+            `INSERT INTO layerlist (tb_name, remark)
+             VALUES ($1, $2)
+             ON CONFLICT (tb_name) DO UPDATE SET remark = EXCLUDED.remark, updated_at = NOW()`,
+            [tb_name, remark || '']
+        );
+
+        res.json({ success: true, tb_name });
+    } catch (err) {
+        console.error('create-project error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/* ────────────────────────────────────────────────────────────
+   NEW: Upload shapefile to an EXISTING table
+   POST /api/upload-shapefile-to-table
+   multipart: shpFile (ZIP), tb_name, geom_type (polygon|point)
+
+   • polygon → stored in  geom        column (MultiPolygon 4326)
+   • point   → stored in  geom_point  column (Point 4326)
+──────────────────────────────────────────────────────────── */
+app.post('/api/upload-shapefile-to-table', upload.single('shpFile'), async (req, res) => {
+    const { tb_name, geom_type } = req.body;
+    const zipFilePath = req.file?.path;
+
+    if (!tb_name || !zipFilePath || !geom_type) {
+        return res.status(400).json({ error: 'tb_name, geom_type and shapefile are required' });
+    }
+    if (!['polygon', 'point'].includes(geom_type)) {
+        return res.status(400).json({ error: 'geom_type must be polygon or point' });
+    }
+
+    const extractDir = path.join('uploads', `extract_${Date.now()}`);
+
+    try {
+        // Check table exists
+        const tableCheck = await pool.query(
+            `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=$1)`,
+            [tb_name]
+        );
+        if (!tableCheck.rows[0].exists) {
+            return res.status(404).json({ error: `Table "${tb_name}" not found. Please create the project first.` });
+        }
+
+        await fs.promises.mkdir(extractDir, { recursive: true });
+        await new Promise((resolve, reject) => {
+            fs.createReadStream(zipFilePath)
+                .pipe(unzipper.Extract({ path: extractDir }))
+                .on('close', resolve)
+                .on('error', reject);
+        });
+
+        const findFiles = (dir, ext) => {
+            let results = [];
+            const list = fs.readdirSync(dir);
+            list.forEach(file => {
+                const fullPath = path.join(dir, file);
+                const stat = fs.statSync(fullPath);
+                if (stat && stat.isDirectory()) {
+                    results = results.concat(findFiles(fullPath, ext));
+                } else if (fullPath.toLowerCase().endsWith(ext)) {
+                    results.push(fullPath);
+                }
+            });
+            return results;
+        };
+
+        const shpFiles = findFiles(extractDir, '.shp');
+        const dbfFiles = findFiles(extractDir, '.dbf');
+        const cpgFiles = findFiles(extractDir, '.cpg');
+
+        if (shpFiles.length === 0) throw new Error('No .shp file found in the ZIP');
+
+        let encoding = 'tis-620';
+        if (cpgFiles.length > 0) {
+            try {
+                const cpgContent = fs.readFileSync(cpgFiles[0], 'utf8').trim().toLowerCase();
+                if (cpgContent) encoding = cpgContent;
+            } catch (e) {}
+        }
+
+        const source = await shapefile.open(shpFiles[0], dbfFiles.length > 0 ? dbfFiles[0] : null, { encoding });
+        const features = [];
+        let result = await source.read();
+        while (!result.done) {
+            features.push(result.value);
+            result = await source.read();
+        }
+        if (features.length === 0) throw new Error('No features found in shapefile');
+
+        // Detect source SRID
+        let sourceSrid = 4326;
+        if (features.length > 0 && features[0].geometry) {
+            const getFirstCoord = (geom) => {
+                if (geom.type === 'Point')        return geom.coordinates;
+                if (geom.type === 'Polygon')      return geom.coordinates[0][0];
+                if (geom.type === 'MultiPolygon') return geom.coordinates[0][0][0];
+                return null;
+            };
+            const firstCoord = getFirstCoord(features[0].geometry);
+            if (firstCoord && (Math.abs(firstCoord[0]) > 400 || Math.abs(firstCoord[1]) > 400)) {
+                sourceSrid = 32647;
+            }
+        }
+
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            for (let f of features) {
+                const norm = normalizeProperties(f.properties);
+                const geomJson = JSON.stringify(f.geometry);
+
+                let geomVal, geomPointVal;
+                if (geom_type === 'point') {
+                    geomPointVal = `ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON($1), ${sourceSrid}), 4326)`;
+                    geomVal      = `NULL`;
+                } else {
+                    geomVal      = `ST_Multi(ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON($1), ${sourceSrid}), 4326))`;
+                    geomPointVal = `ST_Centroid(ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON($1), ${sourceSrid}), 4326))`;
+                }
+
+                const insertSql = `
+                    WITH main_ins AS (
+                        INSERT INTO ${tb_name} (
+                            remark, agency, id_farmer, regis_no, no_plot, titl_nam, f_name, l_name,
+                            address, sub_dis, district, province, status, title_no, title_type,
+                            yang_rai, rai, ng, sgw, pacel_rai, age, x, y,
+                            sqm_yang, sqm_pacel, shparea_sq, shpsplit_sqm, lu_type,
+                            app_no, refinal, xls_sqm, diff_chk, chk, check_area, check_shape,
+                            geom, geom_point
+                        )
+                        VALUES (
+                            $2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,
+                            $17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,
+                            $30,$31,$32,$33,$34,$35,$36,
+                            ${geomVal}, ${geomPointVal}
+                        )
+                        RETURNING id, app_no, shpsplit_sqm, geom, geom_point
+                    )
+                    INSERT INTO reclass_${tb_name} (id, sub_id, app_no, shpsplit_sqm, geom, geom_point, classtype)
+                    SELECT id, id::text, app_no, shpsplit_sqm, geom, geom_point, '${geom_type}' FROM main_ins;
+                `;
+                const params = [
+                    geomJson,
+                    norm.remark, norm.agency, norm.id_farmer, norm.regis_no, norm.no_plot,
+                    norm.titl_nam, norm.f_name, norm.l_name, norm.address, norm.sub_dis,
+                    norm.district, norm.province, norm.status, norm.title_no, norm.title_type,
+                    norm.yang_rai, norm.rai, norm.ng, norm.sgw, norm.pacel_rai, norm.age,
+                    norm.x, norm.y, norm.sqm_yang, norm.sqm_pacel, norm.shparea_sq,
+                    norm.shpsplit_sqm, norm.lu_type, norm.app_no, norm.refinal, norm.xls_sqm,
+                    norm.diff_chk, norm.chk, norm.check_area, norm.check_shape
+                ];
+                await client.query(insertSql, params);
+            }
+
+            await client.query('COMMIT');
+
+            res.json({
+                success: true,
+                message: 'Shapefile uploaded successfully',
+                recordCount: features.length,
+                tableName: tb_name,
+                geomType: geom_type
+            });
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
+    } catch (error) {
+        console.error('upload-shapefile-to-table error:', error);
+        res.status(500).json({ error: error.message });
+    } finally {
+        if (fs.existsSync(extractDir)) fs.rmSync(extractDir, { recursive: true, force: true });
+        if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    }
+});
+
 module.exports = app;
+

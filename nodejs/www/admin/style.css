@@ -338,3 +338,191 @@ a:hover {
 .container {
     color: #2e3a2e;
 }
+
+/* ═══════════════════════════════════════
+   NEW: Geometry Type Selector Cards
+═══════════════════════════════════════ */
+.geom-type-selector {
+    display: flex;
+    gap: 1rem;
+}
+
+.geom-type-card {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem 1rem;
+    border: 2px solid rgba(76, 175, 80, 0.2);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.7);
+    cursor: pointer;
+    transition: all 0.25s ease;
+    user-select: none;
+}
+
+.geom-type-card:hover {
+    border-color: #66bb6a;
+    background: rgba(232, 245, 233, 0.8);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(76, 175, 80, 0.18);
+}
+
+.geom-type-card.selected {
+    border-color: #2e7d32;
+    background: linear-gradient(135deg, rgba(200, 230, 201, 0.6), rgba(232, 245, 233, 0.8));
+    box-shadow: 0 4px 20px rgba(46, 125, 50, 0.22);
+    transform: translateY(-2px);
+}
+
+.geom-icon {
+    font-size: 2rem;
+    color: #388e3c;
+    margin-bottom: 0.5rem;
+    transition: transform 0.25s ease;
+}
+
+.geom-type-card:hover .geom-icon,
+.geom-type-card.selected .geom-icon {
+    transform: scale(1.1);
+}
+
+.geom-label {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #2e7d32;
+}
+
+.geom-sublabel {
+    font-size: 0.8rem;
+    color: #689f63;
+    margin-top: 0.1rem;
+}
+
+/* ═══════════════════════════════════════
+   NEW: Upload Drop Zone
+═══════════════════════════════════════ */
+.upload-zone {
+    border: 2px dashed rgba(76, 175, 80, 0.4);
+    border-radius: 12px;
+    background: rgba(232, 245, 233, 0.35);
+    padding: 2rem 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    position: relative;
+}
+
+.upload-zone:hover,
+.upload-zone.dragover {
+    border-color: #66bb6a;
+    background: rgba(232, 245, 233, 0.65);
+    box-shadow: 0 4px 16px rgba(76, 175, 80, 0.12);
+}
+
+.upload-file-input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.upload-zone-icon {
+    font-size: 2.5rem;
+    color: #66bb6a;
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+.upload-zone-text {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #388e3c;
+}
+
+.upload-zone-sub {
+    font-size: 0.8rem;
+    color: #689f63;
+    margin-top: 0.25rem;
+}
+
+.file-name-display {
+    margin-top: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: rgba(200, 230, 201, 0.5);
+    border-radius: 8px;
+    font-size: 0.85rem;
+    color: #2e7d32;
+    font-weight: 500;
+}
+
+/* ═══════════════════════════════════════
+   NEW: Table Name Preview Box
+═══════════════════════════════════════ */
+.table-name-preview {
+    margin-top: 0.75rem;
+    padding: 0.65rem 1rem;
+    background: linear-gradient(135deg, rgba(200, 230, 201, 0.4), rgba(232, 245, 233, 0.6));
+    border: 1px solid rgba(76, 175, 80, 0.25);
+    border-radius: 10px;
+    font-size: 0.9rem;
+    color: #2e7d32;
+}
+
+.table-name-preview strong {
+    font-family: 'Courier New', monospace;
+    background: rgba(46, 125, 50, 0.08);
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    color: #1b5e20;
+}
+
+/* ═══════════════════════════════════════
+   NEW: Layer Row Action Buttons
+═══════════════════════════════════════ */
+.layer-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    align-items: center;
+}
+
+/* btn-add-data: teal/cyan accent */
+.btn-add-data {
+    background: linear-gradient(135deg, #26c6da, #00838f) !important;
+    border: none !important;
+    color: #fff !important;
+    font-size: 0.82rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    box-shadow: 0 2px 8px rgba(0, 172, 193, 0.18);
+    transition: all 0.22s ease;
+}
+
+.btn-add-data:hover {
+    background: linear-gradient(135deg, #00bcd4, #006064) !important;
+    box-shadow: 0 4px 14px rgba(0, 172, 193, 0.32) !important;
+    transform: translateY(-1px);
+    color: #fff !important;
+}
+
+/* small action buttons inside layer rows */
+.layer-btn {
+    font-size: 0.82rem !important;
+    padding: 0.35rem 0.7rem !important;
+    border-radius: 8px !important;
+}
+
+/* ═══════════════════════════════════════
+   NEW: Layer card / alert override
+═══════════════════════════════════════ */
+.alert-info {
+    background: rgba(232, 245, 233, 0.55) !important;
+    border: 1px solid rgba(76, 175, 80, 0.2) !important;
+    border-radius: 12px !important;
+    color: #2e3a2e !important;
+}
