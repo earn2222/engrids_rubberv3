@@ -113,23 +113,21 @@ function showFeaturePanel(feature, layer) {
 const getFeatureStyle = (feature) => {
     const color = feature.properties.classtype === 'rubber'
         ? '#006d2c'
-        : feature.properties.classtype === 'non-rubber'
+        : feature.properties.classtype === 'Other'
             ? '#d7191c'
-            : feature.properties.classtype === 'other'
+            : feature.properties.classtype === 'not-rubber'
                 ? '#ff00ff'
-                : feature.properties.classtype === 'พื้นที่กันออก (บ่อน้ำ)'
+                : feature.properties.classtype === 'ex-pond'
                     ? '#7d61fdff'
-                    : feature.properties.classtype === 'พื้นที่กันออก (สิ่งปกคลุมดินอื่นๆ)'
+                    : feature.properties.classtype === 'ex-landcover'
                         ? '#ffbb00ff'
-                        : feature.properties.classtype === 'พื้นที่กันออก (สิ่งปลูกสร้าง)'
+                        : feature.properties.classtype === 'ex-building'
                             ? '#00ffddff'
-                            : feature.properties.classtype === 'พื้นที่กันออก (ลำน้ำ)'
+                            : feature.properties.classtype === 'ex-river'
                                 ? '#ff009dff'
-                                : feature.properties.classtype === 'พื้นที่กันออก (ยางพาราไม่ลงทะเบียน)'
+                                : feature.properties.classtype === 'ex-unreg-rubber'
                                     ? '#003cffff'
-                                    : feature.properties.classtype === 'not-rubber'
-                                        ? 'transparent'   // ไม่มีสี
-                                        : '#fdae61';
+                                    : '#fdae61';
     return {
         fillColor: color,
         weight: 2,
@@ -238,16 +236,16 @@ const loadGeoData = async () => {
                     title: 'ประเภท',
                     render: (data) => {
                         const labelMap = {
-                            'rubber': 'แปลงยาง', 'not-rubber': 'พื้นที่กันออก',
-                            'other': 'ยางพาราไม่ลงทะเบียน', 'non-rubber': 'ไม่ใช่ยางพารา',
-                            'A': 'กันออก (บ่อน้ำ)', 'B': 'กันออก (สิ่งปกคลุม)',
-                            'C': 'กันออก (สิ่งปลูกสร้าง)', 'D': 'กันออก (ลำน้ำ)',
-                            'E': 'กันออก (ยางไม่ลงทะเบียน)'
+                            'rubber': 'ยางพาราที่ลงทะเบียน', 'not-rubber': 'ยางพาราที่ไม่ได้ลงทะเบียน',
+                            'Other': 'ไม่ใช่ยางพารา', 'ex-pond': 'พื้นที่กันออก (บ่อน้ำ)', 
+                            'ex-landcover': 'พื้นที่กันออก (สิ่งปกคลุมดินอื่นๆ)',
+                            'ex-building': 'พื้นที่กันออก (สิ่งปลูกสร้าง)', 'ex-river': 'พื้นที่กันออก (ลำน้ำ)',
+                            'ex-unreg-rubber': 'พื้นที่กันออก (ยางพาราไม่ลงทะเบียน)'
                         };
                         const colorMap = {
-                            'rubber': '#2e7d32', 'not-rubber': '#757575', 'other': '#e91e63',
-                            'non-rubber': '#d32f2f', 'A': '#7d61fd', 'B': '#f9a825',
-                            'C': '#00838f', 'D': '#1565c0', 'E': '#6a1b9a'
+                            'rubber': '#2e7d32', 'not-rubber': '#e91e63', 'Other': '#d32f2f',
+                            'ex-pond': '#7d61fd', 'ex-landcover': '#f9a825',
+                            'ex-building': '#00838f', 'ex-river': '#1565c0', 'ex-unreg-rubber': '#6a1b9a'
                         };
                         const label = labelMap[data] || 'อื่นๆ';
                         const c = colorMap[data] || '#90a4ae';
@@ -507,7 +505,7 @@ const legend = L.control({ position: 'bottomright' });
 
 legend.onAdd = function (map) {
     const div = L.DomUtil.create('div', 'legend'),
-        categories = ['rubber', 'other', 'non-rubber', 'พื้นที่กันออก (บ่อน้ำ)', 'พื้นที่กันออก (สิ่งปกคลุมดินอื่นๆ)', 'พื้นที่กันออก (สิ่งปลูกสร้าง)', 'พื้นที่กันออก (ลำน้ำ)', 'พื้นที่กันออก (ยางพาราไม่ลงทะเบียน)'],
+        categories = ['rubber', 'not-rubber', 'Other', 'ex-pond', 'ex-landcover', 'ex-building', 'ex-river', 'ex-unreg-rubber'],
         labels = [
             'ยางพาราที่ลงทะเบียน',
             'ยางพาราที่ไม่ได้ลงทะเบียน',
@@ -633,8 +631,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const raiData = await raiFetch.json();
         const categories = raiData.map(r => {
             if (r.classtype == 'rubber') { return 'ยางพาราที่ลงทะเบียน'; }
-            if (r.classtype == 'non-rubber') { return 'ไม่ใช่ยางพารา'; }
-            if (r.classtype == 'other') { return 'ยางพาราที่ไม่ได้ลงทะเบียน'; }
+            if (r.classtype == 'Other') { return 'ไม่ใช่ยางพารา'; }
+            if (r.classtype == 'not-rubber') { return 'ยางพาราที่ไม่ได้ลงทะเบียน'; }
             return 'ไม่ระบุ';
         });
         const dataRai = raiData.map(r => parseFloat(r.area_rai));

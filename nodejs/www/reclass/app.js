@@ -202,37 +202,33 @@ const getFeatureStyle = (feature) => {
             color = '#006d2c'; // ยางพาราที่ลงทะเบียน
             fillOpacity = 0.2;
             break;
-        case 'non-rubber':
+        case 'Other':
             color = '#d7191c'; // ไม่ใช่ยางพารา
             fillOpacity = 0.2;
             break;
-        case 'other':
+        case 'not-rubber':
             color = '#ff00ff'; // ยางพาราที่ไม่ได้ลงทะเบียน
             fillOpacity = 0.2;
             break;
-        case 'A':
-            color = '#7d61fdff'// พื้นที่กันออกย่อย A
+        case 'ex-pond':
+            color = '#7d61fdff'; // พื้นที่กันออก (บ่อน้ำ)
             fillOpacity = 0.2;
             break;
-        case 'B':
-            color = '#ffbb00ff'; // พื้นที่กันออกย่อย B
+        case 'ex-landcover':
+            color = '#ffbb00ff'; // พื้นที่กันออก (สิ่งปกคลุมดินอื่นๆ)
             fillOpacity = 0.2;
             break;
-        case 'C':
-            color = '#00ffddff'; // พื้นที่กันออกย่อย C
+        case 'ex-building':
+            color = '#00ffddff'; // พื้นที่กันออก (สิ่งปลูกสร้าง)
             fillOpacity = 0.2;
             break;
-        case 'D':
-            color = '#ff009dff'; // พื้นที่กันออกย่อย D
+        case 'ex-river':
+            color = '#ff009dff'; // พื้นที่กันออก (ลำน้ำ)
             fillOpacity = 0.2;
             break;
-        case 'E':
-            color = '#003cffff'; // พื้นที่กันออกย่อย E
+        case 'ex-unreg-rubber':
+            color = '#003cffff'; // พื้นที่กันออก (ยางพาราไม่ลงทะเบียน)
             fillOpacity = 0.2;
-            break;
-        case 'not-rubber':
-            color = '#dee3e7ff'; // พื้นที่กันออกหลัก
-            fillOpacity = 0;    // ไม่เติมสี
             break;
         default:
             color = '#fdae61'; // สี default
@@ -454,7 +450,7 @@ const legend = L.control({ position: 'bottomright' });
 
 legend.onAdd = function (map) {
     const div = L.DomUtil.create('div', 'legend'),
-        categories = ['rubber', 'other', 'non-rubber', 'A', 'B', 'C', 'D', 'E'],
+        categories = ['rubber', 'not-rubber', 'Other', 'ex-pond', 'ex-landcover', 'ex-building', 'ex-river', 'ex-unreg-rubber'],
         labels = [
             'ยางพาราที่ลงทะเบียน',
             'ยางพาราที่ไม่ได้ลงทะเบียน',
