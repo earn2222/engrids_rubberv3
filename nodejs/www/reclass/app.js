@@ -454,7 +454,7 @@ const legend = L.control({ position: 'bottomright' });
 
 legend.onAdd = function (map) {
     const div = L.DomUtil.create('div', 'legend'),
-        categories = ['rubber', 'other', 'non-rubber', 'A', 'B', 'C', 'D', 'E'],
+        categories = ['rubber', 'not-rubber', 'other', 'A', 'B', 'C', 'D', 'E'],
         labels = [
             'ยางพาราที่ลงทะเบียน',
             'ยางพาราที่ไม่ได้ลงทะเบียน',
