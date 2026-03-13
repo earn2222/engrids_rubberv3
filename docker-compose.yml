@@ -20,22 +20,6 @@ services:
       timeout: 5s
       retries: 10
 
-  # geoserver:
-  #   image: docker.osgeo.org/geoserver:2.27.x
-  #   platform: linux/amd64
-  #   container_name: rub_geoserver
-  #   restart: always
-  #   ports:
-  #     - "8080:8080"
-  #   environment:
-  #     - GEOSERVER_ADMIN_PASSWORD=rubgeoserver
-  #   depends_on:
-  #     - postgis
-  #   volumes:
-  #     - ./geoserver_data:/opt/geoserver_data
-  #   networks:
-  #     - rub-network
-
   nodejs:
     image: node:latest
     container_name: rub_nodejs
@@ -51,7 +35,6 @@ services:
       - DB_NAME=rub2
     env_file:
       - .env
-
     depends_on:
       - postgis
     volumes:
@@ -61,24 +44,6 @@ services:
     networks:
       - rub-network
     command: sh -c "npm i && npm i -g nodemon && nodemon"
-
-#   react:
-#     image: node:latest
-#     container_name: rub_react
-#     restart: always
-#     working_dir: /usr/src/app
-#     environment:
-#       - NODE_ENV=development
-#       - REACT_APP_API_URL=http://nodejs:3000 
-#     depends_on:
-#       - nodejs
-#     volumes:
-#       - ./react:/usr/src/app
-#     ports:
-#       - "3000:5173" 
-#     networks:
-#       - rub-network
-#     command: sh -c "npm i && npm run dev" 
 networks:
   rub-network:
     driver: bridge
