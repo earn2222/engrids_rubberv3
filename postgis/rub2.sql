@@ -100,9 +100,7 @@ CREATE TABLE public.tb_template (
     sqm_pacel numeric,
     shparea_sq numeric,
     geom public.geometry(Polygon, 4326),
-    geom_point public.geometry(Point, 4326),
-    created_at timestamp DEFAULT NOW(),
-    updated_at timestamp DEFAULT NOW()
+    geom_point public.geometry(Point, 4326)
 );
 
 ALTER TABLE public.tb_template OWNER TO postgres;

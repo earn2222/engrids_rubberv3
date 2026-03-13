@@ -1342,13 +1342,13 @@ app.post('/api/upload-shapefile', upload.single('shpFile'), async (req, res) => 
 
         const createTableSql = `
             CREATE TABLE ${tb_name} (
-                id SERIAL PRIMARY KEY, remark text, agency text, id_farmer text, regis_no text, no_plot numeric, titl_nam text, f_name text, l_name text, address text, sub_dis text, district text, province text, status text, title_no text, title_type text, yang_rai numeric, rai numeric, ng numeric, sgw numeric, pacel_rai numeric, age numeric, x numeric, y numeric, sqm_yang numeric, sqm_pacel numeric, shparea_sq numeric, geom GEOMETRY(MultiPolygon, 4326), geom_point GEOMETRY(Point, 4326), refinal text, classified boolean DEFAULT FALSE, editor text, ts timestamp DEFAULT NOW(), created_at timestamp DEFAULT NOW(), updated_at timestamp DEFAULT NOW()
+                id SERIAL PRIMARY KEY, remark text, agency text, id_farmer text, regis_no text, no_plot numeric, titl_nam text, f_name text, l_name text, address text, sub_dis text, district text, province text, status text, title_no text, title_type text, yang_rai numeric, rai numeric, ng numeric, sgw numeric, pacel_rai numeric, age numeric, x numeric, y numeric, sqm_yang numeric, sqm_pacel numeric, shparea_sq numeric, geom GEOMETRY(MultiPolygon, 4326), geom_point GEOMETRY(Point, 4326), refinal text, classified boolean DEFAULT FALSE, editor text, ts timestamp DEFAULT NOW()
             );
             CREATE INDEX idx_${tb_name}_geom ON ${tb_name} USING GIST(geom);
             CREATE INDEX idx_${tb_name}_geom_point ON ${tb_name} USING GIST(geom_point);
 
             CREATE TABLE reclass_${tb_name} (
-                fid SERIAL PRIMARY KEY, id INTEGER, sub_id TEXT, id_farmer TEXT, shpsplit_sqm NUMERIC, geom GEOMETRY(MultiPolygon, 4326), geom_point GEOMETRY(Point, 4326), classtype TEXT DEFAULT '${geom_type}', editor TEXT, ts TIMESTAMP DEFAULT NOW(), created_at timestamp DEFAULT NOW()
+                fid SERIAL PRIMARY KEY, id INTEGER, sub_id TEXT, id_farmer TEXT, shpsplit_sqm NUMERIC, geom GEOMETRY(MultiPolygon, 4326), geom_point GEOMETRY(Point, 4326), classtype TEXT DEFAULT '${geom_type}', editor TEXT, ts TIMESTAMP DEFAULT NOW()
             );
             CREATE INDEX idx_reclass_${tb_name}_geom ON reclass_${tb_name} USING GIST(geom);
 
@@ -1499,9 +1499,7 @@ app.post('/api/create-project', async (req, res) => {
                 refinal      text,
                 classified   boolean DEFAULT FALSE,
                 editor       text,
-                ts           timestamp DEFAULT NOW(),
-                created_at   timestamp DEFAULT NOW(),
-                updated_at   timestamp DEFAULT NOW()
+                ts           timestamp DEFAULT NOW()
             );
             CREATE INDEX idx_${tb_name}_geom       ON ${tb_name} USING GIST(geom);
             CREATE INDEX idx_${tb_name}_geom_point ON ${tb_name} USING GIST(geom_point);
@@ -1520,8 +1518,7 @@ app.post('/api/create-project', async (req, res) => {
                 geom_point   GEOMETRY(Point, 4326),
                 classtype    TEXT,
                 editor       TEXT,
-                ts           TIMESTAMP DEFAULT NOW(),
-                created_at   timestamp DEFAULT NOW()
+                ts           TIMESTAMP DEFAULT NOW()
             );
             CREATE INDEX idx_reclass_${tb_name}_geom ON reclass_${tb_name} USING GIST(geom);
         `;
