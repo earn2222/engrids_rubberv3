@@ -212,51 +212,172 @@ app.put('/api/restorefeatures/:tb/:id', async (req, res) => {
             return res.status(400).json({ error: 'Feature ID must be a number' });
         }
 
-        // ดึง geom จาก reclass table ก่อน เพื่อคำนวณ EPSG จาก centroid
+        // ──────────────────────────────────────────────────────────────────────
+        // ลองดึงจาก backup table ก่อน (ค่าต้นฉบับ) ถ้ามี
+        // ──────────────────────────────────────────────────────────────────────
+        const backupExists = await pool.query(
+            `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=$1)`,
+            [`backup_${tb}`]
+        );
+
+        if (backupExists.rows[0].exists) {
+            // ── Restore จาก backup table (ค่าต้นฉบับที่ upload ครั้งแรก) ──────
+            const bkRow = await pool.query(
+                `SELECT * FROM backup_${tb} WHERE id = $1 LIMIT 1`,
+                [featureId]
+            );
+            if (bkRow.rowCount > 0) {
+                const bk = bkRow.rows[0];
+                const isPoint = bk.geom === null; // polygon จะมี geom, point จะเป็น NULL
+
+                let updateSql, updateResult;
+                if (isPoint) {
+                    // ── Point: reset geom → NULL, restore geom_point ต้นฉบับ + shparea_sq ──
+                    updateResult = await pool.query(`
+                        UPDATE ${tb} AS t
+                        SET geom       = NULL,
+                            geom_point = b.geom_point,
+                            shparea_sq = b.shparea_sq
+                        FROM backup_${tb} AS b
+                        WHERE t.id = $1 AND b.id = $1
+                        RETURNING t.*
+                    `, [featureId]);
+                } else {
+                    // ── Polygon: restore geom + คำนวณ shparea_sq ใหม่ ────────
+                    // คำนวณ EPSG จาก centroid ของ geometry ใน backup
+                    const geomRow = await pool.query(
+                        `SELECT ST_AsGeoJSON(geom) AS geom FROM backup_${tb} WHERE id = $1`,
+                        [featureId]
+                    );
+                    const geojson = JSON.parse(geomRow.rows[0].geom);
+                    function getPolygonCentroid(coords, type) {
+                        let x = 0, y = 0, total = 0;
+                        if (type === 'Polygon') {
+                            for (const ring of coords) for (const [lon, lat] of ring) { x += lon; y += lat; total++; }
+                        } else if (type === 'MultiPolygon') {
+                            for (const polygon of coords) for (const ring of polygon) for (const [lon, lat] of ring) { x += lon; y += lat; total++; }
+                        }
+                        return total > 0 ? [x / total, y / total] : [null, null];
+                    }
+                    const [lon, lat] = getPolygonCentroid(geojson.coordinates, geojson.type);
+                    const epsg = (lon !== null && !isNaN(lon))
+                        ? (lat >= 0 ? 32600 : 32700) + Math.floor((lon + 180) / 6) + 1
+                        : 4326;
+
+                    updateResult = await pool.query(`
+                        UPDATE ${tb} AS t
+                        SET geom       = b.geom,
+                            geom_point = b.geom_point,
+                            shparea_sq = b.shparea_sq
+                        FROM backup_${tb} AS b
+                        WHERE t.id = $1 AND b.id = $1
+                        RETURNING t.*
+                    `, [featureId]);
+                }
+
+                if (!updateResult || updateResult.rowCount === 0) {
+                    return res.status(404).json({ error: 'Feature not found in main table' });
+                }
+
+                // sync shpsplit_sqm ใน reclass table ด้วย (ถ้ามี)
+                const reclassCheck = await pool.query(
+                    `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=$1)`,
+                    [`reclass_${tb}`]
+                );
+                if (reclassCheck.rows[0].exists) {
+                    if (isPoint) {
+                        // Point: sync geom_point กลับต้นฉบับ + reset geom = NULL ใน reclass
+                        await pool.query(`
+                            UPDATE reclass_${tb}
+                            SET shpsplit_sqm = $1,
+                                geom        = NULL,
+                                geom_point  = b.geom_point
+                            FROM backup_${tb} AS b
+                            WHERE reclass_${tb}.id = $2
+                              AND b.id = $2
+                              AND (reclass_${tb}.sub_id = $3 OR reclass_${tb}.sub_id = $2::text)
+                        `, [bk.shparea_sq, featureId, featureId.toString()]);
+                    } else {
+                        // Polygon: sync shpsplit_sqm เท่านั้น
+                        await pool.query(`
+                            UPDATE reclass_${tb}
+                            SET shpsplit_sqm = $1
+                            WHERE id = $2 AND (sub_id = $3 OR sub_id = $2::text)
+                        `, [bk.shparea_sq, featureId, featureId.toString()]);
+                    }
+                }
+
+                return res.status(200).json({
+                    success: true,
+                    source: 'backup',
+                    data: updateResult.rows[0]
+                });
+            }
+        }
+
+        // ──────────────────────────────────────────────────────────────────────
+        // Fallback: ไม่มี backup → restore จาก reclass table (พฤติกรรมเดิม)
+        // รองรับทั้ง polygon (geom) และ point (geom_point)
+        // ──────────────────────────────────────────────────────────────────────
         const geomRow = await pool.query(
-            `SELECT ST_AsGeoJSON(geom) AS geom FROM reclass_${tb} WHERE id = $1`,
+            `SELECT ST_AsGeoJSON(geom) AS geom, ST_AsGeoJSON(geom_point) AS geom_point
+             FROM reclass_${tb} WHERE id = $1 LIMIT 1`,
             [featureId]
         );
         if (geomRow.rowCount === 0) {
             return res.status(404).json({ error: 'Feature not found in reclass table' });
         }
 
-        // คำนวณ EPSG จาก centroid ของ geometry
-        const geojson = JSON.parse(geomRow.rows[0].geom);
-        function getPolygonCentroid(coords, type) {
-            let x = 0, y = 0, total = 0;
-            if (type === 'Polygon') {
-                for (const ring of coords) for (const [lon, lat] of ring) { x += lon; y += lat; total++; }
-            } else if (type === 'MultiPolygon') {
-                for (const polygon of coords) for (const ring of polygon) for (const [lon, lat] of ring) { x += lon; y += lat; total++; }
+        const rGeom     = geomRow.rows[0].geom;        // อาจ null ถ้าเป็น point
+        const rGeomPt   = geomRow.rows[0].geom_point;  // อาจ null ถ้าเป็น polygon
+        const isPoint   = rGeom === null;
+
+        let sql, result;
+        if (isPoint) {
+            // ── Point: reset geom → NULL, restore geom_point จาก reclass ──
+            sql = `
+                UPDATE ${tb} AS t
+                SET geom       = NULL,
+                    geom_point = r.geom_point
+                FROM reclass_${tb} AS r
+                WHERE t.id = $1 AND r.id = $1
+                RETURNING t.*
+            `;
+        } else {
+            // ── Polygon: restore geom + คำนวณ shparea_sq ────────────────────
+            const geojson = JSON.parse(rGeom);
+            function getPolygonCentroid2(coords, type) {
+                let x = 0, y = 0, total = 0;
+                if (type === 'Polygon') {
+                    for (const ring of coords) for (const [lon, lat] of ring) { x += lon; y += lat; total++; }
+                } else if (type === 'MultiPolygon') {
+                    for (const polygon of coords) for (const ring of polygon) for (const [lon, lat] of ring) { x += lon; y += lat; total++; }
+                }
+                return total > 0 ? [x / total, y / total] : [null, null];
             }
-            return total > 0 ? [x / total, y / total] : [null, null];
+            const [lon, lat] = getPolygonCentroid2(geojson.coordinates, geojson.type);
+            const epsg = (lon !== null && !isNaN(lon))
+                ? (lat >= 0 ? 32600 : 32700) + Math.floor((lon + 180) / 6) + 1
+                : 4326;
+
+            sql = `
+                UPDATE ${tb} AS t
+                SET geom = r.geom,
+                    shparea_sq = ST_Area(ST_Transform(r.geom, ${epsg}))
+                FROM reclass_${tb} AS r
+                WHERE t.id = $1 AND r.id = $1
+                RETURNING t.*
+            `;
         }
-        const [lon, lat] = getPolygonCentroid(geojson.coordinates, geojson.type);
-        const epsg = (lon !== null && !isNaN(lon))
-            ? (lat >= 0 ? 32600 : 32700) + Math.floor((lon + 180) / 6) + 1
-            : 4326;
 
-        // Restore geom และคำนวณ shparea_sq ใหม่พร้อมกันในคำสั่งเดียว
-        const sql = `
-            UPDATE ${tb} AS t
-            SET geom = r.geom,
-                shparea_sq = ST_Area(
-                    ST_Transform(r.geom, ${epsg})
-                )
-            FROM reclass_${tb} AS r
-            WHERE t.id = $1
-              AND r.id = $1
-            RETURNING t.*;
-        `;
         const { rows, rowCount } = await pool.query(sql, [featureId]);
-
         if (rowCount === 0) {
             return res.status(404).json({ error: 'Feature not found' });
         }
 
         return res.status(200).json({
             success: true,
+            source: 'reclass',
             data: rows[0]
         });
 
@@ -265,6 +386,7 @@ app.put('/api/restorefeatures/:tb/:id', async (req, res) => {
         return res.status(500).json({ error: err.message });
     }
 });
+
 
 
 
