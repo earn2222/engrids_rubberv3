@@ -625,25 +625,43 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const raiFetch = await fetch('/rub/api/countsrai/reclass_' + tb);
         const raiData = await raiFetch.json();
-        const categories = raiData.map(r => {
-            if (r.classtype == 'rubber') { return 'ยางพาราที่ลงทะเบียน'; }
-            if (r.classtype == 'Other') { return 'ไม่ใช่ยางพารา'; }
-            if (r.classtype == 'not-rubber') { return 'ยางพาราที่ไม่ได้ลงทะเบียน'; }
-            return 'ไม่ระบุ';
+
+        // จัดกลุ่มประเภทต่างๆ ก่อนแสดงผล เพื่อป้องกันแถวซ้ำกัน (เช่น มี "ไม่ระบุ" หลายอัน)
+        const groupedData = {};
+        raiData.forEach(r => {
+            let cat = 'ไม่ระบุ';
+            if (r.classtype === 'rubber') cat = 'ยางพาราที่ลงทะเบียน';
+            else if (r.classtype === 'not-rubber') cat = 'ยางพาราที่ไม่ได้ลงทะเบียน';
+            else if (r.classtype === 'Other') cat = 'ไม่ใช่ยางพารา';
+            else if (r.classtype === 'ex-pond') cat = 'พื้นที่กันออก (บ่อน้ำ)';
+            else if (r.classtype === 'ex-landcover') cat = 'พื้นที่กันออก (สิ่งปกคลุมดินอื่นๆ)';
+            else if (r.classtype === 'ex-building') cat = 'พื้นที่กันออก (สิ่งปลูกสร้าง)';
+            else if (r.classtype === 'ex-river') cat = 'พื้นที่กันออก (ลำน้ำ)';
+            else if (r.classtype === 'ex-unreg-rubber') cat = 'พื้นที่กันออก (ยางพาราไม่ลงทะเบียน)';
+
+            groupedData[cat] = (groupedData[cat] || 0) + parseFloat(r.area_rai);
         });
-        const dataRai = raiData.map(r => parseFloat(r.area_rai));
+
+        const categories = Object.keys(groupedData);
+        const dataRai = Object.values(groupedData).map(val => Number(val.toFixed(2)));
+
+        // คำนวณความสูงให้สมดุลกับจำนวนแท่งกราฟ (ขั้นต่ำ 150px)
+        const dynamicHeight = Math.max(150, categories.length * 45 + 50);
+
         Highcharts.chart('count-rai', {
-            chart: { type: 'bar', height: 150, style: { fontFamily: 'Noto Sans Thai' } },
+            chart: { type: 'bar', height: dynamicHeight, style: { fontFamily: 'Noto Sans Thai' } },
             title: { text: null },
             xAxis: { categories: categories, },
             yAxis: { min: 0, title: { text: 'เนื้อที่ (ไร่)' } },
-            tooltip: { pointFormat: '<b>{point.y:.0f} ไร่</b>' },
+            tooltip: { pointFormat: '<b>{point.y:.2f} ไร่</b>' },
             series: [{
                 name: 'Area',
                 data: dataRai,
+                color: '#29b6f6',
                 dataLabels: { enabled: true, format: '{y}' }
             }],
             credits: { enabled: false },
+            legend: { enabled: false }
         });
 
     } catch (err) {
