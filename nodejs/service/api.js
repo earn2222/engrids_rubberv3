@@ -1243,8 +1243,7 @@ const normalizeProperties = (props) => {
         'id', 'remark', 'agency', 'id_farmer', 'regis_no', 'no_plot', 'titl_nam', 'f_name',
         'l_name', 'address', 'sub_dis', 'district', 'province', 'status', 'title_no',
         'title_type', 'yang_rai', 'rai', 'ng', 'sgw', 'pacel_rai', 'age', 'x', 'y',
-        'sqm_yang', 'sqm_pacel', 'shparea_sq', 'shpsplit_sqm', 'lu_type', 'app_no', 'refinal', 'xls_sqm',
-        'diff_chk', 'chk', 'check_area', 'check_shape'
+        'sqm_yang', 'sqm_pacel', 'shparea_sq', 'refinal'
     ];
 
     const normalized = {};
@@ -1256,7 +1255,7 @@ const normalizeProperties = (props) => {
     templateCols.forEach(col => {
         let val = sourceLower[col];
         if (val === undefined || val === null) {
-            if (['no_plot', 'yang_rai', 'rai', 'ng', 'sgw', 'pacel_rai', 'age', 'x', 'y', 'sqm_yang', 'sqm_pacel', 'shparea_sq', 'shpsplit_sqm', 'xls_sqm', 'diff_chk'].includes(col)) {
+            if (['no_plot', 'yang_rai', 'rai', 'ng', 'sgw', 'pacel_rai', 'age', 'x', 'y', 'sqm_yang', 'sqm_pacel', 'shparea_sq'].includes(col)) {
                 normalized[col] = 0;
             } else {
                 normalized[col] = '';
@@ -1343,7 +1342,7 @@ app.post('/api/upload-shapefile', upload.single('shpFile'), async (req, res) => 
 
         const createTableSql = `
             CREATE TABLE ${tb_name} (
-                id SERIAL PRIMARY KEY, remark text, agency text, id_farmer text, regis_no text, no_plot numeric, titl_nam text, f_name text, l_name text, address text, sub_dis text, district text, province text, status text, title_no text, title_type text, yang_rai numeric, rai numeric, ng numeric, sgw numeric, pacel_rai numeric, age numeric, x numeric, y numeric, sqm_yang numeric, sqm_pacel numeric, shparea_sq numeric, shpsplit_sqm numeric, lu_type text, geom GEOMETRY(MultiPolygon, 4326), geom_point GEOMETRY(Point, 4326), app_no text, refinal text, xls_sqm numeric, classified boolean DEFAULT FALSE, diff_chk numeric, chk text, check_area text, check_shape text, editor text, ts timestamp DEFAULT NOW(), created_at timestamp DEFAULT NOW(), updated_at timestamp DEFAULT NOW()
+                id SERIAL PRIMARY KEY, remark text, agency text, id_farmer text, regis_no text, no_plot numeric, titl_nam text, f_name text, l_name text, address text, sub_dis text, district text, province text, status text, title_no text, title_type text, yang_rai numeric, rai numeric, ng numeric, sgw numeric, pacel_rai numeric, age numeric, x numeric, y numeric, sqm_yang numeric, sqm_pacel numeric, shparea_sq numeric, geom GEOMETRY(MultiPolygon, 4326), geom_point GEOMETRY(Point, 4326), refinal text, classified boolean DEFAULT FALSE, editor text, ts timestamp DEFAULT NOW(), created_at timestamp DEFAULT NOW(), updated_at timestamp DEFAULT NOW()
             );
             CREATE INDEX idx_${tb_name}_geom ON ${tb_name} USING GIST(geom);
             CREATE INDEX idx_${tb_name}_geom_point ON ${tb_name} USING GIST(geom_point);
@@ -1354,7 +1353,7 @@ app.post('/api/upload-shapefile', upload.single('shpFile'), async (req, res) => 
             CREATE INDEX idx_reclass_${tb_name}_geom ON reclass_${tb_name} USING GIST(geom);
 
             CREATE VIEW v_reclass_${tb_name} AS SELECT
-                a.id, a.remark AS a_remark, a.agency, a.id_farmer, a.regis_no, a.no_plot, a.titl_nam, a.f_name, a.l_name, a.address, a.sub_dis, a.district, a.province, a.status, a.title_no, a.title_type, a.yang_rai, a.rai, a.ng, a.sgw, a.pacel_rai, a.age, a.x, a.y, a.sqm_yang, a.sqm_pacel, a.shparea_sq, a.shpsplit_sqm AS a_shpsplit_sqm, a.lu_type, a.app_no, a.refinal, a.xls_sqm, a.classified, a.editor AS a_editor, a.ts AS a_ts,
+                a.id, a.remark AS a_remark, a.agency, a.id_farmer, a.regis_no, a.no_plot, a.titl_nam, a.f_name, a.l_name, a.address, a.sub_dis, a.district, a.province, a.status, a.title_no, a.title_type, a.yang_rai, a.rai, a.ng, a.sgw, a.pacel_rai, a.age, a.x, a.y, a.sqm_yang, a.sqm_pacel, a.shparea_sq, a.refinal, a.classified, a.editor AS a_editor, a.ts AS a_ts,
                 r.fid AS reclass_fid, r.sub_id AS reclass_sub_id, r.shpsplit_sqm AS r_shpsplit_sqm, r.classtype, r.editor AS reclass_editor, r.ts AS r_ts, r.geom
             FROM ${tb_name} AS a
             JOIN reclass_${tb_name} AS r ON a.id = r.id;
@@ -1397,14 +1396,14 @@ app.post('/api/upload-shapefile', upload.single('shpFile'), async (req, res) => 
 
                 const insertSql = `
                     WITH main_ins AS (
-                        INSERT INTO ${tb_name} (remark, agency, id_farmer, regis_no, no_plot, titl_nam, f_name, l_name, address, sub_dis, district, province, status, title_no, title_type, yang_rai, rai, ng, sgw, pacel_rai, age, x, y, sqm_yang, sqm_pacel, shparea_sq, shpsplit_sqm, lu_type, app_no, refinal, xls_sqm, diff_chk, chk, check_area, check_shape, geom, geom_point)
-                        VALUES ($2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, ${geomVal}, ${geomPointVal})
-                        RETURNING id, id_farmer, shpsplit_sqm, geom, geom_point
+                        INSERT INTO ${tb_name} (remark, agency, id_farmer, regis_no, no_plot, titl_nam, f_name, l_name, address, sub_dis, district, province, status, title_no, title_type, yang_rai, rai, ng, sgw, pacel_rai, age, x, y, sqm_yang, sqm_pacel, shparea_sq, refinal, geom, geom_point)
+                        VALUES ($2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, ${geomVal}, ${geomPointVal})
+                        RETURNING id, id_farmer, shparea_sq AS shpsplit_sqm, geom, geom_point
                     )
                     INSERT INTO reclass_${tb_name} (id, sub_id, id_farmer, shpsplit_sqm, geom, geom_point, classtype)
                     SELECT id, id::text, id_farmer, shpsplit_sqm, geom, geom_point, '${geom_type}' FROM main_ins;
                 `;
-                const params = [ geomJson, norm.remark, norm.agency, norm.id_farmer, norm.regis_no, norm.no_plot, norm.titl_nam, norm.f_name, norm.l_name, norm.address, norm.sub_dis, norm.district, norm.province, norm.status, norm.title_no, norm.title_type, norm.yang_rai, norm.rai, norm.ng, norm.sgw, norm.pacel_rai, norm.age, norm.x, norm.y, norm.sqm_yang, norm.sqm_pacel, norm.shparea_sq, norm.shpsplit_sqm, norm.lu_type, norm.app_no, norm.refinal, norm.xls_sqm, norm.diff_chk, norm.chk, norm.check_area, norm.check_shape ];
+                const params = [ geomJson, norm.remark, norm.agency, norm.id_farmer, norm.regis_no, norm.no_plot, norm.titl_nam, norm.f_name, norm.l_name, norm.address, norm.sub_dis, norm.district, norm.province, norm.status, norm.title_no, norm.title_type, norm.yang_rai, norm.rai, norm.ng, norm.sgw, norm.pacel_rai, norm.age, norm.x, norm.y, norm.sqm_yang, norm.sqm_pacel, norm.shparea_sq, norm.refinal ];
                 await client.query(insertSql, params);
             }
             await client.query('COMMIT');
@@ -1495,18 +1494,10 @@ app.post('/api/create-project', async (req, res) => {
                 sqm_yang     numeric,
                 sqm_pacel    numeric,
                 shparea_sq   numeric,
-                shpsplit_sqm numeric,
-                lu_type      text,
                 geom         GEOMETRY(MultiPolygon, 4326),
                 geom_point   GEOMETRY(Point, 4326),
-                app_no       text,
                 refinal      text,
-                xls_sqm      numeric,
                 classified   boolean DEFAULT FALSE,
-                diff_chk     numeric,
-                chk          text,
-                check_area   text,
-                check_shape  text,
                 editor       text,
                 ts           timestamp DEFAULT NOW(),
                 created_at   timestamp DEFAULT NOW(),
@@ -1544,8 +1535,8 @@ app.post('/api/create-project', async (req, res) => {
                 a.no_plot, a.titl_nam, a.f_name, a.l_name, a.address,
                 a.sub_dis, a.district, a.province, a.status, a.title_no, a.title_type,
                 a.yang_rai, a.rai, a.ng, a.sgw, a.pacel_rai, a.age, a.x, a.y,
-                a.sqm_yang, a.sqm_pacel, a.shparea_sq, a.shpsplit_sqm AS a_shpsplit_sqm,
-                a.lu_type, a.app_no, a.refinal, a.xls_sqm, a.classified,
+                a.sqm_yang, a.sqm_pacel, a.shparea_sq,
+                a.refinal, a.classified,
                 a.editor AS a_editor, a.ts AS a_ts,
                 r.fid AS reclass_fid, r.sub_id AS reclass_sub_id,
                 r.shpsplit_sqm AS r_shpsplit_sqm, r.classtype,
@@ -1685,17 +1676,15 @@ app.post('/api/upload-shapefile-to-table', upload.single('shpFile'), async (req,
                             remark, agency, id_farmer, regis_no, no_plot, titl_nam, f_name, l_name,
                             address, sub_dis, district, province, status, title_no, title_type,
                             yang_rai, rai, ng, sgw, pacel_rai, age, x, y,
-                            sqm_yang, sqm_pacel, shparea_sq, shpsplit_sqm, lu_type,
-                            app_no, refinal, xls_sqm, diff_chk, chk, check_area, check_shape,
+                            sqm_yang, sqm_pacel, shparea_sq, refinal,
                             geom, geom_point
                         )
                         VALUES (
                             $2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,
-                            $17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,
-                            $30,$31,$32,$33,$34,$35,$36,
+                            $17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,
                             ${geomVal}, ${geomPointVal}
                         )
-                        RETURNING id, id_farmer, shpsplit_sqm, geom, geom_point
+                        RETURNING id, id_farmer, shparea_sq AS shpsplit_sqm, geom, geom_point
                     )
                     INSERT INTO reclass_${tb_name} (id, sub_id, id_farmer, shpsplit_sqm, geom, geom_point, classtype)
                     SELECT id, id::text, id_farmer, shpsplit_sqm, geom, geom_point, '${geom_type}' FROM main_ins;
@@ -1707,8 +1696,7 @@ app.post('/api/upload-shapefile-to-table', upload.single('shpFile'), async (req,
                     norm.district, norm.province, norm.status, norm.title_no, norm.title_type,
                     norm.yang_rai, norm.rai, norm.ng, norm.sgw, norm.pacel_rai, norm.age,
                     norm.x, norm.y, norm.sqm_yang, norm.sqm_pacel, norm.shparea_sq,
-                    norm.shpsplit_sqm, norm.lu_type, norm.app_no, norm.refinal, norm.xls_sqm,
-                    norm.diff_chk, norm.chk, norm.check_area, norm.check_shape
+                    norm.refinal
                 ];
                 await client.query(insertSql, params);
             }

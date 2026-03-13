@@ -99,8 +99,6 @@ CREATE TABLE public.tb_template (
     sqm_yang numeric,
     sqm_pacel numeric,
     shparea_sq numeric,
-    shpsplit_sqm numeric,
-    LU_type text,
     geom public.geometry(Polygon, 4326),
     geom_point public.geometry(Point, 4326),
     created_at timestamp DEFAULT NOW(),
