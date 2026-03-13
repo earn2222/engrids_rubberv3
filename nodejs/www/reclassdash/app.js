@@ -350,6 +350,21 @@ const loadGeoData = async () => {
             destroy: true,
         });
 
+        // แก้ปัญหาตารางไม่ตรงช่องเมื่อวาดเสร็จ
+        setTimeout(() => {
+            if ($.fn.DataTable.isDataTable('#featureTable')) {
+                $('#featureTable').DataTable().columns.adjust().draw();
+            }
+        }, 500);
+        
+        // แก้ปัญหาเวลาขยายลากจอ
+        $(window).on('resize', function () {
+            if ($.fn.DataTable.isDataTable('#featureTable')) {
+                $('#featureTable').DataTable().columns.adjust();
+            }
+        });
+
+
         const updateMap = () => {
             featureGroup.clearLayers(); // Clear existing layers
             const visibleRows = dataTable.rows({ search: 'applied' }).data().toArray();
@@ -569,7 +584,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Invalidate map size so it fills its container
-        setTimeout(() => map.invalidateSize(), 200);
+        setTimeout(() => {
+            map.invalidateSize();
+            if ($.fn.DataTable.isDataTable('#featureTable')) {
+                $('#featureTable').DataTable().columns.adjust();
+            }
+        }, 200);
+
 
         // Load reshape polygon data as overlay layer
         try {
