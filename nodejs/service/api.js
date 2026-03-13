@@ -1449,6 +1449,19 @@ app.post('/api/upload-shapefile', upload.single('shpFile'), async (req, res) => 
 
             await pool.query(`INSERT INTO layerlist (tb_name, remark) VALUES ($1, $2) ON CONFLICT (tb_name) DO UPDATE SET updated_at = NOW()`, [tb_name, remark || `${geom_type} layer`]);
 
+            // ── AUTO BACKUP: copy main table → backup_{tb_name} ──────────────────
+            try {
+                await pool.query(`DROP TABLE IF EXISTS backup_${tb_name}`);
+                await pool.query(`CREATE TABLE backup_${tb_name} AS SELECT * FROM ${tb_name}`);
+                await pool.query(`ALTER TABLE backup_${tb_name} ADD COLUMN backup_at TIMESTAMPTZ DEFAULT NOW()`);
+                await pool.query(`UPDATE backup_${tb_name} SET backup_at = NOW()`);
+                console.log(`[BACKUP] Created backup_${tb_name} with ${features.length} rows`);
+            } catch (backupErr) {
+                console.error('[BACKUP] Warning: backup table creation failed:', backupErr.message);
+                // ไม่ throw error เพื่อไม่ให้กระทบ response หลัก
+            }
+            // ─────────────────────────────────────────────────────────────────────
+
             res.json({ success: true, message: 'Shapefile uploaded successfully', recordCount: features.length, tableName: tb_name });
         } catch (err) {
             await client.query('ROLLBACK');
@@ -1739,6 +1752,35 @@ app.post('/api/upload-shapefile-to-table', upload.single('shpFile'), async (req,
 
             await client.query('COMMIT');
 
+            // ── AUTO BACKUP: upsert new rows into backup_{tb_name} ───────────────
+            try {
+                // ตรวจสอบว่า backup table มีแล้วหรือยัง
+                const bkCheck = await pool.query(
+                    `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=$1)`,
+                    [`backup_${tb_name}`]
+                );
+                if (!bkCheck.rows[0].exists) {
+                    // สร้าง backup table ใหม่จาก structure ของ main table + คอลัมน์ backup_at
+                    await pool.query(`CREATE TABLE backup_${tb_name} AS SELECT * FROM ${tb_name} WHERE FALSE`);
+                    await pool.query(`ALTER TABLE backup_${tb_name} ADD COLUMN backup_at TIMESTAMPTZ DEFAULT NOW()`);
+                }
+
+                // เพิ่มข้อมูลที่ upload ใหม่ล่าสุดเข้า backup (rows ที่ไม่มีใน backup)
+                const backupInsertResult = await pool.query(`
+                    INSERT INTO backup_${tb_name}
+                    SELECT m.*, NOW() AS backup_at
+                    FROM ${tb_name} m
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM backup_${tb_name} b WHERE b.id = m.id
+                    )
+                `);
+                console.log(`[BACKUP] Appended ${backupInsertResult.rowCount} new rows to backup_${tb_name}`);
+            } catch (backupErr) {
+                console.error('[BACKUP] Warning: backup append failed:', backupErr.message);
+                // ไม่ throw error เพื่อไม่ให้กระทบ response หลัก
+            }
+            // ─────────────────────────────────────────────────────────────────────
+
             res.json({
                 success: true,
                 message: 'Shapefile uploaded successfully',
@@ -1758,6 +1800,241 @@ app.post('/api/upload-shapefile-to-table', upload.single('shpFile'), async (req,
     } finally {
         if (fs.existsSync(extractDir)) fs.rmSync(extractDir, { recursive: true, force: true });
         if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    }
+});
+
+// ════════════════════════════════════════════════════════════
+// BACKUP API ENDPOINTS
+// ════════════════════════════════════════════════════════════
+
+/**
+ * GET /api/backup/:tb
+ * ดูข้อมูลทั้งหมดใน backup table ของ tb
+ */
+app.get('/api/backup/:tb', async (req, res) => {
+    const { tb } = req.params;
+    if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tb)) {
+        return res.status(400).json({ error: 'Invalid table name' });
+    }
+    try {
+        const checkResult = await pool.query(
+            `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=$1)`,
+            [`backup_${tb}`]
+        );
+        if (!checkResult.rows[0].exists) {
+            return res.status(404).json({ success: false, error: `Backup table backup_${tb} not found` });
+        }
+        const result = await pool.query(`SELECT * FROM backup_${tb} ORDER BY id`);
+        res.json({ success: true, count: result.rowCount, data: result.rows });
+    } catch (err) {
+        console.error('[BACKUP] GET error:', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+/**
+ * POST /api/restore-from-backup/:tb/:id
+ * restore แถวที่มี id=$id จาก backup_tb กลับไปยัง tb
+ *
+ * กรณีที่ 1 – id หายไปจาก tb (ถูกลบ):
+ *   → INSERT แถวกลับเข้า main table ด้วยค่าต้นฉบับจาก backup ทั้งหมด
+ *   → INSERT เข้า reclass_tb ด้วย shpsplit_sqm = shparea_sq (ค่าต้นฉบับ)
+ *
+ * กรณีที่ 2 – id ยังมีอยู่ใน tb แต่ต้องการ reset ค่าเนื้อที่กลับเป็นต้นฉบับ:
+ *   → UPDATE shparea_sq, geom, geom_point ใน main table จาก backup
+ *   → UPDATE shpsplit_sqm ใน reclass_tb ด้วยค่าต้นฉบับจาก backup
+ *
+ * Query param: ?mode=reset  → บังคับ reset ค่าแม้ id ยังอยู่
+ */
+app.post('/api/restore-from-backup/:tb/:id', async (req, res) => {
+    const { tb, id } = req.params;
+    const mode = req.query.mode || 'auto'; // 'auto' | 'reset'
+
+    if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tb)) {
+        return res.status(400).json({ error: 'Invalid table name' });
+    }
+    const featureId = parseInt(id, 10);
+    if (isNaN(featureId)) {
+        return res.status(400).json({ error: 'ID must be a number' });
+    }
+    try {
+        // ── ตรวจสอบว่า backup table มีอยู่ ──────────────────────────────────────
+        const backupCheck = await pool.query(
+            `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=$1)`,
+            [`backup_${tb}`]
+        );
+        if (!backupCheck.rows[0].exists) {
+            return res.status(404).json({ success: false, error: `Backup table backup_${tb} not found` });
+        }
+
+        // ── ดึงแถวต้นฉบับจาก backup ────────────────────────────────────────────
+        const backupRow = await pool.query(
+            `SELECT *, ST_AsGeoJSON(geom) AS geom_json FROM backup_${tb} WHERE id = $1 LIMIT 1`,
+            [featureId]
+        );
+        if (backupRow.rowCount === 0) {
+            return res.status(404).json({ success: false, error: `ID ${featureId} not found in backup_${tb}` });
+        }
+        const bk = backupRow.rows[0];
+        const originalShparea = bk.shparea_sq; // ค่าเนื้อที่ต้นฉบับ
+
+        // ── ตรวจสอบว่า id ยังมีอยู่ใน main table หรือไม่ ──────────────────────
+        const mainRow = await pool.query(`SELECT id FROM ${tb} WHERE id = $1`, [featureId]);
+        const idExists = mainRow.rowCount > 0;
+
+        let restoredRow = null;
+        let actionTaken = '';
+
+        if (!idExists) {
+            // ════ กรณีที่ 1: id หายไป → INSERT กลับด้วยค่าต้นฉบับทั้งหมด ═══════
+
+            // ดึงคอลัมน์ใน main table (ไม่รวม backup_at)
+            const colsResult = await pool.query(
+                `SELECT column_name FROM information_schema.columns
+                 WHERE table_schema='public' AND table_name=$1
+                 ORDER BY ordinal_position`,
+                [tb]
+            );
+            const mainCols = colsResult.rows.map(r => r.column_name);
+            const colList = mainCols.join(', ');
+
+            const restoreResult = await pool.query(`
+                INSERT INTO ${tb} (${colList})
+                SELECT ${colList}
+                FROM backup_${tb}
+                WHERE id = $1
+                ON CONFLICT (id) DO NOTHING
+                RETURNING *
+            `, [featureId]);
+
+            if (restoreResult.rowCount === 0) {
+                return res.status(409).json({ success: false, error: `ID ${featureId} conflict during insert, restore skipped.` });
+            }
+            restoredRow = restoreResult.rows[0];
+            actionTaken = 'inserted';
+
+        } else if (mode === 'reset') {
+            // ════ กรณีที่ 2: id มีอยู่ + mode=reset → UPDATE ค่ากลับเป็นต้นฉบับ ═
+
+            const updateResult = await pool.query(`
+                UPDATE ${tb}
+                SET shparea_sq  = b.shparea_sq,
+                    geom        = b.geom,
+                    geom_point  = b.geom_point
+                FROM backup_${tb} b
+                WHERE ${tb}.id = $1
+                  AND b.id     = $1
+                RETURNING ${tb}.*
+            `, [featureId]);
+
+            restoredRow = updateResult.rows[0];
+            actionTaken = 'reset';
+
+        } else {
+            // id มีอยู่ ไม่ได้ส่ง mode=reset
+            return res.status(409).json({
+                success: false,
+                error: `ID ${featureId} already exists in ${tb}. ส่ง ?mode=reset เพื่อ reset ค่าเนื้อที่กลับเป็นต้นฉบับ`,
+                hint: `POST /api/restore-from-backup/${tb}/${featureId}?mode=reset`
+            });
+        }
+
+        // ── Sync reclass_tb: อัปเดต shpsplit_sqm ด้วยค่าต้นฉบับจาก backup ─────
+        const reclassCheck = await pool.query(
+            `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=$1)`,
+            [`reclass_${tb}`]
+        );
+        let reclassRestored = 0;
+        if (reclassCheck.rows[0].exists) {
+            const reclassExists = await pool.query(
+                `SELECT id FROM reclass_${tb} WHERE id = $1 LIMIT 1`,
+                [featureId]
+            );
+
+            if (reclassExists.rowCount === 0) {
+                // ไม่มีใน reclass → INSERT row ใหม่ด้วยค่าต้นฉบับ
+                await pool.query(`
+                    INSERT INTO reclass_${tb} (id, sub_id, id_farmer, shpsplit_sqm, geom, classtype)
+                    VALUES ($1, $2::text, $3, $4, $5, 'polygon')
+                    ON CONFLICT DO NOTHING
+                `, [
+                    featureId,
+                    featureId.toString(),
+                    restoredRow.id_farmer,
+                    originalShparea,           // ← ค่าเนื้อที่ต้นฉบับจาก backup
+                    restoredRow.geom
+                ]);
+                reclassRestored = 1;
+            } else {
+                // มีอยู่ใน reclass → UPDATE shpsplit_sqm กลับเป็นค่าต้นฉบับ
+                await pool.query(`
+                    UPDATE reclass_${tb}
+                    SET shpsplit_sqm = $1,
+                        geom        = $2
+                    WHERE id = $3
+                      AND (sub_id = $4 OR sub_id = $3::text)
+                `, [
+                    originalShparea,           // ← ค่าเนื้อที่ต้นฉบับจาก backup
+                    restoredRow.geom,
+                    featureId,
+                    featureId.toString()
+                ]);
+                reclassRestored = 1;
+            }
+        }
+
+        res.json({
+            success: true,
+            action: actionTaken,
+            message: `ID ${featureId} ${actionTaken} from backup_${tb} (shparea_sq = ${originalShparea})`,
+            originalShparea,
+            restored: restoredRow,
+            reclassRestored
+        });
+    } catch (err) {
+        console.error('[BACKUP] restore error:', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+
+/**
+ * GET /api/backup-diff/:tb
+ * เปรียบเทียบ ids ที่อยู่ใน backup แต่หายไปจาก main table
+ * ช่วยให้รู้ว่า id ไหนบ้างที่หาย
+ */
+app.get('/api/backup-diff/:tb', async (req, res) => {
+    const { tb } = req.params;
+    if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tb)) {
+        return res.status(400).json({ error: 'Invalid table name' });
+    }
+    try {
+        const backupCheck = await pool.query(
+            `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=$1)`,
+            [`backup_${tb}`]
+        );
+        if (!backupCheck.rows[0].exists) {
+            return res.status(404).json({ success: false, error: `Backup table backup_${tb} not found` });
+        }
+
+        // หา id ที่อยู่ใน backup แต่ไม่มีใน main table
+        const diffResult = await pool.query(`
+            SELECT b.id, b.id_farmer, b.f_name, b.l_name, b.backup_at
+            FROM backup_${tb} b
+            WHERE NOT EXISTS (
+                SELECT 1 FROM ${tb} m WHERE m.id = b.id
+            )
+            ORDER BY b.id
+        `);
+
+        res.json({
+            success: true,
+            missingCount: diffResult.rowCount,
+            missingIds: diffResult.rows
+        });
+    } catch (err) {
+        console.error('[BACKUP] diff error:', err);
+        res.status(500).json({ success: false, error: err.message });
     }
 });
 
