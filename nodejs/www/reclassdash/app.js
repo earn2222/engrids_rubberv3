@@ -356,7 +356,7 @@ const loadGeoData = async () => {
                 $('#featureTable').DataTable().columns.adjust().draw();
             }
         }, 500);
-        
+
         // แก้ปัญหาเวลาขยายลากจอ
         $(window).on('resize', function () {
             if ($.fn.DataTable.isDataTable('#featureTable')) {
@@ -621,7 +621,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             fillOpacity: 0.12
                         }),
                         onEachFeature: (feature, layer) => {
-                            layer.bindPopup(`<b>Reshape</b><br>ID: ${feature.properties.id}<br>เลขบัตรประชาชน: ${feature.properties.app_no}`);
+                            layer.bindPopup(`<b>Reshape</b><br>ID: ${feature.properties.id}<br>เลขลงทะเบียนเกษตรกร: ${feature.properties.app_no}`);
                         }
                     }).addTo(reshapeFeatureGroup);
                 });
