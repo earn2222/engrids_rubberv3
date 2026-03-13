@@ -31,6 +31,15 @@ const light = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/
     maxZoom: 22
 });
 
+// Add the custom tile layer
+const longdoLayer = L.tileLayer('https://ms.longdo.com/mmmap/img.php?zoom={z}&x={x}&y={y}&mode=dol_hd', {
+    attribution: '&copy; Longdo Map',
+    tileSize: 256,
+    maxZoom: 30,
+    minZoom: 1
+});
+
+
 const ndvi = L.tileLayer.wms("https://engrids.soc.cmu.ac.th/geoserver/gwc/service/wms?", {
     layers: 'rubber:rubber4326',
     format: 'image/png',
@@ -66,7 +75,8 @@ const overlayMaps = {
     "NDVI": ndvi,
     "NDVI gee": ndviTile,
     "NDWI gee": ndwiTile,
-    "S2 gee": trueColorTile
+    "S2 gee": trueColorTile,
+    "Longdo Map": longdoLayer.addTo(map)
 };
 
 L.control.layers(baseLayers, overlayMaps).addTo(map);
