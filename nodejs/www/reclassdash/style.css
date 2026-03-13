@@ -254,10 +254,11 @@ table.dataTable thead th {
     background: linear-gradient(135deg, #388e3c, #2e7d32) !important;
     color: #ffffff !important;
     font-weight: 600;
-    font-size: 0.82rem;
-    padding: 10px 12px;
+    font-size: 0.85rem;
+    padding: 14px 18px !important;
     border-bottom: 2px solid #1b5e20;
     white-space: nowrap;
+    text-align: center;
 }
 
 .dataTables_scrollBody table.dataTable thead th,
@@ -279,7 +280,7 @@ table.dataTable thead th {
 }
 
 table.dataTable tbody td {
-    padding: 8px 10px !important;
+    padding: 12px 16px !important;
     vertical-align: middle;
     border-bottom: 1px solid rgba(76, 175, 80, 0.1) !important;
 }
@@ -309,6 +310,11 @@ table.dataTable tbody tr.even {
     outline: none;
 }
 
+.dataTables_wrapper .dataTables_length,
+.dataTables_wrapper .dataTables_filter {
+    margin-bottom: 16px;
+}
+
 .dataTables_wrapper .dataTables_paginate .paginate_button.current {
     background: linear-gradient(135deg, #66bb6a, #43a047) !important;
     color: #fff !important;
@@ -326,9 +332,9 @@ table.dataTable tbody tr.even {
 /* Review dropdowns in table */
 .review-check-area,
 .review-check-shape {
-    min-width: 120px;
-    font-size: 0.82rem;
-    padding: 4px 8px;
+    min-width: 140px;
+    font-size: 0.85rem;
+    padding: 6px 12px;
     background: #f9fdf9;
     border: 1px solid rgba(76, 175, 80, 0.25);
     border-radius: 6px;
@@ -336,8 +342,9 @@ table.dataTable tbody tr.even {
 
 .review-remark,
 .user-remark {
-    min-width: 160px;
-    font-size: 0.82rem;
+    min-width: 180px;
+    font-size: 0.85rem;
+    padding: 6px 12px;
 }
 
 .user-remark {
