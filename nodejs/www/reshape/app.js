@@ -387,6 +387,15 @@ const loadGeoData = async () => {
                         const diffStyle = `color: ${color}; font-weight: bold;`;
                         return `<span style="${diffStyle}">${data ? "classify แล้ว" : "ยังไม่ classify"}</span>`;
                     }
+                },
+                {
+                    data: null,
+                    title: 'ลบข้อมูล',
+                    render: (data, type, row) => {
+                        return `<button class="btn btn-danger btn-sm btn-icon delete-btn" data-id="${row.id}" title="ลบข้อมูลแปลงนี้">
+                                    <i class="bi bi-trash"></i>
+                                </button>`;
+                    }
                 }
             ],
             pageLength: 10,
@@ -472,6 +481,49 @@ const loadGeoData = async () => {
                 });
             } catch (error) {
                 console.error('Failed to parse GeoJSON:', error);
+            }
+        });
+
+        // Event listener for the new delete button
+        $('#featureTable tbody').on('click', '.delete-btn', async function (e) {
+            e.stopPropagation();
+            const id = $(this).data('id');
+            const tb = document.getElementById('tb').value;
+
+            if (confirm(`คุณต้องการลบข้อมูลแปลงนี้ใช่หรือไม่? (ID: ${id})`)) {
+                try {
+                    const response = await fetch(`/rub/api/deletefeature/${tb}/${id}`, {
+                        method: 'DELETE',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    const result = await response.json();
+
+                    if (result.success) {
+                        alert(`ลบข้อมูลสำเร็จ (ID: ${id})`);
+                        // Clear the map layers before reloading data
+                        featureGroup.eachLayer(layer => {
+                            layer.pm.disable();
+                            layer.areaLabel?.remove();
+                        });
+                        featureGroup.clearLayers();
+                        // Reset side panel
+                        document.getElementById('id').value = '';
+                        document.getElementById('xls_app_no').value = '';
+                        document.getElementById('xls_sqm').value = '';
+                        document.getElementById('shparea_sqm').value = '';
+                        document.getElementById('refinal').value = '';
+                        document.getElementById('restoreId').value = '';
+                        document.getElementById('message').innerHTML = '';
+                        selectedLayer = null;
+                        
+                        await loadGeoData(); // Reload table and map
+                    } else {
+                        alert('เกิดข้อผิดพลาดในการลบข้อมูล: ' + (result.error || ''));
+                    }
+                } catch (error) {
+                    console.error('Error deleting data:', error);
+                    alert('ไม่สามารถลบข้อมูลได้');
+                }
             }
         });
 

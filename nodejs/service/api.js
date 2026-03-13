@@ -160,6 +160,45 @@ app.get('/api/getfeaturesv3/:tb', async (req, res) => {
     }
 });
 
+app.delete('/api/deletefeature/:tb/:id', async (req, res) => {
+    try {
+        const { tb, id } = req.params;
+
+        if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tb)) {
+            return res.status(400).json({ error: 'Invalid table name' });
+        }
+
+        const featureId = parseInt(id, 10);
+        if (isNaN(featureId)) {
+            return res.status(400).json({ error: 'Feature ID must be a number' });
+        }
+
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            // Delete from reclass table if it exists
+            await client.query(`DELETE FROM reclass_${tb} WHERE id = $1`, [featureId]);
+            // Delete from main table
+            const result = await client.query(`DELETE FROM ${tb} WHERE id = $1 RETURNING id`, [featureId]);
+
+            if (result.rowCount === 0) {
+                await client.query('ROLLBACK');
+                return res.status(404).json({ error: 'Feature not found' });
+            }
+
+            await client.query('COMMIT');
+            res.json({ success: true, message: 'Feature deleted successfully', deletedId: result.rows[0].id });
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
+    } catch (err) {
+        console.error('Error in /api/deletefeature:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
 app.put('/api/restorefeatures/:tb/:id', async (req, res) => {
     try {
         let { tb, id } = req.params;
