@@ -583,26 +583,35 @@ document.getElementById('btnRestore').addEventListener("click", async () => {
             body: JSON.stringify({ id })
         });
         const result = await response.json();
-        alert(`อัพเดท features ${result.updated} เรียบร้อย`);
 
         if (result.success) {
+            // อัปเดตค่า shparea_sq ใน sidebar จากข้อมูลที่ restore กลับมา
+            const restoredArea = Number(result.data?.shparea_sq || 0);
+            document.getElementById('shparea_sqm').value = restoredArea.toFixed(0);
+
+            // เปรียบเทียบกับ target เพื่ออัปเดต message
+            const target = Number(document.getElementById('xls_sqm').value || 0);
+            const diff = Math.abs(target - restoredArea);
+            document.getElementById('message').innerHTML = diff <= 100
+                ? '<h5><span class="badge bg-success">เนื้อที่ใกล้เคียงกัน</span></h5>'
+                : '<h5><span class="badge bg-danger">เนื้อที่ยังไม่เท่ากัน</span></h5>';
+
             featureGroup.eachLayer(layer => {
                 layer.pm.disable();
                 layer.areaLabel?.remove();
             });
 
             featureGroup.clearLayers();
-            loadGeoData();
+            await loadGeoData();
             document.getElementById('restoreId').value = "";
             const modal = document.getElementById("restoreModal");
             if (modal) {
                 const bsModal = bootstrap.Modal.getInstance(modal);
                 bsModal.hide();
-            } else {
-                console.error(`Modal with ID ${modalId} not found.`);
             }
+            alert(`Restore เรียบร้อย (ID: ${id})\nเนื้อที่: ${restoredArea.toFixed(0)} m²`);
         } else {
-            alert('Failed to update features');
+            alert('Failed to restore features: ' + (result.error || ''));
         }
     } catch (error) {
         console.error('Error restoring data:', error);

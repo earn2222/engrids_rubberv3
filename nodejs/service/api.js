@@ -160,12 +160,6 @@ app.get('/api/getfeaturesv3/:tb', async (req, res) => {
     }
 });
 
-
-
-
-
-
-
 app.put('/api/restorefeatures/:tb/:id', async (req, res) => {
     try {
         let { tb, id } = req.params;
@@ -179,14 +173,43 @@ app.put('/api/restorefeatures/:tb/:id', async (req, res) => {
             return res.status(400).json({ error: 'Feature ID must be a number' });
         }
 
+        // ดึง geom จาก reclass table ก่อน เพื่อคำนวณ EPSG จาก centroid
+        const geomRow = await pool.query(
+            `SELECT ST_AsGeoJSON(geom) AS geom FROM reclass_${tb} WHERE id = $1`,
+            [featureId]
+        );
+        if (geomRow.rowCount === 0) {
+            return res.status(404).json({ error: 'Feature not found in reclass table' });
+        }
+
+        // คำนวณ EPSG จาก centroid ของ geometry
+        const geojson = JSON.parse(geomRow.rows[0].geom);
+        function getPolygonCentroid(coords, type) {
+            let x = 0, y = 0, total = 0;
+            if (type === 'Polygon') {
+                for (const ring of coords) for (const [lon, lat] of ring) { x += lon; y += lat; total++; }
+            } else if (type === 'MultiPolygon') {
+                for (const polygon of coords) for (const ring of polygon) for (const [lon, lat] of ring) { x += lon; y += lat; total++; }
+            }
+            return total > 0 ? [x / total, y / total] : [null, null];
+        }
+        const [lon, lat] = getPolygonCentroid(geojson.coordinates, geojson.type);
+        const epsg = (lon !== null && !isNaN(lon))
+            ? (lat >= 0 ? 32600 : 32700) + Math.floor((lon + 180) / 6) + 1
+            : 4326;
+
+        // Restore geom และคำนวณ shparea_sq ใหม่พร้อมกันในคำสั่งเดียว
         const sql = `
-        UPDATE ${tb} AS t
-        SET geom = r.geom
-        FROM reclass_${tb} AS r
-        WHERE t.id = $1
-          AND r.id = $1
-        RETURNING t.*;
-      `;
+            UPDATE ${tb} AS t
+            SET geom = r.geom,
+                shparea_sq = ST_Area(
+                    ST_Transform(r.geom, ${epsg})
+                )
+            FROM reclass_${tb} AS r
+            WHERE t.id = $1
+              AND r.id = $1
+            RETURNING t.*;
+        `;
         const { rows, rowCount } = await pool.query(sql, [featureId]);
 
         if (rowCount === 0) {
