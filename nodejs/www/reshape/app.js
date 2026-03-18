@@ -145,6 +145,8 @@ map.on('pm:create', (e) => {
 
         layer.bindPopup(`${properties.id}`);
         layer.on('click', (ev) => {
+            // ถ้ากำลัง digitize (draw) อยู่ ไม่ให้แปลงอื่นมาแย่งข้อมูล
+            if (isDrawing) return;
             showFeaturePanel(layer.feature, layer);
             featureGroup.eachLayer(l => l.pm.disable());
             layer.pm.enable();
@@ -272,10 +274,18 @@ const getFeatureStyle = (feature) => {
 // Track whether the user has actually edited the selected polygon
 let layerEdited = false;
 
+// Track whether the map is currently in drawing mode (to prevent adjacent polygon clicks from hijacking the panel)
+let isDrawing = false;
+map.on('pm:drawstart', () => { isDrawing = true; });
+map.on('pm:drawend', () => { isDrawing = false; });
+map.on('pm:create', () => { isDrawing = false; });
+
 const onEachFeature = (feature, layer) => {
     layer.bindPopup(`${feature.properties.id}`);
 
     layer.on('click', (e) => {
+        // ถ้ากำลัง digitize (draw) อยู่ ไม่ให้แปลงอื่นมาแย่งข้อมูล
+        if (isDrawing) return;
         showFeaturePanel(feature, layer);
         featureGroup.eachLayer(l => l.pm.disable());
         layer.pm.enable();
@@ -430,6 +440,8 @@ const loadGeoData = async () => {
                     }).addTo(featureGroup);
                     marker.bindPopup(`${row.id}`);
                     marker.on('click', (e) => {
+                        // ถ้ากำลัง digitize (draw) อยู่ ไม่ให้แปลงอื่นมาแย่งข้อมูล
+                        if (isDrawing) return;
                         showFeaturePanel(geoJsonData, marker);
                         selectedLayer = marker;
                     });
