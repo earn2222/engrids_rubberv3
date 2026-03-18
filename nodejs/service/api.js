@@ -89,7 +89,7 @@ app.get('/api/getfeatures/:tb/:fid', async (req, res) => {
                         ST_ASGeoJSON(r.geom) AS geom,
                         ST_ASGeoJSON(st_makepoint(100, 18)) AS geom_point
                     FROM ${reclassTableName} r
-                    JOIN ${tb} t ON r.id_farmer = t.id_farmer
+                    JOIN ${tb} t ON r.id = t.id
                     WHERE r.geom IS NOT NULL AND r.id = $1`;
             values = [fid];
         } else {
