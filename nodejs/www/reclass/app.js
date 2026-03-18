@@ -178,14 +178,14 @@ function addRealTimeAreaCalculation(layer) {
 
 
 const sub_id = document.getElementById('sub_id');
-const xls_app_no = document.getElementById('xls_app_no');
+const xls_id_farmer = document.getElementById('xls_id_farmer');
 const xls_sqm = document.getElementById('xls_sqm');
 const shpsplit_sqm = document.getElementById('shpsplit_sqm');
 const classtype = document.getElementById('classtype');
 
 function showFeaturePanel(feature, layer) {
     sub_id.value = feature.properties.sub_id;
-    xls_app_no.value = feature.properties.id_farmer;
+    xls_id_farmer.value = feature.properties.id_farmer;
     xls_sqm.value = feature.properties.sqm_yang || 0;
     shpsplit_sqm.value = Number(feature.properties.shpsplit_sqm).toFixed(0);
     classtype.value = feature.properties.classtype;
@@ -516,7 +516,7 @@ document.getElementById('clear').addEventListener('click', () => {
     selectedPolygon = null;
     selectedLine = null;
     sub_id.value = '';
-    xls_app_no.value = '';
+    xls_id_farmer.value = '';
     shpsplit_sqm.value = '';
     classtype.value = '';
 })

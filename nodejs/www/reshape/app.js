@@ -231,12 +231,12 @@ const updateAreaLabel = async () => {
 function showFeaturePanel(feature, layer) {
     const xls = Number(feature.properties.xls_sqm);
     const id = document.getElementById('id');
-    const xls_app_no = document.getElementById('xls_app_no');
+    const xls_id_farmer = document.getElementById('xls_id_farmer');
     const xls_sqm = document.getElementById('xls_sqm');
     const refinal = document.getElementById('refinal');
 
     id.value = feature.properties.id;
-    xls_app_no.value = feature.properties.id_farmer || '';
+    xls_id_farmer.value = feature.properties.id_farmer || '';
     xls_sqm.value = feature.properties.sqm_pacel || 0;
     document.getElementById('shparea_sqm').value = Number(feature.properties.shparea_sq || 0).toFixed(0);
     refinal.value = feature.properties.refinal || '';
@@ -520,7 +520,7 @@ const loadGeoData = async () => {
                         featureGroup.clearLayers();
                         // Reset side panel
                         document.getElementById('id').value = '';
-                        document.getElementById('xls_app_no').value = '';
+                        document.getElementById('xls_id_farmer').value = '';
                         document.getElementById('xls_sqm').value = '';
                         document.getElementById('shparea_sqm').value = '';
                         document.getElementById('refinal').value = '';

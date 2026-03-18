@@ -112,11 +112,11 @@ fetch('/rub/api/gee')
 
 function showFeaturePanel(feature, layer) {
     const id = document.getElementById('id');
-    const xls_app_no = document.getElementById('xls_app_no');
+    const xls_id_farmer = document.getElementById('xls_id_farmer');
     const shpsplit_sqm = document.getElementById('shpsplit_sqm');
 
     id.value = feature.properties.id;
-    xls_app_no.value = feature.properties.app_no;
+    xls_id_farmer.value = feature.properties.id_farmer;
     shpsplit_sqm.value = Number(feature.properties.shparea_sqm).toFixed(0);
 }
 
@@ -178,7 +178,7 @@ const loadGeoData = async () => {
             sub_id: item.sub_id,
             refinal: item.refinal,
             geom: JSON.parse(item.geom),
-            app_no: item.id_farmer || '',
+            id_farmer: item.id_farmer || '',
             farm_name: item.farm_name || '',
             age: item.age || '',
             sqm_pacel: item.sqm_pacel || 0,
@@ -210,7 +210,7 @@ const loadGeoData = async () => {
                     }
                 },
                 { data: 'id', title: 'ID' },
-                { data: 'app_no', title: 'เลขทะเบียนเกษตรกร' },
+                { data: 'id_farmer', title: 'เลขทะเบียนเกษตรกร' },
                 {
                     data: 'farm_name',
                     title: 'ชื่อเกษตรกร',
@@ -376,7 +376,7 @@ const loadGeoData = async () => {
                     properties: {
                         id: row.id,
                         refinal: row.refinal,
-                        app_no: row.app_no,
+                        id_farmer: row.id_farmer,
                         xls_sqm: row.xls_sqm,
                         shparea_sqm: row.shparea_sqm,
                         classtype: row.classtype
@@ -606,7 +606,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         geometry: geom,
                         properties: {
                             id: item.id,
-                            app_no: item.id_farmer,
+                            id_farmer: item.id_farmer,
                             xls_sqm: item.xls_sqm,
                             shparea_sqm: item.shparea_sqm
                         }
@@ -621,7 +621,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             fillOpacity: 0.12
                         }),
                         onEachFeature: (feature, layer) => {
-                            layer.bindPopup(`<b>Reshape</b><br>ID: ${feature.properties.id}<br>เลขลงทะเบียนเกษตรกร: ${feature.properties.app_no}`);
+                            layer.bindPopup(`<b>Reshape</b><br>ID: ${feature.properties.id}<br>เลขลงทะเบียนเกษตรกร: ${feature.properties.id_farmer}`);
                         }
                     }).addTo(reshapeFeatureGroup);
                 });
