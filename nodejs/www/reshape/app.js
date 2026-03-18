@@ -237,6 +237,7 @@ function showFeaturePanel(feature, layer) {
     id.value = feature.properties.id;
     xls_id_farmer.value = feature.properties.id_farmer || '';
     sqm_pacel_el.value = feature.properties.sqm_pacel || 0;
+    document.getElementById('sqm_yang').value = feature.properties.sqm_yang || 0;
     document.getElementById('shparea_sqm').value = Number(feature.properties.shparea_sq || 0).toFixed(0);
     refinal.value = feature.properties.refinal || '';
 
@@ -339,6 +340,7 @@ const loadGeoData = async () => {
                 geom: geom,
                 id_farmer: item.id_farmer,
                 sqm_pacel: item.sqm_pacel,
+                sqm_yang: item.sqm_yang,
                 shparea_sq: item.shparea_sq,
                 classified: item.classified,
             };
@@ -427,6 +429,7 @@ const loadGeoData = async () => {
                         refinal: row.refinal,
                         id_farmer: row.id_farmer,
                         sqm_pacel: row.sqm_pacel,
+                        sqm_yang: row.sqm_yang,
                         shparea_sq: row.shparea_sq
                     }
                 }
@@ -521,6 +524,7 @@ const loadGeoData = async () => {
                         document.getElementById('id').value = '';
                         document.getElementById('xls_id_farmer').value = '';
                         document.getElementById('sqm_pacel').value = '';
+                        document.getElementById('sqm_yang').value = '';
                         document.getElementById('shparea_sqm').value = '';
                         document.getElementById('refinal').value = '';
                         document.getElementById('restoreId').value = '';
@@ -697,7 +701,7 @@ document.getElementById('classify').addEventListener('click', () => {
     }).then(response => response.json())
         .then(data => {
             if (data.success) {
-                const sqm_yang_val = document.getElementById('sqm_pacel').value;
+                const sqm_yang_val = document.getElementById('sqm_yang').value;
                 window.open(`/rub/reclass/index.html?tb=${tb}&id=${id}&sqm_yang=${sqm_yang_val}`, '_self');
             } else {
                 alert('Failed to create reclassification layer');
