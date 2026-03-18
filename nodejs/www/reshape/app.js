@@ -363,11 +363,11 @@ const loadGeoData = async () => {
                     }
                 },
                 { data: 'id', title: 'ID' },
-                { data: 'farm_name', title: 'farm_name' },
-                { data: 'f_name', title: 'f_name' },
-                { data: 'l_name', title: 'l_name' },
-                { data: 'age', title: 'age' },
-                { data: 'id_farmer', title: 'Application No' },
+                { data: 'farm_name', title: 'ชื่อเกษตรกร' },
+                { data: 'f_name', title: 'ชื่อ' },
+                { data: 'l_name', title: 'นามสกุล' },
+                { data: 'age', title: 'อายุ (ปี)' },
+                { data: 'id_farmer', title: 'เลขทะเบียนเกษตรกร' },
                 { data: 'sqm_pacel', title: 'เนื้อที่เป้าหมาย (m²)' },
                 {
                     data: 'shparea_sq',
@@ -527,7 +527,7 @@ const loadGeoData = async () => {
                         document.getElementById('restoreId').value = '';
                         document.getElementById('message').innerHTML = '';
                         selectedLayer = null;
-                        
+
                         await loadGeoData(); // Reload table and map
                     } else {
                         alert('เกิดข้อผิดพลาดในการลบข้อมูล: ' + (result.error || ''));

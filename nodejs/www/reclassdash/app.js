@@ -209,8 +209,8 @@ const loadGeoData = async () => {
                                     href="#"><i class="bi bi-zoom-in"></i> ซูม</a>`
                     }
                 },
-                { data: 'app_no', title: 'App No' },
                 { data: 'id', title: 'ID' },
+                { data: 'app_no', title: 'เลขทะเบียนเกษตรกร' },
                 {
                     data: 'farm_name',
                     title: 'ชื่อเกษตรกร',
