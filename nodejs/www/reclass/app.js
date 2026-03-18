@@ -139,14 +139,14 @@ async function updateAreaDisplay(layer) {
         const roundedArea = Math.round(area);
         shpsplit_sqm.value = roundedArea;
 
-        const xls_sqm = parseFloat(document.getElementById('xls_sqm').value);
+        const sqm_yang_val = parseFloat(document.getElementById('sqm_yang').value);
         const checkArea = document.getElementById('checkarea');
         checkArea.innerHTML = '';
 
-        if (Math.abs(xls_sqm - area) <= 800) {
-            checkArea.innerHTML = '<span style="color: green;">* พื้นที่ตรงกับข้อมูล Excel</span>';
+        if (Math.abs(sqm_yang_val - area) <= 800) {
+            checkArea.innerHTML = '<span style="color: green;">* พื้นที่ตรงกับข้อมูลเป้าหมาย</span>';
         } else {
-            checkArea.innerHTML = '<span style="color: red;">* พื้นที่ไม่ตรงกับข้อมูล Excel</span>';
+            checkArea.innerHTML = '<span style="color: red;">* พื้นที่ไม่ตรงกับข้อมูลเป้าหมาย</span>';
         }
 
 
@@ -179,14 +179,14 @@ function addRealTimeAreaCalculation(layer) {
 
 const sub_id = document.getElementById('sub_id');
 const xls_id_farmer = document.getElementById('xls_id_farmer');
-const xls_sqm = document.getElementById('xls_sqm');
+const sqm_yang_el = document.getElementById('sqm_yang');
 const shpsplit_sqm = document.getElementById('shpsplit_sqm');
 const classtype = document.getElementById('classtype');
 
 function showFeaturePanel(feature, layer) {
     sub_id.value = feature.properties.sub_id;
     xls_id_farmer.value = feature.properties.id_farmer;
-    xls_sqm.value = feature.properties.sqm_yang || 0;
+    sqm_yang_el.value = feature.properties.sqm_yang || 0;
     shpsplit_sqm.value = Number(feature.properties.shpsplit_sqm).toFixed(0);
     classtype.value = feature.properties.classtype;
 }
@@ -345,7 +345,6 @@ const loadGeoData = async (id) => {
                     id: item.id,
                     sub_id: item.sub_id,
                     id_farmer: item.id_farmer,
-                    xls_sqm: item.xls_sqm,
                     sqm_yang: item.sqm_yang,
                     shpsplit_sqm: item.shpsplit_sqm,
                     classtype: item.classtype,
@@ -517,6 +516,7 @@ document.getElementById('clear').addEventListener('click', () => {
     selectedLine = null;
     sub_id.value = '';
     xls_id_farmer.value = '';
+    sqm_yang_el.value = '';
     shpsplit_sqm.value = '';
     classtype.value = '';
 })
@@ -652,13 +652,13 @@ const initApp = async () => {
         const urlParams = new URLSearchParams(window.location.search);
         const id = urlParams.get('id');
         const tb = urlParams.get('tb');
-        const xls_sqm = urlParams.get('xls_sqm');
+        const sqm_yang_param = urlParams.get('sqm_yang');
 
         if (!tb || tb === 'undefined') {
             alert('พื้นที่ไม่ถูกต้อง');
             window.location.href = './../index.html';
         }
-        document.getElementById('xls_sqm').value = xls_sqm;
+        document.getElementById('sqm_yang').value = sqm_yang_param;
         document.getElementById('id').value = id;
         document.getElementById('tb').value = tb;
         await loadGeoData(id);

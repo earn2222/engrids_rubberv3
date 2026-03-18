@@ -377,7 +377,7 @@ const loadGeoData = async () => {
                         id: row.id,
                         refinal: row.refinal,
                         id_farmer: row.id_farmer,
-                        xls_sqm: row.xls_sqm,
+                        sqm_pacel: row.sqm_pacel,
                         shparea_sqm: row.shparea_sqm,
                         classtype: row.classtype
                     }
@@ -607,7 +607,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         properties: {
                             id: item.id,
                             id_farmer: item.id_farmer,
-                            xls_sqm: item.xls_sqm,
+                            sqm_pacel: item.sqm_pacel || item.xls_sqm,
                             shparea_sqm: item.shparea_sqm
                         }
                     };

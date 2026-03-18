@@ -212,11 +212,11 @@ const updateAreaLabel = async () => {
         }
 
         const { area } = await res.json();
-        const sqm_pacel = document.getElementById('xls_sqm').value;
+        const target_area = document.getElementById('sqm_pacel').value;
 
         console.log(`Area result: ${area}, target: ${sqm_pacel}`);
         document.getElementById('shparea_sqm').value = area.toFixed(0);
-        const diff = Math.abs(area - sqm_pacel);
+        const diff = Math.abs(area - target_area);
 
         if (diff >= 100) {
             document.getElementById('message').innerHTML = '<h5><span class="badge bg-danger">เนื้อที่ยังไม่เท่ากัน</span></h5>';
@@ -229,15 +229,14 @@ const updateAreaLabel = async () => {
 };
 
 function showFeaturePanel(feature, layer) {
-    const xls = Number(feature.properties.xls_sqm);
     const id = document.getElementById('id');
     const xls_id_farmer = document.getElementById('xls_id_farmer');
-    const xls_sqm = document.getElementById('xls_sqm');
+    const sqm_pacel_el = document.getElementById('sqm_pacel');
     const refinal = document.getElementById('refinal');
 
     id.value = feature.properties.id;
     xls_id_farmer.value = feature.properties.id_farmer || '';
-    xls_sqm.value = feature.properties.sqm_pacel || 0;
+    sqm_pacel_el.value = feature.properties.sqm_pacel || 0;
     document.getElementById('shparea_sqm').value = Number(feature.properties.shparea_sq || 0).toFixed(0);
     refinal.value = feature.properties.refinal || '';
 
@@ -521,7 +520,7 @@ const loadGeoData = async () => {
                         // Reset side panel
                         document.getElementById('id').value = '';
                         document.getElementById('xls_id_farmer').value = '';
-                        document.getElementById('xls_sqm').value = '';
+                        document.getElementById('sqm_pacel').value = '';
                         document.getElementById('shparea_sqm').value = '';
                         document.getElementById('refinal').value = '';
                         document.getElementById('restoreId').value = '';
@@ -654,7 +653,7 @@ document.getElementById('btnRestore').addEventListener("click", async () => {
             document.getElementById('shparea_sqm').value = restoredArea.toFixed(0);
 
             // เปรียบเทียบกับ target เพื่ออัปเดต message
-            const target = Number(document.getElementById('xls_sqm').value || 0);
+            const target = Number(document.getElementById('sqm_pacel').value || 0);
             const diff = Math.abs(target - restoredArea);
             document.getElementById('message').innerHTML = diff <= 100
                 ? '<h5><span class="badge bg-success">เนื้อที่ใกล้เคียงกัน</span></h5>'
@@ -698,8 +697,8 @@ document.getElementById('classify').addEventListener('click', () => {
     }).then(response => response.json())
         .then(data => {
             if (data.success) {
-                const xls_sqm = document.getElementById('xls_sqm').value;
-                window.open(`/rub/reclass/index.html?tb=${tb}&id=${id}&xls_sqm=${xls_sqm}`, '_self');
+                const sqm_yang_val = document.getElementById('sqm_pacel').value;
+                window.open(`/rub/reclass/index.html?tb=${tb}&id=${id}&sqm_yang=${sqm_yang_val}`, '_self');
             } else {
                 alert('Failed to create reclassification layer');
             }

@@ -1477,7 +1477,7 @@ const normalizeProperties = (props) => {
     });
 
     // Robust fallbacks for Thai rubber shapefiles
-    if (normalized['sqm_pacel'] === 0 && sourceLower['xls_sqm']) normalized['sqm_pacel'] = sourceLower['xls_sqm'];
+    // if (normalized['sqm_pacel'] === 0 && sourceLower['xls_sqm']) normalized['sqm_pacel'] = sourceLower['xls_sqm'];
     if (normalized['shparea_sq'] === 0 && sourceLower['shparea_sqm']) normalized['shparea_sq'] = sourceLower['shparea_sqm'];
     // if (!normalized['id_farmer'] && sourceLower['app_no']) normalized['id_farmer'] = sourceLower['app_no'];
 
