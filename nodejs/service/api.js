@@ -1664,7 +1664,7 @@ app.get('/api/export-sql', async (req, res) => {
 /* ────────────────────────────────────────────────────────────
    NEW: Create Project – build empty table from template
    POST /api/create-project
-   body: { tb_name: "tb_champhon_earn", remark: "..." }
+   body: { tb_name: "champhon_earn", remark: "..." }
 ──────────────────────────────────────────────────────────── */
 app.post('/api/create-project', async (req, res) => {
     const { tb_name, remark } = req.body;

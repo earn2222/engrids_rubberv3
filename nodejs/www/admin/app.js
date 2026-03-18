@@ -244,7 +244,7 @@ function updateTableNamePreview() {
     const nameEl   = document.getElementById('previewTableName');
 
     if (province) {
-        nameEl.textContent = person ? `tb_${province}_${person}` : `tb_${province}`;
+        nameEl.textContent = person ? `${province}_${person}` : `${province}`;
         preview.style.display = 'block';
     } else {
         preview.style.display = 'none';
@@ -262,7 +262,7 @@ document.getElementById('btnCreateProject').addEventListener('click', async () =
 
     if (!province) { alert('กรุณากรอกชื่อจังหวัด'); return; }
 
-    const tb_name = person ? `tb_${province}_${person}` : `tb_${province}`;
+    const tb_name = person ? `${province}_${person}` : `${province}`;
 
     const btn = document.getElementById('btnCreateProject');
     btn.disabled = true;

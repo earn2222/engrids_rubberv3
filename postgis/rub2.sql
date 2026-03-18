@@ -64,14 +64,14 @@ ALTER TABLE public.layerlist OWNER TO postgres;
 
 --
 -- Template table for rubber plot data
--- Table naming convention: tb_[province]_[person_name]
--- Example: tb_champhon_earn
+-- Table naming convention: [province]_[person_name]
+-- Example: champhon_earn
 --
 
 -- This is a template - actual tables will be created dynamically with names like:
--- tb_champhon_earn, tb_rayong_somchai, etc.
+-- champhon_earn, rayong_somchai, etc.
 
-CREATE TABLE public.tb_template (
+CREATE TABLE public.template (
     id integer PRIMARY KEY,
     remark text,
     agency text,
@@ -103,10 +103,10 @@ CREATE TABLE public.tb_template (
     geom_point public.geometry(Point, 4326)
 );
 
-ALTER TABLE public.tb_template OWNER TO postgres;
+ALTER TABLE public.template OWNER TO postgres;
 
 -- Drop template table after schema definition
-DROP TABLE IF EXISTS public.tb_template;
+DROP TABLE IF EXISTS public.template;
 
 --
 -- Create indexes for common queries
