@@ -1125,6 +1125,7 @@ app.get('/api/download/reshape/:tb', async (req, res) => {
                             'sqm_yang',     m.sqm_yang,
                             'sqm_pacel',    m.sqm_pacel,
                             'shparea_sq',   m.shparea_sq,
+                            'geom',         ST_AsText(r.geom),
                             'geom_point',   ST_AsGeoJSON(m.geom_point)::json
                         )
                     ) AS feat
@@ -1173,6 +1174,7 @@ app.get('/api/download/reshape/:tb', async (req, res) => {
                             'sqm_yang',     m.sqm_yang,
                             'sqm_pacel',    m.sqm_pacel,
                             'shparea_sq',   m.shparea_sq,
+                            'geom',         ST_AsText(m.geom),
                             'geom_point',   ST_AsGeoJSON(m.geom_point)::json
                         )
                     ) AS feat
