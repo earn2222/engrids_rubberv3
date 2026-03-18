@@ -881,36 +881,78 @@ app.post('/api/splitfeature/:tb', async (req, res) => {
             ),
             inputs AS (
                 SELECT 
-                    ST_Force2D(ST_GeomFromGeoJSON($1)) AS poly,
-                    ST_Force2D(ST_GeomFromGeoJSON($2)) AS line,
+                    ST_Force2D(ST_GeomFromGeoJSON($1)) AS poly_4326,
+                    ST_Force2D(ST_GeomFromGeoJSON($2)) AS line_4326,
                     $3::integer AS processing_srid
             ),
             transformed AS (
+                -- โพรเจคเป็นพิกัดฉาก 3857 สำหรับ snap ให้วงกว้างในระดับเมตร
                 SELECT 
-                    ST_Transform(poly, processing_srid) AS poly_projected,
-                    ST_Transform(line, processing_srid) AS line_projected
+                    ST_Transform(poly_4326, 3857) AS poly_projected,
+                    ST_Transform(line_4326, 3857) AS line_projected,
+                    processing_srid, poly_4326, line_4326
                 FROM inputs
             ),
-            split AS (
-                SELECT ST_Split(poly_projected, line_projected) AS split_geom
+            snapped AS (
+                -- เลื่อนจุดปลายของเส้นตัด ให้ไปดูดติดกับจุด/เส้นขอบเดิมของ polygon ในระยะ 2 เมตร 
+                -- (ช่วยแก้ปัญหาคนวาดเส้นแล้วคลิกไม่ตรงจุดยอดเดิมเป๊ะ ทำให้เกิดติ่งหรือช่องว่างหลังตัด)
+                SELECT 
+                    poly_4326,
+                    ST_Transform(ST_Snap(line_projected, poly_projected, 2.0), 4326) AS line_snapped,
+                    processing_srid
                 FROM transformed
             ),
+            split AS (
+                -- สับโพลิกอนด้วยพิกัด Geographic (4326) ล้วนๆ เพื่อไม่ให้ยอด Boundary เดิมเคลื่อนที่หรือเปลี่ยนค่า
+                SELECT ST_Split(ST_MakeValid(poly_4326), line_snapped) AS split_geom, processing_srid
+                FROM snapped
+            ),
             parts AS (
-                SELECT (ST_Dump(split_geom)).geom AS geom_projected 
+                SELECT (ST_Dump(split_geom)).geom AS geom_4326, processing_srid 
                 FROM split
+            ),
+            calc_areas AS (
+                -- คำนวณพื้นที่เป็นตารางเมตรเพื่อใช้เทียบสัดส่วนเปอร์เซ็นต์
+                SELECT 
+                    geom_4326,
+                    ST_Area(ST_Transform(geom_4326, processing_srid)) AS raw_area
+                FROM parts
+                WHERE ST_GeometryType(geom_4326) IN ('ST_Polygon', 'ST_MultiPolygon')
+            ),
+            totals AS (
+                SELECT NULLIF(SUM(raw_area), 0) AS sum_raw FROM calc_areas
+            ),
+            proportional AS (
+                -- แบ่งสัดส่วนของพื้นที่โฉนดตั้งต้น แล้วปัดเศษให้เป็นจำนวนเต็ม
+                SELECT 
+                    geom_4326,
+                    raw_area,
+                    ROUND(COALESCE($9::numeric, sum_raw) * (raw_area / sum_raw)) AS rounded_area,
+                    ROW_NUMBER() OVER (ORDER BY raw_area DESC) as rn
+                FROM calc_areas CROSS JOIN totals
+            ),
+            final_areas AS (
+                -- ป้องกันปัญหาผลรวมพื้นที่ย่อย ไม่เท่ากับพื้นที่โฉนดเดิม
+                -- เอาผลต่างทศนิยมไปบวก/ลบ เข้ากับแปลงที่ใหญ่ที่สุด(rn=1) เพื่อให้ผลรวม = original_area($9) เป๊ะๆๆๆ!!
+                SELECT 
+                    geom_4326,
+                    CASE 
+                        WHEN rn = 1 THEN rounded_area + (COALESCE($9::numeric, (SELECT sum_raw FROM totals)) - SUM(rounded_area) OVER())
+                        ELSE rounded_area
+                    END AS allocated_area
+                FROM proportional
             ),
             inserted AS (
                 INSERT INTO reclass_${tb} (id_farmer, geom, sub_id, id, classtype, shpsplit_sqm, editor)
                 SELECT 
                     $4, 
-                    ST_Transform(geom_projected, 4326), 
+                    ST_Multi(geom_4326), 
                     $5 || '-' || row_number() OVER (),
                     $6,
                     $7, 
-                    ST_Area(geom_projected),
+                    allocated_area,
                     $8
-                FROM parts, inputs
-                WHERE ST_GeometryType(geom_projected) = 'ST_Polygon'
+                FROM final_areas
                 RETURNING *
             )
             SELECT 
@@ -919,7 +961,7 @@ app.post('/api/splitfeature/:tb', async (req, res) => {
                 classtype, 
                 id_farmer, 
                 shpsplit_sqm, 
-                ST_ASGeoJSON(geom) AS geom
+                ST_AsGeoJSON(geom, 15) AS geom
             FROM inserted
         `, [
             JSON.stringify(polygon),
@@ -929,7 +971,8 @@ app.post('/api/splitfeature/:tb', async (req, res) => {
             sub_id,
             id,
             properties.classtype,
-            displayName
+            displayName,
+            properties.shpsplit_sqm || null
         ]);
 
         if (result.rowCount === 0) {
