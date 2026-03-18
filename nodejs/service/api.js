@@ -1096,9 +1096,10 @@ app.get('/api/download/reshape/:tb', async (req, res) => {
                     SELECT json_build_object(
                         'type', 'Feature',
                         'geometry', ST_AsGeoJSON(r.geom)::json,
-                        'properties', jsonb_build_object(
+                        'properties', json_build_object(
                             'classtype',    r.classtype,
                             'shpsplit_sqm', r.shpsplit_sqm,
+                            'id',           r.id,
                             'remark',       m.remark,
                             'agency',       m.agency,
                             'id_farmer',    m.id_farmer,
@@ -1146,7 +1147,7 @@ app.get('/api/download/reshape/:tb', async (req, res) => {
                     SELECT json_build_object(
                         'type', 'Feature',
                         'geometry', ST_AsGeoJSON(m.geom)::json,
-                        'properties', jsonb_build_object(
+                        'properties', json_build_object(
                             'id',           m.id,
                             'remark',       m.remark,
                             'agency',       m.agency,
