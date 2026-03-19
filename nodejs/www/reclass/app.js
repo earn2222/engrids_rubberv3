@@ -228,31 +228,31 @@ const getFeatureStyle = (feature) => {
             fillOpacity = 0.2;
             break;
         case 'Other':
-            color = '#d7191c'; // ไม่ใช่ยางพารา
+            color = '#ff0004ff'; // ไม่ใช่ยางพารา
             fillOpacity = 0.2;
             break;
         case 'not-rubber':
-            color = '#ff00ff'; // ยางพาราที่ไม่ได้ลงทะเบียน
+            color = '#9900ffff'; // ยางพาราที่ไม่ได้ลงทะเบียน
             fillOpacity = 0.2;
             break;
         case 'ex-pond':
-            color = '#7d61fdff'; // พื้นที่กันออก (บ่อน้ำ)
+            color = '#00fff2ff'; // พื้นที่กันออก (บ่อน้ำ)
             fillOpacity = 0.2;
             break;
         case 'ex-landcover':
-            color = '#ffbb00ff'; // พื้นที่กันออก (สิ่งปกคลุมดินอื่นๆ)
+            color = '#ffe600ff'; // พื้นที่กันออก (สิ่งปกคลุมดินอื่นๆ)
             fillOpacity = 0.2;
             break;
         case 'ex-building':
-            color = '#00ffddff'; // พื้นที่กันออก (สิ่งปลูกสร้าง)
+            color = '#ff00d4ff'; // พื้นที่กันออก (สิ่งปลูกสร้าง)
             fillOpacity = 0.2;
             break;
         case 'ex-river':
-            color = '#ff009dff'; // พื้นที่กันออก (ลำน้ำ)
+            color = '#1100ffff'; // พื้นที่กันออก (ลำน้ำ)
             fillOpacity = 0.2;
             break;
         case 'ex-unreg-rubber':
-            color = '#003cffff'; // พื้นที่กันออก (ยางพาราไม่ลงทะเบียน)
+            color = '#00ff0dff'; // พื้นที่กันออก (ยางพาราไม่ลงทะเบียน)
             fillOpacity = 0.2;
             break;
         default:
