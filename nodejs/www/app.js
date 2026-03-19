@@ -51,13 +51,38 @@ const initApp = async () => {
                             <button class="btn btn-secondary dashboard" data-tb="${tb_name}">
                                 Dashboard
                             </button>
-                            <button class="btn btn-success reshape_download" data-tb="${tb_name}">
-                                Download แปลงยาง
-                            </button>
-                            <button class="btn btn-success classify_download" data-tb="${tb_name}">
-                                Download reclassify
-                            </button>
-
+                            <div class="dropdown d-inline-block mt-1">
+                                <button class="btn btn-success dropdown-toggle layer-btn" type="button" id="dropdownMenuButton${tb_name}" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-download me-1"></i>Download ข้อมูล
+                                </button>
+                                <ul class="dropdown-menu premium-dropdown-menu" aria-labelledby="dropdownMenuButton${tb_name}">
+                                    <li>
+                                        <a class="dropdown-item reshape_download" href="javascript:void(0);" data-tb="${tb_name}">
+                                            <div class="icon-wrapper"><i class="bi bi-file-earmark-text"></i></div>
+                                            <span>Download แปลงยาง</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item classify_download" href="javascript:void(0);" data-tb="${tb_name}">
+                                            <div class="icon-wrapper"><i class="bi bi-file-earmark-check"></i></div>
+                                            <span>Download reclassify</span>
+                                        </a>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <a class="dropdown-item classify_download_rubber" href="javascript:void(0);" data-tb="${tb_name}">
+                                            <div class="icon-wrapper" style="color: #0288d1 !important; background: #e1f5fe !important;"><i class="bi bi-cloud-arrow-down"></i></div>
+                                            <span>Download Reclassify (ยางลงทะเบียน)</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item classify_download_all_rubber" href="javascript:void(0);" data-tb="${tb_name}">
+                                            <div class="icon-wrapper" style="color: #6a1b9a !important; background: #f3e5f5 !important;"><i class="bi bi-cloud-download"></i></div>
+                                            <span>Download Reclassify (ยางลงทะเบียน+ยางไม่ลงทะเบียน)</span>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
                             
                         </div>
                         <div>
@@ -139,6 +164,54 @@ const initApp = async () => {
                         const a = document.createElement('a');
                         a.href = url;
                         a.download = `v_reclass_${tb}.geojson`;
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        URL.revokeObjectURL(url);
+                    })
+                    .catch(err => console.error('Download failed:', err));
+            });
+        }
+
+        const classify_download_rubber = document.getElementsByClassName('classify_download_rubber');
+        for (let i = 0; i < classify_download_rubber.length; i++) {
+            classify_download_rubber[i].addEventListener('click', function (e) {
+                e.preventDefault();
+                const tb = this.getAttribute('data-tb');
+                fetch(`/rub/api/download/reshape/v_reclass_${tb}?type=rubber`)
+                    .then(res => {
+                        if (!res.ok) throw new Error(res.statusText);
+                        return res.blob();
+                    })
+                    .then(blob => {
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `v_reclass_rubber_${tb}.geojson`;
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        URL.revokeObjectURL(url);
+                    })
+                    .catch(err => console.error('Download failed:', err));
+            });
+        }
+
+        const classify_download_all_rubber = document.getElementsByClassName('classify_download_all_rubber');
+        for (let i = 0; i < classify_download_all_rubber.length; i++) {
+            classify_download_all_rubber[i].addEventListener('click', function (e) {
+                e.preventDefault();
+                const tb = this.getAttribute('data-tb');
+                fetch(`/rub/api/download/reshape/v_reclass_${tb}?type=all_rubber`)
+                    .then(res => {
+                        if (!res.ok) throw new Error(res.statusText);
+                        return res.blob();
+                    })
+                    .then(blob => {
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `v_reclass_all_rubber_${tb}.geojson`;
                         document.body.appendChild(a);
                         a.click();
                         a.remove();

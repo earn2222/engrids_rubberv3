@@ -1081,12 +1081,20 @@ app.put('/api/update_geometry/:tb', async (req, res) => {
 app.get('/api/download/reshape/:tb', async (req, res) => {
     try {
         const tb = req.params.tb;
+        const typeFilter = req.query.type; // 'rubber' or 'all_rubber'
         if (!tb) return res.status(400).json({ error: 'Table name is required' });
 
         let sql;
         // ─── Case 1: Download reclassify (v_reclass_xxx) ───────────────────────────
         if (tb.startsWith('v_reclass_')) {
             const baseTb = tb.replace('v_reclass_', '');
+            let extraTypeCondition = '';
+            if (typeFilter === 'rubber') {
+                extraTypeCondition = "AND LOWER(TRIM(r.classtype)) = 'rubber'";
+            } else if (typeFilter === 'all_rubber') {
+                extraTypeCondition = "AND LOWER(TRIM(r.classtype)) IN ('rubber', 'not-rubber')";
+            }
+
             sql = `
                 SELECT json_build_object(
                     'type', 'FeatureCollection',
@@ -1132,7 +1140,7 @@ app.get('/api/download/reshape/:tb', async (req, res) => {
                     ) AS feat
                     FROM reclass_${baseTb} r
                     JOIN ${baseTb} m ON r.id = m.id
-                    WHERE r.geom IS NOT NULL
+                    WHERE r.geom IS NOT NULL ${extraTypeCondition}
                 ) f;
             `;
         } 

@@ -41,8 +41,8 @@ const showChart = async (tb, div) => {
         const data = await response.json();
 
         const chartData = [
-            { name: 'จำนวนทั้งหมด',    y: parseInt(data.total),  color: '#7cb5ec' },
-            { name: 'ปรับแก้เนื้อที่แล้ว', y: parseInt(data.reshp),  color: '#434348' },
+            { name: 'จำนวนทั้งหมด', y: parseInt(data.total), color: '#7cb5ec' },
+            { name: 'ปรับแก้เนื้อที่แล้ว', y: parseInt(data.reshp), color: '#434348' },
             { name: 'classified แล้ว', y: parseInt(data.reclass), color: '#90ed7d' }
         ];
 
@@ -86,13 +86,39 @@ const initApp = async () => {
                         <button class="btn btn-secondary layer-btn dashboard" data-tb="${tb_name}">
                             Dashboard
                         </button>
-                        <button class="btn btn-success layer-btn reshape_download" data-tb="${tb_name}">
-                            <i class="bi bi-download me-1"></i>Download แปลงยาง
-                        </button>
-                        <button class="btn btn-success layer-btn classify_download" data-tb="${tb_name}">
-                            <i class="bi bi-download me-1"></i>Download reclassify
-                        </button>
-                        <button class="btn btn-danger layer-btn deleteBtn" data-tb="${tb_name}" title="ลบ layer">
+                        <div class="dropdown d-inline-block mt-1">
+                            <button class="btn btn-success dropdown-toggle layer-btn" type="button" id="dropdownMenuButton${tb_name}" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-download me-1"></i>Download ข้อมูล
+                            </button>
+                            <ul class="dropdown-menu premium-dropdown-menu" aria-labelledby="dropdownMenuButton${tb_name}">
+                                <li>
+                                    <a class="dropdown-item reshape_download" href="javascript:void(0);" data-tb="${tb_name}">
+                                        <div class="icon-wrapper"><i class="bi bi-file-earmark-text"></i></div>
+                                        <span>Download แปลงยาง</span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item classify_download" href="javascript:void(0);" data-tb="${tb_name}">
+                                        <div class="icon-wrapper"><i class="bi bi-file-earmark-check"></i></div>
+                                        <span>Download reclassify</span>
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <a class="dropdown-item classify_download_rubber" href="javascript:void(0);" data-tb="${tb_name}">
+                                        <div class="icon-wrapper" style="color: #0288d1 !important; background: #e1f5fe !important;"><i class="bi bi-cloud-arrow-down"></i></div>
+                                        <span>Download Reclassify (ยางลงทะเบียน)</span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item classify_download_all_rubber" href="javascript:void(0);" data-tb="${tb_name}">
+                                        <div class="icon-wrapper" style="color: #6a1b9a !important; background: #f3e5f5 !important;"><i class="bi bi-cloud-download"></i></div>
+                                        <span>Download Reclassify (ยางลงทะเบียน+ยางไม่ลงทะเบียน)</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                        <button class="btn btn-danger layer-btn deleteBtn mt-1" data-tb="${tb_name}" title="ลบ layer">
                             <i class="bi bi-trash3-fill"></i>
                         </button>
                     </div>
@@ -149,6 +175,24 @@ const initApp = async () => {
                 e.preventDefault();
                 const tb = this.getAttribute('data-tb');
                 downloadFile(`/rub/api/download/reshape/v_reclass_${tb}`, `v_reclass_${tb}.geojson`);
+            });
+        });
+
+        /* ── Download reclassify (ลงทะเบียน) ── */
+        document.querySelectorAll('.classify_download_rubber').forEach(btn => {
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                const tb = this.getAttribute('data-tb');
+                downloadFile(`/rub/api/download/reshape/v_reclass_${tb}?type=rubber`, `v_reclass_rubber_${tb}.geojson`);
+            });
+        });
+
+        /* ── Download reclassify (ลงทะเบียน+ไม่ลงทะเบียน) ── */
+        document.querySelectorAll('.classify_download_all_rubber').forEach(btn => {
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                const tb = this.getAttribute('data-tb');
+                downloadFile(`/rub/api/download/reshape/v_reclass_${tb}?type=all_rubber`, `v_reclass_all_rubber_${tb}.geojson`);
             });
         });
 
@@ -219,9 +263,9 @@ document.getElementById('createProjectBtn').addEventListener('click', () => {
     const cpProv = document.getElementById('cp_province');
     const cpPers = document.getElementById('cp_person');
     const cpRem = document.getElementById('cp_remark');
-    if(cpProv) cpProv.value = '';
-    if(cpPers) cpPers.value = '';
-    if(cpRem) cpRem.value = '';
+    if (cpProv) cpProv.value = '';
+    if (cpPers) cpPers.value = '';
+    if (cpRem) cpRem.value = '';
     document.getElementById('tableNamePreview').style.display = 'none';
     createProjectModal.show();
 });
@@ -237,11 +281,11 @@ document.getElementById('createProjectBtn').addEventListener('click', () => {
 function updateTableNamePreview() {
     const provEl = document.getElementById('cp_province');
     const persEl = document.getElementById('cp_person');
-    
+
     const province = provEl ? provEl.value.trim().toLowerCase().replace(/\s+/g, '_') : '';
-    const person   = persEl ? persEl.value.trim().toLowerCase().replace(/\s+/g, '_') : '';
-    const preview  = document.getElementById('tableNamePreview');
-    const nameEl   = document.getElementById('previewTableName');
+    const person = persEl ? persEl.value.trim().toLowerCase().replace(/\s+/g, '_') : '';
+    const preview = document.getElementById('tableNamePreview');
+    const nameEl = document.getElementById('previewTableName');
 
     if (province) {
         nameEl.textContent = person ? `${province}_${person}` : `${province}`;
@@ -254,11 +298,11 @@ function updateTableNamePreview() {
 document.getElementById('btnCreateProject').addEventListener('click', async () => {
     const provEl = document.getElementById('cp_province');
     const persEl = document.getElementById('cp_person');
-    const remEl  = document.getElementById('cp_remark');
-    
+    const remEl = document.getElementById('cp_remark');
+
     const province = provEl ? provEl.value.trim().toLowerCase().replace(/\s+/g, '_') : '';
-    const person   = persEl ? persEl.value.trim().toLowerCase().replace(/\s+/g, '_') : '';
-    const remark   = remEl ? remEl.value.trim() : '';
+    const person = persEl ? persEl.value.trim().toLowerCase().replace(/\s+/g, '_') : '';
+    const remark = remEl ? remEl.value.trim() : '';
 
     if (!province) { alert('กรุณากรอกชื่อจังหวัด'); return; }
 
@@ -302,11 +346,11 @@ function openAddDataModal(tb_name) {
         addDataModal = new bootstrap.Modal(document.getElementById('addDataModal'));
     }
     // reset
-    document.getElementById('ad_tb_name').value  = tb_name;
+    document.getElementById('ad_tb_name').value = tb_name;
     document.getElementById('ad_geom_type').value = '';
-    document.getElementById('ad_shpFile').value   = '';
+    document.getElementById('ad_shpFile').value = '';
     document.getElementById('fileNameDisplay').style.display = 'none';
-    document.getElementById('fileNameDisplay').textContent   = '';
+    document.getElementById('fileNameDisplay').textContent = '';
     document.getElementById('ad_uploadProgress').style.display = 'none';
     document.getElementById('ad_progressBar').style.width = '0%';
     // clear geom type selection
@@ -326,7 +370,7 @@ document.querySelectorAll('.geom-type-card').forEach(card => {
 
 /* Upload zone – drag & drop */
 const uploadZone = document.getElementById('uploadZone');
-const fileInput  = document.getElementById('ad_shpFile');
+const fileInput = document.getElementById('ad_shpFile');
 
 uploadZone.addEventListener('dragover', e => {
     e.preventDefault();
@@ -362,21 +406,21 @@ function setSelectedFile(file) {
         const dt = new DataTransfer();
         dt.items.add(file);
         fileInput.files = dt.files;
-    } catch (_) {}
+    } catch (_) { }
 }
 
 /* Upload button */
 document.getElementById('btnAddData').addEventListener('click', async () => {
-    const tb_name   = document.getElementById('ad_tb_name').value.trim();
+    const tb_name = document.getElementById('ad_tb_name').value.trim();
     const geom_type = document.getElementById('ad_geom_type').value;
-    const shpFile   = fileInput.files[0];
+    const shpFile = fileInput.files[0];
 
     if (!geom_type) { alert('กรุณาเลือกประเภทข้อมูล (Polygon / Point)'); return; }
-    if (!shpFile)   { alert('กรุณาเลือกไฟล์ ZIP ที่มี Shapefile'); return; }
+    if (!shpFile) { alert('กรุณาเลือกไฟล์ ZIP ที่มี Shapefile'); return; }
 
     const formData = new FormData();
-    formData.append('shpFile',   shpFile);
-    formData.append('tb_name',   tb_name);
+    formData.append('shpFile', shpFile);
+    formData.append('tb_name', tb_name);
     formData.append('geom_type', geom_type);
 
     document.getElementById('ad_uploadProgress').style.display = 'block';
