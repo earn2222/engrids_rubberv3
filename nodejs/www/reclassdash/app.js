@@ -4,6 +4,31 @@ const featureGroup = L.featureGroup();
 const reshapeFeatureGroup = L.featureGroup();
 let showAreas = true;
 
+// Custom Rubber Tree Icon
+const rubberTreeIcon = L.icon({
+    iconUrl: 'data:image/svg+xml;base64,' + btoa(`
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+            <defs>
+                <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feGaussianBlur in="SourceAlpha" stdDeviation="15" />
+                    <feOffset dx="0" dy="10" result="offsetblur" />
+                    <feComponentTransfer><feFuncA type="linear" slope="0.3" /></feComponentTransfer>
+                    <feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge>
+                </filter>
+            </defs>
+            <circle cx="256" cy="256" r="230" fill="#FFF9C4" stroke="#FBC02D" stroke-width="20" filter="url(#shadow)" />
+            <path fill="#5D4037" d="M236 340h40v120h-40z"/>
+            <path fill="#2E7D32" d="M256 80s-140 70-140 180c0 50 140 100 140 100s140-50 140-100c0-110-140-180-140-180z"/>
+            <path fill="#4CAF50" d="M256 110s-110 50-110 150c0 40 110 80 110 80s110-40 110-80c0-100-110-150-110-150z"/>
+            <path fill="#81C784" d="M256 140s-80 30-80 120c0 30 80 60 80 60s80-30 80-60c0-90-80-120-80-120z"/>
+            <circle cx="190" cy="200" r="30" fill="white" fill-opacity="0.2" />
+        </svg>
+    `),
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+    popupAnchor: [0, -32]
+});
+
 // Configure base layer
 const gmap_road = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
     maxZoom: 22,
@@ -385,7 +410,10 @@ const loadGeoData = async () => {
 
                 L.geoJson(geojson, {
                     style: getFeatureStyle,
-                    onEachFeature: onEachFeature
+                    onEachFeature: onEachFeature,
+                    pointToLayer: function (feature, latlng) {
+                        return L.marker(latlng, { icon: rubberTreeIcon });
+                    }
                 }).addTo(featureGroup);
             });
         };
