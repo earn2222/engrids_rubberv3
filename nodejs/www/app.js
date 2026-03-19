@@ -57,6 +57,13 @@ const initApp = async () => {
                                 </button>
                                 <ul class="dropdown-menu premium-dropdown-menu" aria-labelledby="dropdownMenuButton${tb_name}">
                                     <li>
+                                        <a class="dropdown-item download_all" href="javascript:void(0);" data-tb="${tb_name}">
+                                            <div class="icon-wrapper" style="color: #e91e63 !important; background: #fce4ec !important;"><i class="bi bi-download"></i></div>
+                                            <span class="fw-bold">Download ทั้งหมด</span>
+                                        </a>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
                                         <a class="dropdown-item reshape_download" href="javascript:void(0);" data-tb="${tb_name}">
                                             <div class="icon-wrapper"><i class="bi bi-file-earmark-text"></i></div>
                                             <span>Download แปลงยาง</span>
@@ -128,22 +135,7 @@ const initApp = async () => {
             reshape_download[i].addEventListener('click', function (e) {
                 e.preventDefault();
                 const tb = this.getAttribute('data-tb');
-                fetch(`/rub/api/download/reshape/${tb}`)
-                    .then(res => {
-                        if (!res.ok) throw new Error(res.statusText);
-                        return res.blob();
-                    })
-                    .then(blob => {
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `${tb}.geojson`;
-                        document.body.appendChild(a);
-                        a.click();
-                        a.remove();
-                        URL.revokeObjectURL(url);
-                    })
-                    .catch(err => console.error('Download failed:', err));
+                downloadFile(`/rub/api/download/reshape/${tb}`, `${tb}.geojson`);
             });
         }
 
@@ -152,24 +144,7 @@ const initApp = async () => {
             classify_download[i].addEventListener('click', function (e) {
                 e.preventDefault();
                 const tb = this.getAttribute('data-tb');
-                fetch(`/rub/api/download/reshape/v_reclass_${tb}`)
-                    .then(res => {
-                        if (!res.ok) throw new Error(res.statusText);
-                        return res.blob();
-                    })
-                    .then(blob => {
-                        const url = URL.createObjectURL(blob);
-                        console.log(url);
-
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `v_reclass_${tb}.geojson`;
-                        document.body.appendChild(a);
-                        a.click();
-                        a.remove();
-                        URL.revokeObjectURL(url);
-                    })
-                    .catch(err => console.error('Download failed:', err));
+                downloadFile(`/rub/api/download/reshape/v_reclass_${tb}`, `v_reclass_${tb}.geojson`);
             });
         }
 
@@ -178,22 +153,7 @@ const initApp = async () => {
             classify_download_rubber[i].addEventListener('click', function (e) {
                 e.preventDefault();
                 const tb = this.getAttribute('data-tb');
-                fetch(`/rub/api/download/reshape/v_reclass_${tb}?type=rubber`)
-                    .then(res => {
-                        if (!res.ok) throw new Error(res.statusText);
-                        return res.blob();
-                    })
-                    .then(blob => {
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `v_reclass_rubber_${tb}.geojson`;
-                        document.body.appendChild(a);
-                        a.click();
-                        a.remove();
-                        URL.revokeObjectURL(url);
-                    })
-                    .catch(err => console.error('Download failed:', err));
+                downloadFile(`/rub/api/download/reshape/v_reclass_${tb}?type=rubber`, `v_reclass_rubber_${tb}.geojson`);
             });
         }
 
@@ -202,22 +162,19 @@ const initApp = async () => {
             classify_download_all_rubber[i].addEventListener('click', function (e) {
                 e.preventDefault();
                 const tb = this.getAttribute('data-tb');
-                fetch(`/rub/api/download/reshape/v_reclass_${tb}?type=all_rubber`)
-                    .then(res => {
-                        if (!res.ok) throw new Error(res.statusText);
-                        return res.blob();
-                    })
-                    .then(blob => {
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `v_reclass_all_rubber_${tb}.geojson`;
-                        document.body.appendChild(a);
-                        a.click();
-                        a.remove();
-                        URL.revokeObjectURL(url);
-                    })
-                    .catch(err => console.error('Download failed:', err));
+                downloadFile(`/rub/api/download/reshape/v_reclass_${tb}?type=all_rubber`, `v_reclass_all_rubber_${tb}.geojson`);
+            });
+        }
+
+        const download_all = document.getElementsByClassName('download_all');
+        for (let i = 0; i < download_all.length; i++) {
+            download_all[i].addEventListener('click', function (e) {
+                e.preventDefault();
+                const tb = this.getAttribute('data-tb');
+                downloadFile(`/rub/api/download/reshape/${tb}`, `${tb}.geojson`);
+                downloadFile(`/rub/api/download/reshape/v_reclass_${tb}`, `v_reclass_${tb}.geojson`);
+                downloadFile(`/rub/api/download/reshape/v_reclass_${tb}?type=rubber`, `v_reclass_rubber_${tb}.geojson`);
+                downloadFile(`/rub/api/download/reshape/v_reclass_${tb}?type=all_rubber`, `v_reclass_all_rubber_${tb}.geojson`);
             });
         }
 
@@ -254,6 +211,25 @@ const initApp = async () => {
     } catch (error) {
         console.error('Error initializing app:', error);
     }
+};
+
+const downloadFile = (url, filename) => {
+    fetch(url)
+        .then(res => {
+            if (!res.ok) throw new Error(res.statusText);
+            return res.blob();
+        })
+        .then(blob => {
+            const link = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = link;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(link);
+        })
+        .catch(err => console.error('Download failed:', err));
 };
 
 // document.getElementById("addData").addEventListener("click", () => {

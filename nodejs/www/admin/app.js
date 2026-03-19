@@ -92,6 +92,13 @@ const initApp = async () => {
                             </button>
                             <ul class="dropdown-menu premium-dropdown-menu" aria-labelledby="dropdownMenuButton${tb_name}">
                                 <li>
+                                    <a class="dropdown-item download_all" href="javascript:void(0);" data-tb="${tb_name}">
+                                        <div class="icon-wrapper" style="color: #e91e63 !important; background: #fce4ec !important;"><i class="bi bi-download"></i></div>
+                                        <span class="fw-bold">Download ทั้งหมด</span>
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
                                     <a class="dropdown-item reshape_download" href="javascript:void(0);" data-tb="${tb_name}">
                                         <div class="icon-wrapper"><i class="bi bi-file-earmark-text"></i></div>
                                         <span>Download แปลงยาง</span>
@@ -157,6 +164,19 @@ const initApp = async () => {
                 e.preventDefault();
                 const tb = this.getAttribute('data-tb');
                 window.location.href = `./../reclassdash/index.html?tb=${tb}`;
+            });
+        });
+
+        /* ── Download ทั้งหมด ── */
+        document.querySelectorAll('.download_all').forEach(btn => {
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                const tb = this.getAttribute('data-tb');
+                // Trigger 4 downloads sequentially
+                downloadFile(`/rub/api/download/reshape/${tb}`, `${tb}.geojson`);
+                downloadFile(`/rub/api/download/reshape/v_reclass_${tb}`, `v_reclass_${tb}.geojson`);
+                downloadFile(`/rub/api/download/reshape/v_reclass_${tb}?type=rubber`, `v_reclass_rubber_${tb}.geojson`);
+                downloadFile(`/rub/api/download/reshape/v_reclass_${tb}?type=all_rubber`, `v_reclass_all_rubber_${tb}.geojson`);
             });
         });
 
