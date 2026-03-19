@@ -369,7 +369,7 @@ const loadGeoData = async () => {
                 { data: 'l_name', title: 'นามสกุล' },
                 { data: 'age', title: 'อายุ (ปี)' },
                 { data: 'id_farmer', title: 'เลขทะเบียนเกษตรกร' },
-                { data: 'sqm_pacel', title: 'เนื้อที่เป้าหมาย (m²)' },
+                { data: 'sqm_pacel', title: 'เนื้อที่เป้าหมายโฉนด (m²)' },
                 {
                     data: 'shparea_sq',
                     title: 'เนื้อที่ขณะนี้ (m²)',

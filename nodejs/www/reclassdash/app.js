@@ -228,17 +228,17 @@ const loadGeoData = async () => {
                 },
                 {
                     data: 'shparea_sqm',
-                    title: 'เนื้อที่ขณะนี้โฉนด (m²)',
+                    title: 'เนื้อที่โฉนดขณะนี้ (m²)',
                     render: (data) => `<span class="area-num">${Number(data).toLocaleString('th-TH', { maximumFractionDigits: 0 })}</span>`
                 },
                 {
                     data: 'sqm_yang',
-                    title: 'เนื้อที่ยางพารา (m²)',
+                    title: 'เนื้อที่เป้าหมายยางพารา (m²)',
                     render: (data) => `<span class="area-num area-yang">${Number(data).toLocaleString('th-TH', { maximumFractionDigits: 0 })}</span>`
                 },
                 {
                     data: 'shpsplit_sqm',
-                    title: 'เนื้อที่ขณะนี้แยกประเภท (m²)',
+                    title: 'เนื้อที่แยกประเภทขณะนี้ (m²)',
                     render: (data) => `<span class="area-num">${Number(data).toLocaleString('th-TH', { maximumFractionDigits: 0 })}</span>`
                 },
                 {
