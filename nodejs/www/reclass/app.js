@@ -138,13 +138,6 @@ map.pm.addControls({
     drawCircleMarker: false,
 });
 
-// ฟังก์ชัน format แสดงพื้นที่
-const formatArea = (area) => {
-    return area >= 1e6
-        ? `${(area / 1e6).toLocaleString(undefined, { maximumFractionDigits: 2 })} km²`
-        : `${area.toLocaleString(undefined, { maximumFractionDigits: 2 })} m²`;
-};
-
 // เรียก API /rub/api/area เพื่อคำนวณพื้นที่
 async function calculateArea(geometry) {
     const res = await fetch('/rub/api/area', {

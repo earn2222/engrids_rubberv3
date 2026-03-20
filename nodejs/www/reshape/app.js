@@ -196,12 +196,6 @@ map.on('pm:create', (e) => {
 
 // Area calculation utilities
 
-const formatArea = (area) => {
-    return area >= 1e6
-        ? `${(area / 1e6).toLocaleString(undefined, { maximumFractionDigits: 2 })} km²`
-        : `${area.toLocaleString(undefined, { maximumFractionDigits: 2 })} m²`;
-};
-
 function customLineToPolygon(geojsonFeature) {
     const geom = geojsonFeature.geometry;
     let finalCoords = [];
