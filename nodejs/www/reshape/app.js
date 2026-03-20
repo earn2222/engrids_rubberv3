@@ -1,5 +1,5 @@
 // Initialize map and feature group
-const map = L.map('map').setView([18.819620993471577, 100.8784385963758], 13);
+const map = L.map('map', { maxZoom: 25 }).setView([18.819620993471577, 100.8784385963758], 13);
 const featureGroup = L.featureGroup();
 const lddFeatureGroup = L.featureGroup();
 
@@ -30,29 +30,34 @@ const rubberTreeIcon = L.icon({
 
 // Configure base layer
 const gmap_road = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
-    maxZoom: 22,
+    maxZoom: 25,
+    maxNativeZoom: 22,
     subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
 });
 
 const gmap_sat = L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
-    maxZoom: 22,
+    maxZoom: 25,
+    maxNativeZoom: 22,
     subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
 });
 
 const gmap_terrain = L.tileLayer('https://{s}.google.com/vt/lyrs=p&x={x}&y={y}&z={z}', {
-    maxZoom: 22,
+    maxZoom: 25,
+    maxNativeZoom: 22,
     subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
 });
 
 const gmap_hybrid = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
-    maxZoom: 22,
+    maxZoom: 25,
+    maxNativeZoom: 22,
     subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
 });
 
 const light = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
     subdomains: 'abcd',
-    maxZoom: 22
+    maxZoom: 25,
+    maxNativeZoom: 22
 });
 
 // Add the custom tile layer
@@ -118,13 +123,15 @@ fetch('/rub/api/gee')
     .then((data) => {
         const truecolor = L.tileLayer(data.truecolor.urlFormat, {
             attribution: 'Google Earth Engine',
-            maxZoom: 24,
+            maxZoom: 25,
+            maxNativeZoom: 24,
             zIndex: 3
         });
 
         const ndvi = L.tileLayer(data.ndvi.urlFormat, {
             attribution: 'Google Earth Engine',
-            maxZoom: 24,
+            maxZoom: 25,
+            maxNativeZoom: 24,
             zIndex: 4
         });
 

@@ -17,7 +17,7 @@ const EPSG3857 = 'EPSG:3857';
 function googleSource(lyrs) {
     return new ol.source.XYZ({
         url: `https://mt0.google.com/vt/lyrs=${lyrs}&x={x}&y={y}&z={z}`,
-        maxZoom: 22
+        maxZoom: 24
     });
 }
 
@@ -28,7 +28,7 @@ const gmapTerrain = new ol.layer.Tile({ source: googleSource('p'), title: 'Googl
 const longdoLayer = new ol.layer.Tile({
     source: new ol.source.XYZ({
         url: 'https://ms.longdo.com/mmmap/img.php?zoom={z}&x={x}&y={y}&mode=dol_hd',
-        maxZoom: 20
+        maxZoom: 24
     }),
     title: 'Longdo Map'
 });
@@ -91,7 +91,7 @@ const map = new ol.Map({
     view: new ol.View({
         center: ol.proj.fromLonLat([100.8784385963758, 18.819620993471577]),
         zoom: 13,
-        maxZoom: 22
+        maxZoom: 25
     })
 });
 
@@ -901,10 +901,10 @@ fetch('/rub/api/gee')
     .then(r => r.json())
     .then(data => {
         if (data.truecolor) {
-            tcLayer.setSource(new ol.source.XYZ({ url: data.truecolor.urlFormat, maxZoom: 22 }));
+            tcLayer.setSource(new ol.source.XYZ({ url: data.truecolor.urlFormat, maxZoom: 24 }));
         }
         if (data.ndvi) {
-            ndviGeeLayer.setSource(new ol.source.XYZ({ url: data.ndvi.urlFormat, maxZoom: 22 }));
+            ndviGeeLayer.setSource(new ol.source.XYZ({ url: data.ndvi.urlFormat, maxZoom: 24 }));
         }
     })
     .catch(() => { });
