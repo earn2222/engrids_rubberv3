@@ -73,6 +73,7 @@ body {
 #map {
     flex: 1;
     min-height: 0;
+    position: relative;
     border-radius: 16px;
     border: 2px solid rgba(76, 175, 80, 0.25);
     box-shadow: 0 4px 24px rgba(76, 175, 80, 0.10), 0 1px 6px rgba(0, 0, 0, 0.04);
@@ -397,29 +398,343 @@ hr {
     margin: 0.5rem 0;
 }
 
-/* ===== Leaflet Overrides ===== */
-.leaflet-control-layers {
-    border-radius: 12px !important;
-    border: 1px solid rgba(76, 175, 80, 0.2) !important;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08) !important;
-    background: rgba(255, 255, 255, 0.95) !important;
-}
-
-.leaflet-bar {
+/* ===== OpenLayers Overrides ===== */
+.ol-zoom {
     border-radius: 10px !important;
     overflow: hidden;
-    border: 1px solid rgba(76, 175, 80, 0.2) !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06) !important;
+    background: rgba(255,255,255,0.92) !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
+    border: 1px solid rgba(76,175,80,0.18) !important;
+    top: 10px;
+    left: 10px;
 }
 
-.leaflet-bar a {
-    background: rgba(255, 255, 255, 0.95) !important;
+.ol-zoom button {
+    background: transparent !important;
     color: #388e3c !important;
-    border-bottom: 1px solid rgba(76, 175, 80, 0.1) !important;
+    font-size: 1.2rem !important;
+    width: 30px !important;
+    height: 30px !important;
+    line-height: 30px !important;
 }
 
-.leaflet-bar a:hover {
+.ol-zoom button:hover {
     background: #e8f5e9 !important;
+}
+
+.ol-attribution {
+    font-size: 0.65rem !important;
+    background: rgba(255,255,255,0.75) !important;
+    border-radius: 6px 0 0 0 !important;
+}
+
+/* ===== Split Hint Bar ===== */
+.split-hint {
+    position: absolute;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    background: rgba(30,30,30,0.88);
+    color: #fff;
+    padding: 8px 18px;
+    border-radius: 30px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.25);
+    backdrop-filter: blur(8px);
+    pointer-events: auto;
+    white-space: nowrap;
+    animation: fadeIn .25s ease;
+}
+
+.split-hint i { color: #ff884d; font-size: 1.05rem; }
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* Edit hint — blue variant */
+.edit-hint {
+    background: rgba(21, 101, 192, 0.88) !important;
+}
+.edit-hint i  { color: #90caf9 !important; }
+
+/* ===== Split button pulse when ready ===== */
+@keyframes pulseBorder {
+    0%   { box-shadow: 0 0 0 0 rgba(255,165,0,0.6); }
+    70%  { box-shadow: 0 0 0 8px rgba(255,165,0,0); }
+    100% { box-shadow: 0 0 0 0 rgba(255,165,0,0); }
+}
+
+.btn-animate {
+    animation: pulseBorder 1.2s ease infinite;
+}
+
+/* ===== Layer Switcher Widget ===== */
+.ol-layer-switcher {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    font-family: "Noto Sans Thai", sans-serif;
+    font-size: 0.8rem;
+    color: #2e3a2e;
+}
+
+.ls-toggle-btn {
+    background: #ffffff;
+    border: 1px solid rgba(0,0,0,0.1);
+    border-radius: 12px;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.35rem;
+    color: #2e7d32;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+    transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.ls-toggle-btn:hover {
+    background: #f0fdf4;
+    color: #16a34a;
+    border-color: rgba(22, 163, 74, 0.4);
+    box-shadow: 0 6px 16px rgba(22, 163, 74, 0.2);
+    transform: translateY(-2px);
+}
+
+.ls-toggle-btn.active {
+    background: #dcfce7;
+    color: #15803d;
+    border-color: #16a34a;
+    box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25);
+}
+
+.ls-panel {
+    background: rgba(255,255,255,0.93);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(76,175,80,0.2);
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    padding: 10px 14px;
+    min-width: 150px;
+    margin-top: 8px;
+    display: none;
+    animation: fadeInPanel 0.2s ease;
+    transform-origin: top right;
+}
+
+.ls-panel.show {
+    display: block;
+}
+
+@keyframes fadeInPanel {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.ol-layer-switcher .ls-title {
+    font-weight: 700;
+    color: #388e3c;
+    margin-bottom: 6px;
+    font-size: 0.82rem;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.ol-layer-switcher .ls-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.ol-layer-switcher .ls-row:hover { color: #2e7d32; }
+
+.ol-layer-switcher input[type=checkbox],
+.ol-layer-switcher input[type=radio] {
+    accent-color: #43a047;
+    width: 13px;
+    height: 13px;
+    cursor: pointer;
+}
+
+/* Group title inside layer switcher */
+.ol-layer-switcher .ls-group-title {
+    font-weight: 700;
+    color: #388e3c;
+    margin-bottom: 5px;
+    font-size: 0.78rem;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+/* Separator between base & overlay groups */
+.ol-layer-switcher .ls-sep {
+    border-top: 1px solid rgba(76,175,80,0.18);
+    margin: 6px 0;
+}
+
+/* ===== Legend (OL custom overlay) ===== */
+.legend {
+    position: absolute;
+    bottom: 40px;
+    right: 10px;
+    z-index: 100;
+    font-family: "Noto Sans Thai", sans-serif !important;
+    background: rgba(255, 255, 255, 0.92) !important;
+    backdrop-filter: blur(10px);
+    padding: 10px 14px;
+    border-radius: 12px;
+    color: #2e3a2e;
+    border: 1px solid rgba(76, 175, 80, 0.15);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+    font-size: 0.78rem;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 3px;
+    line-height: 18px;
+}
+
+.legend i {
+    width: 16px;
+    height: 16px;
+    display: inline-block;
+    margin-right: 8px;
+    opacity: 0.85;
+    border: 1px solid rgba(0,0,0,0.1);
+    box-sizing: border-box;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+/* ===== Map Toast Notification ===== */
+.map-toast {
+    position: absolute;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-20px);
+    z-index: 900;
+    padding: 8px 20px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-family: "Noto Sans Thai", sans-serif;
+    opacity: 0;
+    transition: opacity .3s ease, transform .3s ease;
+    pointer-events: none;
+    white-space: nowrap;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+}
+
+.map-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+.map-toast-success {
+    background: rgba(46,125,50,0.9);
+    color: #fff;
+}
+
+.map-toast-info {
+    background: rgba(0,172,193,0.9);
+    color: #fff;
+}
+
+/* ===== Map Tool Toolbar (Floating Icons) ===== */
+.map-toolbar {
+    position: absolute;
+    top: 62px; /* Below the layer switcher toggle button */
+    right: 10px; /* Aligned to the right */
+    left: auto; /* Remove left positioning */
+    z-index: 90; /* Lower than layer switcher panel */
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.map-tool-btn {
+    background: #ffffff; /* Solid white for maximum visibility */
+    border: 1px solid rgba(0,0,0,0.1);
+    border-radius: 12px;
+    width: 44px; /* Slightly larger */
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.35rem; /* Larger, clearer icon */
+    color: #374151; /* Dark slate gray for sharp contrast */
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.15); /* Stronger shadow to lift off map */
+    transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+    position: relative;
+}
+
+.map-tool-btn:hover {
+    background: #f0fdf4;
+    color: #16a34a; /* Vibrant green on hover */
+    border-color: rgba(22, 163, 74, 0.4);
+    box-shadow: 0 6px 16px rgba(22, 163, 74, 0.2);
+    transform: translateY(-2px);
+}
+
+.map-tool-btn.map-tool-disabled {
+    color: #9ca3af; /* Clearer gray for disabled icon */
+    background: rgba(255, 255, 255, 0.9); /* Higher opacity so it stands out */
+    border-color: rgba(0,0,0,0.08);
+    cursor: not-allowed;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06); /* Small shadow so it doesn't blend into map */
+    transform: none; /* No hover lift for disabled */
+}
+
+.map-tool-btn.map-tool-active {
+    background: #dcfce7;
+    color: #15803d;
+    border-color: #16a34a;
+    box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25);
+}
+
+/* Tooltip on hover */
+.map-tool-btn .map-tool-label {
+    position: absolute;
+    right: 52px; /* Pop out to the left instead of right */
+    left: auto;
+    background: rgba(46,58,46,0.9);
+    backdrop-filter: blur(4px);
+    color: #fff;
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(10px);
+    transition: all 0.25s ease;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.map-tool-btn:hover:not(.map-tool-disabled) .map-tool-label {
+    opacity: 1;
+    transform: translateX(0);
 }
 
 /* ===== Responsive ===== */
