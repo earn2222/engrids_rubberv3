@@ -2,7 +2,6 @@
 const map = L.map('map').setView([18.819620993471577, 100.8784385963758], 13);
 const featureGroup = L.featureGroup();
 const reshapeFeatureGroup = L.featureGroup();
-let showAreas = true;
 
 // Custom Rubber Tree Icon
 const rubberTreeIcon = L.icon({
@@ -109,7 +108,6 @@ L.control.layers(baseLayers, overlayMaps).addTo(map);
 fetch('/rub/api/gee')
     .then(res => res.json())
     .then((data) => {
-        console.log(data);
 
         const truecolor = L.tileLayer(data.truecolor.urlFormat, {
             attribution: 'Google Earth Engine',
@@ -728,9 +726,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-document.addEventListener('DOMContentLoaded', () => {
 
-});
 
 document.addEventListener('DOMContentLoaded', async () => {
     try {

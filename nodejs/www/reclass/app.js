@@ -1,6 +1,5 @@
 const map = L.map('map').setView([18.819620993471577, 100.8784385963758], 13);
 const featureGroup = L.featureGroup();
-let showAreas = true;
 
 // Custom Rubber Tree Icon
 const rubberTreeIcon = L.icon({
@@ -724,79 +723,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// //collected_feat
-// document.getElementById('collectedBtn').addEventListener('click', async () => {
-//     const tb = document.getElementById('tb').value;
-//     const displayName = document.getElementById('displayName').value;
-
-//     // ดึง id_list จาก input และแปลงเป็น array
-//     const idInput = document.getElementById('collectedIds').value;
-//     if (!idInput) {
-//         alert('กรุณากรอก SubID อย่างน้อย 2 ค่า');
-//         return;
-//     }
-
-//     const id_list = idInput.split(',').map(s => s.trim());
-//     if (id_list.length < 2) {
-//         alert('ต้องเลือก polygon อย่างน้อย 2 อันเพื่อรวม');
-//         return;
-//     }
-
-//     try {
-//         // ส่งไป backend
-//         const res = await fetch('/rub/api/collected_feat', {
-//             method: 'POST',
-//             headers: { 'Content-Type': 'application/json' },
-//             body: JSON.stringify({ id_list, tb, displayName })
-//         });
-
-//         const data = await res.json();
-//         if (data.success) {
-//             // ลบเฉพาะ polygon rubber เดิม ไม่กระทบ polygon ประเภทอื่น
-//             featureGroup.eachLayer(layer => {
-//                 if (layer.feature?.properties?.classtype === 'rubber') {
-//                     featureGroup.removeLayer(layer);
-//                 }
-//             });
-
-//             // สร้าง polygon ใหม่จาก geom ที่ backend คืน
-//             const collectedFeature = {
-//                 type: 'Feature',
-//                 geometry: data.geom,
-//                 properties: {
-//                     sub_id: id_list[0],
-//                     classtype: 'rubber',
-//                 }
-//             };
-
-//             const newLayer = L.geoJson(collectedFeature, {
-//                 style: getFeatureStyle,
-//                 onEachFeature: onEachFeature
-//             }).addTo(featureGroup);
-
-//             // คำนวณพื้นที่สำหรับ polygon ใหม่
-//             newLayer.eachLayer(async (layer) => {
-//                 await updateAreaDisplay(layer);
-//             });
-
-//             // เก็บ reference ของ polygon ที่เลือกล่าสุด
-//             selectedPolygon = newLayer.getLayers()[0];
-
-//             // แสดง popup success
-//             L.popup()
-//                 .setLatLng(map.getCenter())
-//                 .setContent('รวม polygon rubber สำเร็จ!')
-//                 .openOn(map);
-
-//         } else {
-//             alert('Collected failed: ' + data.error);
-//         }
-//     } catch (err) {
-//         console.error(err);
-//         alert('เกิดข้อผิดพลาดขณะรวม polygon');
-//     }
-// });
-
 document.getElementById('collectedBtn').addEventListener('click', async () => {
     if (selectedPolygonsForMerge.length < 2) {
         alert('กรุณาเลือก polygon อย่างน้อย 2 ตัว');
@@ -877,9 +803,4 @@ document.getElementById('collectedBtn').addEventListener('click', async () => {
         alert('เกิดข้อผิดพลาดขณะรวม polygon: ' + err.message);
     }
 });
-
-
-
-
-
 
