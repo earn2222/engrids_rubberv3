@@ -202,6 +202,44 @@ const formatArea = (area) => {
         : `${area.toLocaleString(undefined, { maximumFractionDigits: 2 })} m²`;
 };
 
+function customLineToPolygon(geojsonFeature) {
+    const geom = geojsonFeature.geometry;
+    let finalCoords = [];
+
+    if (geom.type === 'LineString') {
+        let coords = [...geom.coordinates];
+        const first = coords[0];
+        const last = coords[coords.length - 1];
+        if (first[0] !== last[0] || first[1] !== last[1]) {
+            coords.push([...first]);
+        }
+        if (coords.length >= 4) finalCoords.push(coords);
+    } else if (geom.type === 'MultiLineString') {
+        geom.coordinates.forEach(lineCoords => {
+            let coords = [...lineCoords];
+            const first = coords[0];
+            const last = coords[coords.length - 1];
+            if (first[0] !== last[0] || first[1] !== last[1]) {
+                coords.push([...first]);
+            }
+            if (coords.length >= 4) finalCoords.push(coords);
+        });
+    }
+
+    if (finalCoords.length === 0) {
+        throw new Error("พิกัดจุดไม่เพียงพอที่จะสร้างรูปหลายเหลี่ยม (Polygon)");
+    }
+
+    return {
+        type: "Feature",
+        properties: geojsonFeature.properties || {},
+        geometry: {
+            type: "Polygon",
+            coordinates: finalCoords
+        }
+    };
+}
+
 // Label management - always uses selectedLayer to avoid stale/wrong closure references
 const updateAreaLabel = async () => {
     if (!selectedLayer) return;
@@ -215,12 +253,11 @@ const updateAreaLabel = async () => {
         }
 
         if (geometry.type === 'LineString' || geometry.type === 'MultiLineString') {
-            if (typeof turf !== 'undefined' && turf.lineToPolygon) {
-                try {
-                    geometry = turf.lineToPolygon(geojsonFeature).geometry;
-                } catch (e) {
-                    // Let it pass with warning if it's an incomplete line
-                }
+            try {
+                let polygonFeature = customLineToPolygon(geojsonFeature);
+                geometry = polygonFeature.geometry;
+            } catch (e) {
+                // Let it pass with warning if it's an incomplete line
             }
         }
 
@@ -598,17 +635,11 @@ document.getElementById('save').addEventListener('click', async () => {
     const geojson = selectedLayer.toGeoJSON();
     let finalGeojson = geojson;
     if (geojson.geometry.type === 'LineString' || geojson.geometry.type === 'MultiLineString') {
-        if (typeof turf !== 'undefined' && turf.lineToPolygon) {
-            try {
-                // Try to auto-close the line if it was drawn as Polyline
-                finalGeojson = turf.lineToPolygon(geojson);
-                finalGeojson.properties = geojson.properties;
-            } catch (e) {
-                alert('กรุณาวาดเส้นให้บรรจบกันเป็นรูปปิด (Polygon)');
-                return;
-            }
-        } else {
-            alert('กรุณาวาดรูปปิด (Polygon) แทนการวาดเส้น');
+        try {
+            // Try to auto-close the line if it was drawn as Polyline
+            finalGeojson = customLineToPolygon(geojson);
+        } catch (e) {
+            alert('กรุณาวาดเส้นให้บรรจบกันเป็นรูปปิด (Polygon)');
             return;
         }
     }
