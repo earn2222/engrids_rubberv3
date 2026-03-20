@@ -313,6 +313,24 @@ body {
     color: #2e3a2e;
 }
 
+/* ===== Classtype Select Color Indicator ===== */
+#classtype {
+    border-left-width: 5px !important;
+    border-left-style: solid !important;
+    border-left-color: rgba(76, 175, 80, 0.25);
+    transition: border-left-color 0.25s ease, background 0.25s ease;
+    padding-left: 0.5rem;
+}
+
+#classtype.ct-rubber       { border-left-color: #006d2c !important; background: #f0fff4 !important; }
+#classtype.ct-not-rubber   { border-left-color: #9900ff !important; background: #faf0ff !important; }
+#classtype.ct-Other        { border-left-color: #ff0004 !important; background: #fff0f0 !important; }
+#classtype.ct-ex-pond      { border-left-color: #00d9d0 !important; background: #f0fffe !important; }
+#classtype.ct-ex-landcover { border-left-color: #e6cc00 !important; background: #fffef0 !important; }
+#classtype.ct-ex-building  { border-left-color: #ff00d4 !important; background: #fff0fd !important; }
+#classtype.ct-ex-river     { border-left-color: #1100ff !important; background: #f0f0ff !important; }
+#classtype.ct-ex-unreg-rubber { border-left-color: #00cc0d !important; background: #f0fff1 !important; }
+
 /* ===== Legend ===== */
 .legend {
     font-family: "Noto Sans Thai", sans-serif !important;

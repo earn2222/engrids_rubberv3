@@ -200,12 +200,34 @@ const sqm_yang_el = document.getElementById('sqm_yang');
 const shpsplit_sqm = document.getElementById('shpsplit_sqm');
 const classtype = document.getElementById('classtype');
 
+// อัปเดตสีขอบซ้ายของ select ให้ตรงกับประเภทที่เลือก
+const classtypeColorMap = {
+    'rubber':          'ct-rubber',
+    'not-rubber':      'ct-not-rubber',
+    'Other':           'ct-Other',
+    'ex-pond':         'ct-ex-pond',
+    'ex-landcover':    'ct-ex-landcover',
+    'ex-building':     'ct-ex-building',
+    'ex-river':        'ct-ex-river',
+    'ex-unreg-rubber': 'ct-ex-unreg-rubber',
+};
+
+function updateClasstypeColor(value) {
+    const el = document.getElementById('classtype');
+    // ลบ class ct-* ทั้งหมดออกก่อน
+    el.classList.remove(...Object.values(classtypeColorMap));
+    if (value && classtypeColorMap[value]) {
+        el.classList.add(classtypeColorMap[value]);
+    }
+}
+
 function showFeaturePanel(feature, layer) {
     sub_id.value = feature.properties.sub_id;
     xls_id_farmer.value = feature.properties.id_farmer;
     sqm_yang_el.value = feature.properties.sqm_yang || 0;
     shpsplit_sqm.value = Number(feature.properties.shpsplit_sqm).toFixed(0);
     classtype.value = feature.properties.classtype;
+    updateClasstypeColor(feature.properties.classtype);
 }
 
 // 
@@ -496,6 +518,7 @@ legend.addTo(map);
 
 document.getElementById('classtype').addEventListener('change', (e) => {
     const selectedValue = e.target.value;
+    updateClasstypeColor(selectedValue);
     const id = document.getElementById('id').value
     const tb = document.getElementById('tb').value;
     const displayName = document.getElementById('displayName').value;

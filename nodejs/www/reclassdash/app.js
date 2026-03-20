@@ -276,9 +276,14 @@ const loadGeoData = async () => {
                             'ex-unreg-rubber': 'พื้นที่กันออก (ยางพาราไม่ลงทะเบียน)'
                         };
                         const colorMap = {
-                            'rubber': '#2e7d32', 'not-rubber': '#e91e63', 'Other': '#d32f2f',
-                            'ex-pond': '#7d61fd', 'ex-landcover': '#f9a825',
-                            'ex-building': '#00838f', 'ex-river': '#1565c0', 'ex-unreg-rubber': '#6a1b9a'
+                            'rubber':          '#006d2c',
+                            'not-rubber':      '#9900ff',
+                            'Other':           '#ff0004',
+                            'ex-pond':         '#00d9d0',
+                            'ex-landcover':    '#e6cc00',
+                            'ex-building':     '#ff00bf',
+                            'ex-river':        '#1100ff',
+                            'ex-unreg-rubber': '#00cc0d'
                         };
                         const label = labelMap[data] || 'อื่นๆ';
                         const c = colorMap[data] || '#90a4ae';
