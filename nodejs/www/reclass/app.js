@@ -254,6 +254,7 @@ let selectedFeature = null;   // OL Feature currently selected
 let splitLineCoords = null;   // GeoJSON coords of the drawn split line
 let drawInteraction = null;   // ol.interaction.Draw instance
 let modifyInteraction = null;   // ol.interaction.Modify instance
+let snapInteraction = null;   // ol.interaction.Snap instance
 let editMode = false;  // polygon edit mode flag
 let editSource = new ol.source.Vector(); // temp source for editing
 let mergeMode = false;
@@ -594,6 +595,10 @@ function startSplitDraw() {
     map.addInteraction(drawInteraction);
     map.getViewport().style.cursor = 'crosshair';
 
+    if (snapInteraction) map.removeInteraction(snapInteraction);
+    snapInteraction = new ol.interaction.Snap({ source: vectorSource, pixelTolerance: 15 });
+    map.addInteraction(snapInteraction);
+
     drawInteraction.on('drawend', async (evt) => {
         const lineFeature = evt.feature;
         // Convert to GeoJSON in 4326
@@ -624,6 +629,10 @@ function cancelSplitDrawInternal() {
         map.removeInteraction(drawInteraction);
         drawInteraction = null;
     }
+    if (snapInteraction) {
+        map.removeInteraction(snapInteraction);
+        snapInteraction = null;
+    }
     splitLineSource.clear();
     splitLineCoords = null;
     map.getViewport().style.cursor = '';
@@ -638,6 +647,10 @@ document.getElementById('cancelSplitDraw').addEventListener('click', () => {
     if (drawInteraction) {
         map.removeInteraction(drawInteraction);
         drawInteraction = null;
+    }
+    if (snapInteraction) {
+        map.removeInteraction(snapInteraction);
+        snapInteraction = null;
     }
     splitLineSource.clear();
     splitLineCoords = null;
@@ -688,6 +701,10 @@ async function executeSplit() {
         if (data.success) {
             splitLineSource.clear();
             splitLineCoords = null;
+            if (snapInteraction) {
+                map.removeInteraction(snapInteraction);
+                snapInteraction = null;
+            }
             vectorSource.clear();
             await loadGeoData(id);
         } else {
@@ -707,6 +724,15 @@ document.getElementById('clear').addEventListener('click', () => {
     }
     splitLineSource.clear();
     splitLineCoords = null;
+
+    if (drawInteraction) {
+        map.removeInteraction(drawInteraction);
+        drawInteraction = null;
+    }
+    if (snapInteraction) {
+        map.removeInteraction(snapInteraction);
+        snapInteraction = null;
+    }
 
     // Clear hint and hide confirm button
     document.getElementById('splitHint').style.display = 'none';
@@ -763,6 +789,10 @@ function startEditMode() {
     });
 
     map.addInteraction(modifyInteraction);
+
+    if (snapInteraction) map.removeInteraction(snapInteraction);
+    snapInteraction = new ol.interaction.Snap({ source: vectorSource, pixelTolerance: 15 });
+    map.addInteraction(snapInteraction);
 }
 
 function stopEditMode() {
@@ -773,6 +803,10 @@ function stopEditMode() {
     if (modifyInteraction) {
         map.removeInteraction(modifyInteraction);
         modifyInteraction = null;
+    }
+    if (snapInteraction) {
+        map.removeInteraction(snapInteraction);
+        snapInteraction = null;
     }
     editSource.clear();
     map.getViewport().style.cursor = '';
