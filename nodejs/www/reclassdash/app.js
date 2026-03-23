@@ -238,7 +238,10 @@ const loadGeoData = async () => {
                         return `<a class="btn btn-success btn-sm map-btn" 
                                     data-refid="${row.id}" 
                                     data-geojson='${_geojson}'
-                                    href="#"><i class="bi bi-zoom-in"></i> ซูม</a>`
+                                    href="#"><i class="bi bi-zoom-in"></i> ซูม</a>
+                                <a class="btn btn-warning btn-sm mt-1" 
+                                    href="./../reclass/index.html?tb=${document.getElementById('tb').value}&id=${row.id}&sqm_yang=${row.sqm_yang}"
+                                    ><i class="bi bi-pencil-square"></i> แก้ไข</a>`
                     }
                 },
                 { data: 'id', title: 'ID' },
@@ -605,6 +608,8 @@ document.getElementById('reshape').addEventListener('click', (e) => {
     const tb = document.getElementById('tb').value;
     window.location.href = './../reshape/index.html?tb=' + tb;
 });
+
+
 
 
 
