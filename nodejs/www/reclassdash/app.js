@@ -883,7 +883,30 @@ async function loadTaskProgress(tb, currentUser) {
             );
         }
 
-        listEl.innerHTML = displayData.map(d => {
+        let overallHtml = '';
+        if (!currentUser && data.length > 0) {
+            const totalDone = data.reduce((acc, item) => acc + (item.done || 0), 0);
+            const totalTotal = data.reduce((acc, item) => acc + (item.total || 0), 0);
+            const totalPct = totalTotal > 0 ? Math.round((totalDone / totalTotal) * 100) : 0;
+
+            overallHtml = `
+                <div class="tp-overall mb-3 p-3 shadow-sm" style="border-radius: 12px; background: linear-gradient(135deg, #f1f8e9, #ffffff); border: 1px solid #c8e6c9;">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <div class="fw-bold" style="color: #2e7d32;"><i class="bi bi-people-fill me-2"></i>ความคืบหน้าภาพรวม</div>
+                        <div class="fw-bold" style="color: #2e7d32;">${totalPct}%</div>
+                    </div>
+                    <div class="progress" style="height: 10px; border-radius: 10px; background-color: rgba(76, 175, 80, 0.1);">
+                        <div class="progress-bar" role="progressbar" style="width: ${totalPct}%; background: linear-gradient(90deg, #66bb6a, #43a047); border-radius: 10px;" 
+                             aria-valuenow="${totalPct}" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                    <div class="text-muted small mt-2" style="font-size: 0.75rem;">
+                        ทำเสร็จแล้ว <b>${totalDone}</b> จากทั้งหมด <b>${totalTotal}</b> แปลงในโครงการนี้
+                    </div>
+                </div>
+            `;
+        }
+
+        listEl.innerHTML = overallHtml + displayData.map(d => {
             const c = colorMap[d.assignee_name];
             const pct = d.pct || 0;
             const isMe = currentUser && d.assignee_name.toLowerCase().includes(currentUser.toLowerCase());
@@ -892,7 +915,7 @@ async function loadTaskProgress(tb, currentUser) {
             let tsStr = '';
             if (d.last_ts) {
                 const dt = new Date(d.last_ts);
-                tsStr = `<div class="tp-ts"><i class="bi bi-clock"></i> ${dt.toLocaleDateString('th-TH', { year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' })}น.</div>`;
+                tsStr = `<div class="tp-ts"><i class="bi bi-clock"></i> ${dt.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}น.</div>`;
             }
 
             let editorStr = '';
@@ -1022,9 +1045,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         const raiData = await raiFetch.json();
 
         // ── Load task assignment progress ──
+        const view = urlParams.get('view');
         const assignee = urlParams.get('assignee');
         const loginUser = document.getElementById('display-name')?.textContent || '';
-        const currentUser = assignee || loginUser;
+        const currentUser = (view === 'all') ? null : (assignee || loginUser);
         await loadTaskProgress(tb, currentUser);
 
         // จัดกลุ่มประเภทต่างๆ ก่อนแสดงผล เพื่อป้องกันแถวซ้ำกัน (เช่น มี "ไม่ระบุ" หลายอัน)
@@ -1088,10 +1112,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Re-load progress with correct user identity after login
             const urlParams = new URLSearchParams(window.location.search);
             const tb = urlParams.get('tb');
+            const view = urlParams.get('view');
             const assignee = urlParams.get('assignee');
             if (tb) {
-                // If assignee is in URL, prioritize that, otherwise use logged-in name
-                await loadTaskProgress(tb, assignee || user.displayName);
+                // If view=all, show everyone's progress. Otherwise prioritize assignee then own name.
+                const currentUser = (view === 'all') ? null : (assignee || user.displayName);
+                await loadTaskProgress(tb, currentUser);
             }
 
             // Logout handler

@@ -85,27 +85,39 @@ async function showAssigneeSelect(event, tb, targetType) {
         listEl.innerHTML = '';
         const myName = document.getElementById('display-name')?.textContent || '';
 
+        // Calculate total progress
+        const totalDone = data.reduce((acc, item) => acc + (item.done || 0), 0);
+        const totalTotal = data.reduce((acc, item) => acc + (item.total || 0), 0);
+        const totalPct = totalTotal > 0 ? Math.round((totalDone / totalTotal) * 100) : 0;
+
         // Added a "SEE ALL" option at top
         const allOption = document.createElement('button');
         allOption.className = `btn btn-item-premium w-100 text-start d-flex align-items-center mb-2 px-3 py-2 rounded-card-premium transition-all border-0 shadow-sm`;
         allOption.style.borderRadius = '15px';
         allOption.style.background = 'linear-gradient(135deg, #ffffff, #f1f8e9)';
         allOption.innerHTML = `
-            <div class="d-flex align-items-center">
+            <div class="d-flex align-items-center w-100">
                 <div class="rounded-circle d-flex align-items-center justify-content-center text-white me-3" 
                      style="width: 42px; height: 42px; background: linear-gradient(135deg, #81c784, #388e3c); box-shadow: 0 4px 10px rgba(76, 175, 80, 0.25);">
                     <i class="bi bi-people-fill" style="font-size: 1.2rem;"></i>
                 </div>
-                <div>
-                    <div class="fw-bold" style="color: #1b5e20;">ดูทั้งหมด</div>
-                    <div class="small" style="color: #689f63;">เข้าชมข้อมูลของทุกคนในโครงการ</div>
+                <div class="flex-grow-1">
+                    <div class="d-flex justify-content-between align-items-end">
+                        <div class="fw-bold" style="color: #1b5e20;">ดูทั้งหมด</div>
+                        <div class="small fw-bold" style="color: #2e7d32; font-size: 0.85rem;">${totalPct}%</div>
+                    </div>
+                    <div class="progress mt-1 mb-1" style="height: 6px; border-radius: 10px; background-color: rgba(76, 175, 80, 0.1);">
+                        <div class="progress-bar" role="progressbar" style="width: ${totalPct}%; background: linear-gradient(90deg, #66bb6a, #43a047); border-radius: 10px;" 
+                             aria-valuenow="${totalPct}" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                    <div class="small" style="color: #689f63; font-size: 0.75rem;">ความคืบหน้าภาพรวม (${totalDone}/${totalTotal} แปลง)</div>
                 </div>
             </div>
-            <i class="bi bi-chevron-right ms-auto" style="color: #388e3c; font-size: 1.1rem;"></i>
+            <i class="bi bi-chevron-right ms-2" style="color: #388e3c; font-size: 1.1rem;"></i>
         `;
         allOption.onclick = () => {
             modal.hide();
-            window.location.href = `./${targetType === 'reshape' ? 'reshape' : 'reclassdash'}/index.html?tb=${tb}`;
+            window.location.href = `./${targetType === 'reshape' ? 'reshape' : 'reclassdash'}/index.html?tb=${tb}&view=all`;
         };
         listEl.appendChild(allOption);
 
@@ -123,17 +135,27 @@ async function showAssigneeSelect(event, tb, targetType) {
                    </div>`;
 
             btn.innerHTML = `
-                <div class="d-flex align-items-center">
+                <div class="d-flex align-items-center w-100">
                     ${avatarHtml}
-                    <div>
-                        <div class="fw-bold ${isMe ? 'text-white' : 'text-dark'}" style="${!isMe ? 'color: #1b5e20 !important;' : ''}">
-                            ${item.assignee_name} 
-                            ${isMe ? '<span class="badge bg-white text-success ms-1" style="font-size: 0.65rem; vertical-align: middle; padding: 2px 6px; border-radius: 8px;">คุณ</span>' : ''}
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="fw-bold ${isMe ? 'text-white' : 'text-dark'}" style="${!isMe ? 'color: #1b5e20 !important;' : ''}">
+                                ${item.assignee_name} 
+                                ${isMe ? '<span class="badge bg-white text-success ms-1" style="font-size: 0.65rem; vertical-align: middle; padding: 2px 6px; border-radius: 8px;">คุณ</span>' : ''}
+                            </div>
+                            <div class="small fw-bold ${isMe ? 'text-white' : 'text-success'}" style="font-size: 0.85rem;">${item.pct || 0}%</div>
                         </div>
-                        <div class="small ${isMe ? 'text-white-50' : 'text-muted'}">ช่วง ID: ${item.id_from} - ${item.id_to}</div>
+                        <div class="progress mt-1 mb-1" style="height: 4px; border-radius: 10px; background-color: ${isMe ? 'rgba(255,255,255,0.2)' : 'rgba(76, 175, 80, 0.1)'};">
+                            <div class="progress-bar" role="progressbar" style="width: ${item.pct || 0}%; background: ${isMe ? '#fff' : 'linear-gradient(90deg, #66bb6a, #43a047)'}; border-radius: 10px;" 
+                                 aria-valuenow="${item.pct || 0}" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                        <div class="d-flex justify-content-between small ${isMe ? 'text-white-50' : 'text-muted'}" style="font-size: 0.7rem;">
+                            <span>ID: ${item.id_from}-${item.id_to}</span>
+                            <span>เสร็จแล้ว ${item.done || 0}/${item.total || 0}</span>
+                        </div>
                     </div>
                 </div>
-                <i class="bi bi-chevron-right ms-auto" style="${isMe ? 'color: rgba(255,255,255,0.8);' : 'color: #388e3c;'} font-size: 1.1rem;"></i>
+                <i class="bi bi-chevron-right ms-2" style="${isMe ? 'color: rgba(255,255,255,0.8);' : 'color: #388e3c;'} font-size: 1.1rem;"></i>
             `;
             btn.onclick = () => {
                 modal.hide();
@@ -170,7 +192,7 @@ async function loadAssignmentHome(tb_name) {
         const myTask = data.find(d => d.assignee_name && d.assignee_name.toLowerCase().includes(myName.toLowerCase()));
 
         el.innerHTML = `
-            <div class="ah-title"><i class="bi bi-people-fill me-1"></i> รายชื่อผู้รับผิดชอบ</div>
+            <div class="ah-title"><i class="bi bi-people-fill me-1"></i> รายชื่อผู้รับผิดชอบและความคืบหน้า</div>
             <div class="ah-list">
                 ${data.map(d => {
                     const avatarHtml = d.assignee_photo 
@@ -179,9 +201,16 @@ async function loadAssignmentHome(tb_name) {
 
                     return `
                     <div class="home-assignee-card shadow-sm" onclick="showAssigneeSelect(event, '${tb_name}', 'reshape')">
-                        ${avatarHtml}
-                        <span class="fw-bold">${d.assignee_name}</span>
-                        <span class="ha-range">ID ${d.id_from}-${d.id_to}</span>
+                        <div class="d-flex align-items-center mb-1">
+                            ${avatarHtml}
+                            <span class="fw-bold text-truncate" style="max-width: 100px;">${d.assignee_name}</span>
+                            <span class="ms-auto fw-bold" style="font-size: 0.7rem; color: #2e7d32;">${d.pct || 0}%</span>
+                        </div>
+                        <div class="progress" style="height: 4px; border-radius: 10px; background-color: rgba(76, 175, 80, 0.1); margin-bottom: 4px;">
+                            <div class="progress-bar" role="progressbar" style="width: ${d.pct || 0}%; background: linear-gradient(90deg, #66bb6a, #43a047); border-radius: 10px;" 
+                                 aria-valuenow="${d.pct || 0}" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                        <span class="ha-range" style="font-size: 0.65rem;">ID ${d.id_from}-${d.id_to} (${d.done}/${d.total})</span>
                     </div>`;
 
                 }).join('')}
