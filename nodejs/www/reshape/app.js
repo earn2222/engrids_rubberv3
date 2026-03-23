@@ -64,7 +64,8 @@ const light = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/
 const longdoLayer = L.tileLayer('https://ms.longdo.com/mmmap/img.php?zoom={z}&x={x}&y={y}&mode=dol_hd', {
     attribution: '&copy; Longdo Map',
     tileSize: 256,
-    maxZoom: 30,
+    maxZoom: 25,
+    maxNativeZoom: 20,
     minZoom: 1
 });
 
