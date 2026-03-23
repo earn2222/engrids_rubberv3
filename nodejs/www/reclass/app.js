@@ -309,7 +309,7 @@ function featureCollectionToGeoJSON(olFeatures) {
 }
 
 // ── 9. Load GeoData ──────────────────────────────────────
-const loadGeoData = async (id) => {
+const loadGeoData = async (id, shouldFit = true) => {
     try {
         const tb = document.getElementById('tb').value;
 
@@ -357,9 +357,11 @@ const loadGeoData = async (id) => {
         vectorSource.addFeatures(features);
 
         // Fit view
-        const extent = vectorSource.getExtent();
-        if (!ol.extent.isEmpty(extent)) {
-            map.getView().fit(extent, { padding: [40, 40, 40, 40], duration: 600 });
+        if (shouldFit) {
+            const extent = vectorSource.getExtent();
+            if (!ol.extent.isEmpty(extent)) {
+                map.getView().fit(extent, { padding: [40, 40, 40, 40], duration: 600 });
+            }
         }
     } catch (err) {
         console.error('Error loading data:', err);
@@ -706,7 +708,7 @@ async function executeSplit() {
                 snapInteraction = null;
             }
             vectorSource.clear();
-            await loadGeoData(id);
+            await loadGeoData(id, false);
         } else {
             alert('Split failed: ' + (data.error || ''));
         }
@@ -820,7 +822,7 @@ document.getElementById('cancelEdit').addEventListener('click', () => {
     stopEditMode();
     const id = document.getElementById('id').value;
     vectorSource.clear();
-    loadGeoData(id);
+    loadGeoData(id, false);
 });
 
 // ── 14. Save geometry ────────────────────────────────────
@@ -878,7 +880,7 @@ document.getElementById('classtype').addEventListener('change', async (e) => {
     const data = await res.json();
     if (data.success) {
         vectorSource.clear();
-        await loadGeoData(id);
+        await loadGeoData(id, false);
     } else {
         alert('Update failed');
     }
@@ -982,7 +984,7 @@ document.getElementById('collectedBtn').addEventListener('click', async () => {
         // Reload map
         vectorSource.clear();
         const id = document.getElementById('id').value;
-        await loadGeoData(id);
+        await loadGeoData(id, false);
         exitMergeMode();
 
         // Show success toast
