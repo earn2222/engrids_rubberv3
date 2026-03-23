@@ -266,6 +266,7 @@ let editMode = false;  // polygon edit mode flag
 let editSource = new ol.source.Vector(); // temp source for editing
 let mergeMode = false;
 let selectedForMerge = [];     // array of OL Features
+let skipNextClick = false;    // prevent click handler from deselecting after drawend
 
 // ── 7. Area helpers ──────────────────────────────────────
 async function calculateArea(geometry) {
@@ -408,6 +409,8 @@ map.on('click', (evt) => {
     // Don't intercept during draw or modify
     if (drawInteraction) return;
     if (editMode) return;
+    // Skip the click(s) that follow immediately after finishing a split draw
+    if (skipNextClick) { skipNextClick = false; return; }
 
     const pixel = map.getEventPixel(evt.originalEvent);
     let hit = null;
@@ -622,9 +625,20 @@ function startSplitDraw() {
         drawInteraction = null;
         map.getViewport().style.cursor = '';
 
+        // Prevent the double-click's trailing click from deselecting the polygon
+        skipNextClick = true;
+        setTimeout(() => { skipNextClick = false; }, 400);
+
+        // Restore selection highlight & panel so user doesn't need to re-click
+        if (selectedFeature) {
+            selectedFeature.set('selected', true);
+            showFeaturePanel(selectedFeature);
+            const tbSplit = document.getElementById('mapTool-split');
+            if (tbSplit) { tbSplit.classList.remove('map-tool-disabled'); tbSplit.disabled = false; }
+        }
+
         // Update hint to allow editing and show confirm button
-        document.getElementById('splitHintText').textContent = 'สามารถเลื่อนจุดเส้นตัดได้ — เมื่อพร้อมแล้วกดยืนยัน';
-        // document.getElementById('confirmSplitSidebarBtn').style.display = 'inline-block';
+        document.getElementById('splitHintText').textContent = 'วาดเส้นตัดเสร็จแล้ว — กดปุ่ม "ยืนยันตัดแปลง" เพื่อตัด หรือเลื่อนจุดเพื่อปรับ';
 
         // Toolbar: deactivate draw icon
         const tbBtn = document.getElementById('mapTool-split');
