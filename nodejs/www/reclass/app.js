@@ -825,6 +825,104 @@ function stopEditMode() {
     if (tbBtn) { tbBtn.classList.remove('map-tool-active'); }
 }
 
+// ── Right-click to delete node ─────────────────────────────
+// helper: find nearest vertex index within pixelTolerance
+function findNearestVertexIndex(coords, clickCoord, pixelTolerance) {
+    const clickPx = map.getPixelFromCoordinate(clickCoord);
+    let bestIdx = -1;
+    let bestDist = pixelTolerance;
+    coords.forEach((c, i) => {
+        const px = map.getPixelFromCoordinate(c);
+        if (!px) return;
+        const dx = px[0] - clickPx[0];
+        const dy = px[1] - clickPx[1];
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d < bestDist) { bestDist = d; bestIdx = i; }
+    });
+    return bestIdx;
+}
+
+map.getViewport().addEventListener('contextmenu', (evt) => {
+    evt.preventDefault();
+    const pixel = map.getEventPixel(evt);
+    const coord = map.getCoordinateFromPixel(pixel);
+    const TOLERANCE = 14; // pixels
+
+    // ── Case 1: editMode — delete vertex from polygon ──────
+    if (editMode && selectedFeature) {
+        const geom = selectedFeature.getGeometry();
+        const geomType = geom.getType();
+
+        if (geomType === 'Polygon') {
+            const rings = geom.getCoordinates();
+            const outerRing = rings[0];
+            // polygon ring is closed (first == last), ignore last duplicate
+            const open = outerRing.slice(0, outerRing.length - 1);
+            const idx = findNearestVertexIndex(open, coord, TOLERANCE);
+            if (idx === -1) return;
+            if (open.length <= 3) {
+                showToast('ไม่สามารถลบได้ — polygon ต้องมีอย่างน้อย 3 จุด', 'error');
+                return;
+            }
+            open.splice(idx, 1);
+            open.push([...open[0]]); // re-close
+            rings[0] = open;
+            geom.setCoordinates(rings);
+            selectedFeature.changed();
+            updateAreaDisplay(selectedFeature);
+            showToast('ลบจุดแล้ว', 'info');
+
+        } else if (geomType === 'MultiPolygon') {
+            const mpCoords = geom.getCoordinates();
+            let deleted = false;
+            for (let pi = 0; pi < mpCoords.length && !deleted; pi++) {
+                const outerRing = mpCoords[pi][0];
+                const open = outerRing.slice(0, outerRing.length - 1);
+                const idx = findNearestVertexIndex(open, coord, TOLERANCE);
+                if (idx === -1) continue;
+                if (open.length <= 3) {
+                    showToast('ไม่สามารถลบได้ — polygon ต้องมีอย่างน้อย 3 จุด', 'error');
+                    return;
+                }
+                open.splice(idx, 1);
+                open.push([...open[0]]);
+                mpCoords[pi][0] = open;
+                deleted = true;
+            }
+            if (!deleted) return;
+            geom.setCoordinates(mpCoords);
+            selectedFeature.changed();
+            updateAreaDisplay(selectedFeature);
+            showToast('ลบจุดแล้ว', 'info');
+        }
+        return;
+    }
+
+    // ── Case 2: split line drawn (not in active draw) — delete vertex from split line ──
+    if (!drawInteraction && splitLineSource.getFeatures().length > 0) {
+        const features = splitLineSource.getFeatures();
+        const lineFeature = features[0];
+        const geom = lineFeature.getGeometry();
+        if (geom.getType() !== 'LineString') return;
+        const coords = geom.getCoordinates();
+        const idx = findNearestVertexIndex(coords, coord, TOLERANCE);
+        if (idx === -1) return;
+        if (coords.length <= 2) {
+            showToast('ไม่สามารถลบได้ — เส้นตัดต้องมีอย่างน้อย 2 จุด', 'error');
+            return;
+        }
+        coords.splice(idx, 1);
+        geom.setCoordinates(coords);
+        // update splitLineCoords
+        const gj = JSON.parse(gjFormat.writeFeature(lineFeature, {
+            dataProjection: EPSG4326,
+            featureProjection: EPSG3857
+        }));
+        splitLineCoords = gj;
+        showToast('ลบจุดเส้นตัดแล้ว', 'info');
+    }
+});
+
 document.getElementById('cancelEdit').addEventListener('click', () => {
     stopEditMode();
     const id = document.getElementById('id').value;

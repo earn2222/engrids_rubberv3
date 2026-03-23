@@ -162,10 +162,16 @@ map.pm.addControls({
     drawCircleMarker: false,
 });
 
+// Disable browser default context menu on map so right-click can delete nodes
+map.getContainer().addEventListener('contextmenu', (e) => e.preventDefault());
+
+// Set global Geoman option: right-click removes vertex
+map.pm.setGlobalOptions({ removeVertexOn: 'contextmenu' });
+
 map.on('pm:create', (e) => {
     const layer = e.layer;
     featureGroup.addLayer(layer);
-    layer.pm.enable();
+    layer.pm.enable({ removeVertexOn: 'contextmenu' });
 
     // If a point is selected, replace it with this new polygon
     if (selectedLayer && selectedLayer instanceof L.Marker) {
@@ -182,7 +188,7 @@ map.on('pm:create', (e) => {
             if (isDrawing) return;
             showFeaturePanel(layer.feature, layer);
             featureGroup.eachLayer(l => l.pm.disable());
-            layer.pm.enable();
+            layer.pm.enable({ removeVertexOn: 'contextmenu' });
             layerEdited = false;
             selectedLayer = layer;
         });
@@ -352,7 +358,7 @@ const onEachFeature = (feature, layer) => {
         if (isDrawing) return;
         showFeaturePanel(feature, layer);
         featureGroup.eachLayer(l => l.pm.disable());
-        layer.pm.enable();
+        layer.pm.enable({ removeVertexOn: 'contextmenu' });
         layerEdited = false; // reset on new selection
         selectedLayer = layer;
     });
@@ -671,7 +677,7 @@ document.getElementById('save').addEventListener('click', async () => {
                 if (layer.feature && layer.feature.properties.id === savedId) {
                     selectedLayer = layer;
                     showFeaturePanel(layer.feature, layer);
-                    layer.pm.enable();
+                    layer.pm.enable({ removeVertexOn: 'contextmenu' });
                 }
             });
 
