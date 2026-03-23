@@ -531,11 +531,13 @@ app.get('/api/getreclassfeatures/:tb', async (req, res) => {
         }
 
         // Auto-add review columns if they don't exist (for older tables)
-        const alterCols = ['check_area', 'check_shape', 'remark', 'reviewer', 'user_remark'];
+        const alterCols = ['check_area', 'check_shape', 'remark', 'reviewer', 'user_remark', 'review_ts', 'user_remark_ts'];
         for (const col of alterCols) {
+            let colType = 'text';
+            if (col === 'review_ts' || col === 'user_remark_ts') colType = 'timestamp without time zone';
             await pool.query(`
                 DO $$ BEGIN
-                    ALTER TABLE reclass_${tb} ADD COLUMN ${col} text;
+                    ALTER TABLE reclass_${tb} ADD COLUMN ${col} ${colType};
                 EXCEPTION
                     WHEN duplicate_column THEN NULL;
                 END $$;
@@ -558,6 +560,8 @@ app.get('/api/getreclassfeatures/:tb', async (req, res) => {
                     a.remark,
                     a.reviewer,
                     a.user_remark,
+                    a.user_remark_ts,
+                    a.review_ts,
                     ST_ASGeoJSON(a.geom) AS geom FROM reclass_${tb} a
                 LEFT JOIN ${tb} b
                 ON a.id = b.id
@@ -588,11 +592,76 @@ app.put('/api/update_review/:tb', async (req, res) => {
                 check_shape = $2,
                 remark = $3,
                 reviewer = $4,
-                user_remark = $5
+                user_remark = $5,
+                review_ts = NOW()
             WHERE sub_id = $6
             RETURNING *`;
 
         const values = [check_area || null, check_shape || null, remark || null, reviewer || null, user_remark || null, sub_id];
+        const result = await pool.query(sql, values);
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Feature not found' });
+        }
+
+        res.status(200).json({ success: true, data: result.rows });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// Clear review endpoint
+app.put('/api/clear_review/:tb', async (req, res) => {
+    try {
+        const tb = req.params.tb;
+        const { sub_id } = req.body;
+        if (!tb || !sub_id) {
+            return res.status(400).json({ error: 'Table name and sub_id are required' });
+        }
+
+        const sql = `
+            UPDATE reclass_${tb}
+            SET check_area = NULL,
+                check_shape = NULL,
+                remark = NULL,
+                reviewer = NULL,
+                review_ts = NULL
+            WHERE sub_id = $1
+            RETURNING *`;
+
+        const result = await pool.query(sql, [sub_id]);
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Feature not found' });
+        }
+        res.status(200).json({ success: true, data: result.rows });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// User remark endpoint
+app.put('/api/update_user_remark/:tb', async (req, res) => {
+    try {
+        const tb = req.params.tb;
+        if (!tb) {
+            return res.status(400).json({ error: 'Table name is required' });
+        }
+        const { sub_id, user_remark } = req.body;
+        if (!sub_id) {
+            return res.status(400).json({ error: 'sub_id is required' });
+        }
+
+        const sql = `
+            UPDATE reclass_${tb}
+            SET user_remark = $1,
+                user_remark_ts = NOW()
+            WHERE sub_id = $2
+            RETURNING *`;
+
+        const values = [user_remark || null, sub_id];
         const result = await pool.query(sql, values);
 
         if (result.rowCount === 0) {

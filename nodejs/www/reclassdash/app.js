@@ -222,7 +222,9 @@ const loadGeoData = async () => {
             check_shape: item.check_shape || '',
             remark: item.remark || '',
             reviewer: item.reviewer || '',
-            user_remark: item.user_remark || ''
+            user_remark: item.user_remark || '',
+            user_remark_ts: item.user_remark_ts || '',
+            review_ts: item.review_ts || ''
         }));
 
         const dataTable = $('#featureTable').DataTable({
@@ -349,19 +351,51 @@ const loadGeoData = async () => {
                 {
                     data: 'user_remark',
                     title: 'หมายเหตุผู้ใช้',
+                    width: '250px',
                     render: (data, type, row) => {
-                        return `<input type="text" class="form-control form-control-sm user-remark" 
-                                    data-subid="${row.sub_id}" 
-                                    value="${data || ''}" 
-                                    placeholder="แก้ไขแล้ว / รายละเอียด...">`;
+                        let dateStr = '';
+                        if (row.user_remark_ts) {
+                            const date = new Date(row.user_remark_ts);
+                            const options = { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' };
+                            dateStr = `<div class="text-muted mt-1 user-remark-time" style="font-size: 0.75rem;"><i class="bi bi-clock"></i> ${date.toLocaleDateString('th-TH', options)}น.</div>`;
+                        }
+                        return `<div style="min-width: 250px;">
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" class="form-control user-remark" 
+                                            data-subid="${row.sub_id}" 
+                                            value="${data || ''}" 
+                                            placeholder="แก้ไขแล้ว / รายละเอียด...">
+                                        <button class="btn btn-outline-primary btn-save-user-remark" type="button" data-subid="${row.sub_id}" title="บันทึกหมายเหตุผู้ใช้">
+                                            <i class="bi bi-floppy"></i>
+                                        </button>
+                                    </div>
+                                    ${dateStr}
+                                </div>`;
                     }
                 },
                 {
                     data: 'reviewer',
                     title: 'ผู้ตรวจสอบ',
-                    render: (data) => {
+                    render: (data, type, row) => {
+                        if (type === 'sort' || type === 'filter' || type === 'type') {
+                            return data || '';
+                        }
                         if (!data) return '<span class="text-muted">-</span>';
-                        return `<span class="badge bg-success bg-opacity-75">${data}</span>`;
+                        let dateStr = '';
+                        if (row.review_ts) {
+                            const date = new Date(row.review_ts);
+                            const options = { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' };
+                            dateStr = `<div class="text-muted mt-1" style="font-size: 0.75rem;"><i class="bi bi-clock"></i> ${date.toLocaleDateString('th-TH', options)}น.</div>`;
+                        }
+                        return `
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="reviewer-badge-container">
+                                <span class="badge bg-success bg-opacity-75">${data}</span>${dateStr}
+                            </div>
+                            <button class="btn btn-sm btn-link text-danger p-0 ms-2 btn-clear-review" data-subid="${row.sub_id}" title="ลบข้อมูลการตรวจแถวนี้">
+                                <i class="bi bi-x-circle-fill"></i>
+                            </button>
+                        </div>`;
                     }
                 },
                 {
@@ -457,6 +491,62 @@ const loadGeoData = async () => {
             $(this.node()).attr('id', `row_${rowData.id}`);
         });
 
+        // Save user remark handler
+        $('#featureTable tbody').on('click', '.btn-save-user-remark', async function () {
+            const btn = $(this);
+            const subId = btn.data('subid');
+            const row = btn.closest('tr');
+            const userRemark = row.find('.user-remark').val();
+            const tb = document.getElementById('tb').value;
+
+            btn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i>');
+
+            try {
+                const res = await fetch(`/rub/api/update_user_remark/${tb}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sub_id: subId,
+                        user_remark: userRemark
+                    })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    btn.html('<i class="bi bi-check-lg"></i>').removeClass('btn-outline-primary').addClass('btn-success');
+                    
+                    const updatedTs = data.data && data.data[0] ? data.data[0].user_remark_ts : new Date().toISOString();
+                    
+                    const dataTable = $('#featureTable').DataTable();
+                    const rowData = dataTable.row(row).data();
+                    rowData.user_remark = userRemark;
+                    rowData.user_remark_ts = updatedTs;
+                    dataTable.row(row).data(rowData);
+                    
+                    let dateStr = '';
+                    if (updatedTs) {
+                        const date = new Date(updatedTs);
+                        const options = { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' };
+                        dateStr = `<div class="text-muted mt-1 user-remark-time" style="font-size: 0.75rem;"><i class="bi bi-clock"></i> ${date.toLocaleDateString('th-TH', options)}น.</div>`;
+                    }
+                    const cellDiv = btn.closest('div').parent();
+                    cellDiv.find('.user-remark-time').remove();
+                    cellDiv.append(dateStr);
+                    
+                    setTimeout(() => {
+                        btn.html('<i class="bi bi-floppy"></i>').removeClass('btn-success').addClass('btn-outline-primary').prop('disabled', false);
+                    }, 2000);
+                } else {
+                    alert('บันทึกไม่สำเร็จ: ' + (data.error || 'Unknown error'));
+                    btn.html('<i class="bi bi-floppy"></i>').prop('disabled', false);
+                }
+            } catch (err) {
+                console.error('Save user remark error:', err);
+                alert('เกิดข้อผิดพลาด: ' + err.message);
+                btn.html('<i class="bi bi-floppy"></i>').prop('disabled', false);
+            }
+        });
+
         // Save review handler
         $('#featureTable tbody').on('click', '.btn-save-review', async function () {
             const btn = $(this);
@@ -511,10 +601,27 @@ const loadGeoData = async () => {
                 const data = await res.json();
                 if (data.success) {
                     btn.html('<i class="bi bi-check-lg"></i> สำเร็จ').addClass('btn-review-saved');
+                    const updatedTs = data.data && data.data[0] ? data.data[0].review_ts : new Date().toISOString();
+
                     // Update reviewer badge in the row
-                    const reviewerCell = row.find('td').eq(-2); // reviewer column
+                    const reviewerCell = row.find('td').eq(-3); // reviewer column
                     if (reviewerToSave) {
-                        reviewerCell.html(`<span class="badge bg-success bg-opacity-75">${reviewerToSave}</span>`);
+                        let dateStr = '';
+                        if (updatedTs) {
+                            const date = new Date(updatedTs);
+                            const options = { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' };
+                            dateStr = `<div class="text-muted mt-1" style="font-size: 0.75rem;"><i class="bi bi-clock"></i> ${date.toLocaleDateString('th-TH', options)}น.</div>`;
+                        }
+                        const htmlContent = `
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="reviewer-badge-container">
+                                <span class="badge bg-success bg-opacity-75">${reviewerToSave}</span>${dateStr}
+                            </div>
+                            <button class="btn btn-sm btn-link text-danger p-0 ms-2 btn-clear-review" data-subid="${subId}" title="ลบข้อมูลการตรวจแถวนี้">
+                                <i class="bi bi-x-circle-fill"></i>
+                            </button>
+                        </div>`;
+                        reviewerCell.html(htmlContent);
                     }
 
                     // Update internal DataTable data so next save compares correctly against these new values
@@ -523,6 +630,7 @@ const loadGeoData = async () => {
                     rowData.remark = remark;
                     rowData.user_remark = userRemark;
                     rowData.reviewer = reviewerToSave;
+                    rowData.review_ts = updatedTs;
                     dataTable.row(row).data(rowData);
                     setTimeout(() => {
                         btn.html('<i class="bi bi-floppy"></i> บันทึก').removeClass('btn-review-saved').prop('disabled', false);
@@ -560,6 +668,53 @@ const loadGeoData = async () => {
             } catch (err) {
                 alert('เกิดข้อผิดพลาด: ' + err.message);
                 btn.prop('disabled', false).html('<i class="bi bi-trash3-fill"></i>');
+            }
+        });
+
+        // Clear review handler
+        $('#featureTable tbody').on('click', '.btn-clear-review', async function () {
+            const btn = $(this);
+            const subId = btn.data('subid');
+            const row = btn.closest('tr');
+            const tb = document.getElementById('tb').value;
+
+            if (!confirm('ยืนยันลบข้อมูลผู้ตรวจสอบแถวนี้ใช่หรือไม่?')) return;
+
+            btn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i>');
+
+            try {
+                const res = await fetch(`/rub/api/clear_review/${tb}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sub_id: subId })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    const dataTable = $('#featureTable').DataTable();
+                    const rowData = dataTable.row(row).data();
+                    
+                    rowData.check_area = '';
+                    rowData.check_shape = '';
+                    rowData.remark = '';
+                    rowData.reviewer = '';
+                    rowData.review_ts = '';
+                    dataTable.row(row).data(rowData);
+                    
+                    row.find('.review-check-area').val('');
+                    row.find('.review-check-shape').val('');
+                    row.find('.review-remark').val('');
+                    
+                    const reviewerCell = row.find('td').eq(-3);
+                    reviewerCell.html('<span class="text-muted">-</span>');
+                } else {
+                    alert('ลบไม่สำเร็จ: ' + (data.error || 'Unknown error'));
+                    btn.html('<i class="bi bi-x-circle-fill"></i>').prop('disabled', false);
+                }
+            } catch (err) {
+                console.error('Clear review error:', err);
+                alert('เกิดข้อผิดพลาด: ' + err.message);
+                btn.html('<i class="bi bi-x-circle-fill"></i>').prop('disabled', false);
             }
         });
 
