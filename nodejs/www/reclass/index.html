@@ -25,8 +25,8 @@
                 <!-- Split drawing overlay hint -->
                 <div id="splitHint" class="split-hint" style="display:none;">
                     <i class="bi bi-pencil-fill"></i>
-                    <span>กำลังวาดเส้นตัด — คลิกเพิ่มจุด, ดับเบิลคลิกเพื่อจบ</span>
-                    <button class="btn btn-sm btn-danger ms-3" id="cancelSplitDraw">
+                    <span id="splitHintText">กำลังวาดเส้นตัด — คลิกเพิ่มจุด, ดับเบิลคลิกเพื่อจบ</span>
+                    <button class="btn btn-sm btn-danger ms-2" id="cancelSplitDraw">
                         <i class="bi bi-x-circle"></i> ยกเลิก
                     </button>
                 </div>
@@ -126,14 +126,19 @@
                         <div class="mb-2 d-flex flex-wrap gap-2">
                             <button class="btn btn-secondary" id="reshapeBottom">ย้อนกลับ</button>
                             <button class="btn btn-info" id="clear">Clear</button>
+                            <button class="btn btn-success" id="confirmSplitSidebarBtn">
+                                <i class="bi bi-scissors"></i> ยืนยันตัดแปลง
+                            </button>
                             <button class="btn btn-info" id="save">
                                 <i class="bi bi-floppy"></i> Save
                             </button>
                         </div>
                         <div class="instruction-text">
                             <i class="bi bi-1-circle"></i> คลิกเลือกแปลงบนแผนที่
-                            <br><i class="bi bi-2-circle"></i> ใช้ไอคอนเครื่องมือบนแผนที่ (ด้านซ้าย) เพื่อแก้ไข / วาดเส้นตัด
-                            <br><i class="bi bi-3-circle"></i> ระบบจะตัดแปลงอัตโนมัติเมื่อวาดเส้นตัดเสร็จ, กด Save เมื่อแก้ไขเสร็จ
+                            <br><i class="bi bi-2-circle"></i> ใช้ไอคอนเครื่องมือบนแผนที่ (ด้านขวา) เพื่อแก้ไข /
+                            วาดเส้นตัด
+                            <br><i class="bi bi-3-circle"></i> สามารถเลื่อนจุดเส้นตัดได้และกดยืนยันเพื่อตัดแปลง, กด Save
+                            เมื่อแก้ไขเสร็จ
                         </div>
 
                         <div class="card mb-2 mt-2">

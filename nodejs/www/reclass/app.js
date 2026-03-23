@@ -346,17 +346,27 @@ map.on('click', (evt) => {
     if (selectedFeature) {
         selectedFeature.set('selected', true);
         showFeaturePanel(selectedFeature);
-        // Show edit button when something is selected
+        // Show edit and split buttons when something is selected
         const tbEdit = document.getElementById('mapTool-edit');
         if (tbEdit) {
             tbEdit.classList.remove('map-tool-disabled');
             tbEdit.disabled = false;
+        }
+        const tbSplit = document.getElementById('mapTool-split');
+        if (tbSplit) {
+            tbSplit.classList.remove('map-tool-disabled');
+            tbSplit.disabled = false;
         }
     } else {
         const tbEdit = document.getElementById('mapTool-edit');
         if (tbEdit) {
             tbEdit.classList.add('map-tool-disabled');
             tbEdit.disabled = true;
+        }
+        const tbSplit = document.getElementById('mapTool-split');
+        if (tbSplit) {
+            tbSplit.classList.add('map-tool-disabled');
+            tbSplit.disabled = true;
         }
         stopEditMode();
     }
@@ -412,6 +422,31 @@ function buildMapToolbar() {
 
 // ── 12b. Split workflow ───────────────────────────────────────
 
+let splitModifyInteraction = new ol.interaction.Modify({
+    source: splitLineSource,
+    style: new ol.style.Style({
+        image: new ol.style.Circle({
+            radius: 6,
+            fill: new ol.style.Fill({ color: '#ff4400' }),
+            stroke: new ol.style.Stroke({ color: '#fff', width: 2 })
+        })
+    })
+});
+
+splitModifyInteraction.on('modifyend', (evt) => {
+    const features = splitLineSource.getFeatures();
+    if (features.length > 0) {
+        const lineFeature = features[0];
+        const gj = JSON.parse(gjFormat.writeFeature(lineFeature, {
+            dataProjection: EPSG4326,
+            featureProjection: EPSG3857
+        }));
+        splitLineCoords = gj;
+    }
+});
+
+map.addInteraction(splitModifyInteraction);
+
 function startSplitDraw() {
     // Remove any existing split line
     splitLineSource.clear();
@@ -423,6 +458,8 @@ function startSplitDraw() {
 
     // Show hint bar
     document.getElementById('splitHint').style.display = 'flex';
+    document.getElementById('splitHintText').textContent = 'กำลังวาดเส้นตัด — คลิกเพิ่มจุด, ดับเบิลคลิกเพื่อจบ';
+    // document.getElementById('confirmSplitSidebarBtn').style.display = 'none';
 
     drawInteraction = new ol.interaction.Draw({
         source: splitLineSource,
@@ -453,14 +490,14 @@ function startSplitDraw() {
         map.removeInteraction(drawInteraction);
         drawInteraction = null;
         map.getViewport().style.cursor = '';
-        document.getElementById('splitHint').style.display = 'none';
+
+        // Update hint to allow editing and show confirm button
+        document.getElementById('splitHintText').textContent = 'สามารถเลื่อนจุดเส้นตัดได้ — เมื่อพร้อมแล้วกดยืนยัน';
+        // document.getElementById('confirmSplitSidebarBtn').style.display = 'inline-block';
 
         // Toolbar: deactivate draw icon
         const tbBtn = document.getElementById('mapTool-split');
         if (tbBtn) tbBtn.classList.remove('map-tool-active');
-
-        // Automatically trigger split
-        await executeSplit();
     });
 }
 
@@ -474,6 +511,7 @@ function cancelSplitDrawInternal() {
     splitLineCoords = null;
     map.getViewport().style.cursor = '';
     document.getElementById('splitHint').style.display = 'none';
+    // document.getElementById('confirmSplitSidebarBtn').style.display = 'none';
     const tbBtn = document.getElementById('mapTool-split');
     if (tbBtn) tbBtn.classList.remove('map-tool-active');
 }
@@ -488,6 +526,13 @@ document.getElementById('cancelSplitDraw').addEventListener('click', () => {
     splitLineCoords = null;
     map.getViewport().style.cursor = '';
     document.getElementById('splitHint').style.display = 'none';
+    // document.getElementById('confirmSplitSidebarBtn').style.display = 'none';
+});
+
+document.getElementById('confirmSplitSidebarBtn').addEventListener('click', async () => {
+    document.getElementById('splitHint').style.display = 'none';
+    // document.getElementById('confirmSplitSidebarBtn').style.display = 'none';
+    await executeSplit();
 });
 
 // Step 2: Execute Split Automatically
@@ -545,6 +590,13 @@ document.getElementById('clear').addEventListener('click', () => {
     }
     splitLineSource.clear();
     splitLineCoords = null;
+
+    // Clear hint and hide confirm button
+    document.getElementById('splitHint').style.display = 'none';
+    // if(document.getElementById('confirmSplitSidebarBtn')) {
+    //     document.getElementById('confirmSplitSidebarBtn').style.display = 'none';
+    // }
+
     // Disable map toolbar edit button
     const tbEdit = document.getElementById('mapTool-edit');
     const tbSplit = document.getElementById('mapTool-split');
