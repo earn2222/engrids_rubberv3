@@ -743,52 +743,47 @@ hr {
 }
 
 .map-tool-btn {
-    background: #1f2937;
-    /* Dark background */
-    border: 1px solid rgba(0, 0, 0, 0.2);
+    background: #ffffff;
+    /* White background */
+    border: 1px solid rgba(0, 0, 0, 0.1);
     border-radius: 12px;
     width: 44px;
-    /* Slightly larger */
     height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 1.35rem;
-    /* Larger, clearer icon */
-    color: #ffffff;
-    /* White icon */
+    color: #1f2937;
+    /* Dark icon */
     cursor: pointer;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
-    /* Stronger shadow to lift off map */
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.12);
     transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
     position: relative;
 }
 
 .map-tool-btn:hover {
-    background: #374151;
-    color: #4ade80;
-    /* Vibrant green on hover */
-    border-color: #4ade80;
-    box-shadow: 0 6px 16px rgba(74, 222, 128, 0.2);
+    background: #f0fdf4;
+    color: #16a34a;
+    /* Green icon on hover */
+    border-color: rgba(22, 163, 74, 0.4);
+    box-shadow: 0 6px 16px rgba(22, 163, 74, 0.2);
     transform: translateY(-2px);
 }
 
 .map-tool-btn.map-tool-disabled {
-    color: #6b7280;
-    /* Gray for disabled icon */
-    background: #374151;
-    /* Darkish gray */
-    border-color: rgba(0, 0, 0, 0.08);
+    color: #9ca3af;
+    /* Light gray for disabled icon */
+    background: #f3f4f6;
+    /* Light gray background */
+    border-color: rgba(0, 0, 0, 0.06);
     cursor: not-allowed;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-    /* Small shadow so it doesn't blend into map */
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
     transform: none;
-    /* No hover lift for disabled */
 }
 
 .map-tool-btn.map-tool-active {
     background: #16a34a;
-    /* Green background */
+    /* Green background when active */
     color: #ffffff;
     border-color: #15803d;
     box-shadow: 0 4px 12px rgba(22, 163, 74, 0.4);
