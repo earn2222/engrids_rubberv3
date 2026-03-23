@@ -77,9 +77,54 @@ const vectorLayer = new ol.layer.Vector({
 const splitLineSource = new ol.source.Vector();
 const splitLineLayer = new ol.layer.Vector({
     source: splitLineSource,
-    style: new ol.style.Style({
-        stroke: new ol.style.Stroke({ color: '#ff4400', width: 2, lineDash: [6, 4] })
-    }),
+    style: function(f) {
+        return [
+            // Line
+            new ol.style.Style({
+                stroke: new ol.style.Stroke({ color: '#ff4400', width: 2, lineDash: [6, 4] })
+            }),
+            // Faint midpoints (ลางๆ)
+            new ol.style.Style({
+                image: new ol.style.Circle({
+                    radius: 4.5,
+                    fill: new ol.style.Fill({ color: 'rgba(255, 68, 0, 0.25)' }),
+                    stroke: new ol.style.Stroke({ color: 'rgba(255, 255, 255, 0.5)', width: 1.5 })
+                }),
+                geometry: function(feature) {
+                    const geom = feature.getGeometry();
+                    if (!geom) return null;
+                    if (geom.getType() === 'LineString') {
+                        const coords = geom.getCoordinates();
+                        let midpoints = [];
+                        for (let i = 0; i < coords.length - 1; i++) {
+                            midpoints.push([
+                                (coords[i][0] + coords[i + 1][0]) / 2,
+                                (coords[i][1] + coords[i + 1][1]) / 2
+                            ]);
+                        }
+                        return midpoints.length > 0 ? new ol.geom.MultiPoint(midpoints) : null;
+                    }
+                    return null;
+                }
+            }),
+            // Vertices
+            new ol.style.Style({
+                image: new ol.style.Circle({
+                    radius: 5,
+                    fill: new ol.style.Fill({ color: '#ff4400' }),
+                    stroke: new ol.style.Stroke({ color: '#fff', width: 1.5 })
+                }),
+                geometry: function(feature) {
+                    const geom = feature.getGeometry();
+                    if (!geom) return null;
+                    if (geom.getType() === 'LineString') {
+                        return new ol.geom.MultiPoint(geom.getCoordinates());
+                    }
+                    return null;
+                }
+            })
+        ];
+    },
     zIndex: 20
 });
 
@@ -157,6 +202,42 @@ function featureStyleFn(feature, _resolution) {
             return coords.length > 0 ? new ol.geom.MultiPoint(coords) : null;
         }
     }));
+
+    // Faint Midpoints for selected feature in Edit Mode
+    if (sel && editMode) {
+        styles.push(new ol.style.Style({
+            image: new ol.style.Circle({
+                radius: 4,
+                fill: new ol.style.Fill({ color: 'rgba(12, 203, 240, 0.25)' }),
+                stroke: new ol.style.Stroke({ color: 'rgba(255, 255, 255, 0.6)', width: 1.5 })
+            }),
+            geometry: function(f) {
+                const geom = f.getGeometry();
+                if (!geom) return null;
+                let midpoints = [];
+                if (geom.getType() === 'Polygon') {
+                    const coords = geom.getCoordinates()[0];
+                    for (let i = 0; i < coords.length - 1; i++) {
+                        midpoints.push([
+                            (coords[i][0] + coords[i + 1][0]) / 2,
+                            (coords[i][1] + coords[i + 1][1]) / 2
+                        ]);
+                    }
+                } else if (geom.getType() === 'MultiPolygon') {
+                    geom.getCoordinates().forEach(poly => {
+                        const coords = poly[0];
+                        for (let i = 0; i < coords.length - 1; i++) {
+                            midpoints.push([
+                                (coords[i][0] + coords[i + 1][0]) / 2,
+                                (coords[i][1] + coords[i + 1][1]) / 2
+                            ]);
+                        }
+                    });
+                }
+                return midpoints.length > 0 ? new ol.geom.MultiPoint(midpoints) : null;
+            }
+        }));
+    }
 
     return styles;
 }
@@ -464,14 +545,50 @@ function startSplitDraw() {
     drawInteraction = new ol.interaction.Draw({
         source: splitLineSource,
         type: 'LineString',
-        style: new ol.style.Style({
-            stroke: new ol.style.Stroke({ color: '#ff4400', width: 2, lineDash: [6, 4] }),
-            image: new ol.style.Circle({
-                radius: 5,
-                fill: new ol.style.Fill({ color: '#ff4400' }),
-                stroke: new ol.style.Stroke({ color: '#fff', width: 1.5 })
-            })
-        })
+        style: function(feature) {
+            const type = feature.getGeometry() ? feature.getGeometry().getType() : null;
+            if (type === 'Point') {
+                return new ol.style.Style({
+                    image: new ol.style.Circle({
+                        radius: 5,
+                        fill: new ol.style.Fill({ color: '#ff4400' }),
+                        stroke: new ol.style.Stroke({ color: '#fff', width: 1.5 })
+                    })
+                });
+            } else if (type === 'LineString') {
+                const geom = feature.getGeometry();
+                const coords = geom.getCoordinates();
+                let midpoints = [];
+                for (let i = 0; i < coords.length - 1; i++) {
+                    midpoints.push([
+                        (coords[i][0] + coords[i + 1][0]) / 2,
+                        (coords[i][1] + coords[i + 1][1]) / 2
+                    ]);
+                }
+                return [
+                    new ol.style.Style({
+                        stroke: new ol.style.Stroke({ color: '#ff4400', width: 2, lineDash: [6, 4] })
+                    }),
+                    new ol.style.Style({
+                        image: new ol.style.Circle({
+                            radius: 4.5,
+                            fill: new ol.style.Fill({ color: 'rgba(255, 68, 0, 0.25)' }),
+                            stroke: new ol.style.Stroke({ color: 'rgba(255, 255, 255, 0.5)', width: 1.5 })
+                        }),
+                        geometry: midpoints.length > 0 ? new ol.geom.MultiPoint(midpoints) : null
+                    }),
+                    new ol.style.Style({
+                        image: new ol.style.Circle({
+                            radius: 5,
+                            fill: new ol.style.Fill({ color: '#ff4400' }),
+                            stroke: new ol.style.Stroke({ color: '#fff', width: 1.5 })
+                        }),
+                        geometry: new ol.geom.MultiPoint(coords)
+                    })
+                ];
+            }
+            return null;
+        }
     });
 
     map.addInteraction(drawInteraction);
@@ -615,6 +732,8 @@ function startEditMode() {
     if (editMode) { stopEditMode(); return; }
 
     editMode = true;
+    if (selectedFeature) selectedFeature.changed(); // update styles to show midpoints!
+    
     // Update map toolbar button state
     const tbBtn = document.getElementById('mapTool-edit');
     if (tbBtn) { tbBtn.classList.add('map-tool-active'); tbBtn.classList.remove('map-tool-disabled'); }
@@ -649,6 +768,7 @@ function startEditMode() {
 function stopEditMode() {
     if (!editMode) return;
     editMode = false;
+    if (selectedFeature) selectedFeature.changed(); // remove midpoints
 
     if (modifyInteraction) {
         map.removeInteraction(modifyInteraction);
