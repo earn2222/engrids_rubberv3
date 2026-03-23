@@ -140,6 +140,13 @@ const map = new ol.Map({
     })
 });
 
+// Disable double-click zoom to prevent unwanted zooming while drawing split line
+map.getInteractions().forEach(interaction => {
+    if (interaction instanceof ol.interaction.DoubleClickZoom) {
+        map.removeInteraction(interaction);
+    }
+});
+
 // Simple layer switcher (top-right)
 buildLayerSwitcher();
 
