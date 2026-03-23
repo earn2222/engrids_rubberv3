@@ -657,7 +657,7 @@ app.put('/api/update_user_remark/:tb', async (req, res) => {
         const sql = `
             UPDATE reclass_${tb}
             SET user_remark = $1,
-                user_remark_ts = NOW()
+                user_remark_ts = CASE WHEN $1::text IS NULL THEN NULL ELSE NOW() END
             WHERE sub_id = $2
             RETURNING *`;
 

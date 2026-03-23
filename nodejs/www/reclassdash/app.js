@@ -290,13 +290,13 @@ const loadGeoData = async () => {
                             'ex-unreg-rubber': 'พื้นที่กันออก (ยางพาราไม่ลงทะเบียน)'
                         };
                         const colorMap = {
-                            'rubber':          '#006d2c',
-                            'not-rubber':      '#9900ff',
-                            'Other':           '#ff0004',
-                            'ex-pond':         '#00d9d0',
-                            'ex-landcover':    '#e6cc00',
-                            'ex-building':     '#ff00bf',
-                            'ex-river':        '#1100ff',
+                            'rubber': '#006d2c',
+                            'not-rubber': '#9900ff',
+                            'Other': '#ff0004',
+                            'ex-pond': '#00d9d0',
+                            'ex-landcover': '#e6cc00',
+                            'ex-building': '#ff00bf',
+                            'ex-river': '#1100ff',
                             'ex-unreg-rubber': '#00cc0d'
                         };
                         const label = labelMap[data] || 'อื่นๆ';
@@ -323,7 +323,7 @@ const loadGeoData = async () => {
                 },
                 {
                     data: 'check_shape',
-                    title: 'ตรวจสอบยางพารา',
+                    title: 'ตรวจสอบการจำเเนกประเภท',
                     render: (data, type, row) => {
                         // Return plain value for sorting/filtering
                         if (type === 'sort' || type === 'type' || type === 'filter') {
@@ -367,6 +367,9 @@ const loadGeoData = async () => {
                                             placeholder="แก้ไขแล้ว / รายละเอียด...">
                                         <button class="btn btn-outline-primary btn-save-user-remark" type="button" data-subid="${row.sub_id}" title="บันทึกหมายเหตุผู้ใช้">
                                             <i class="bi bi-floppy"></i>
+                                        </button>
+                                        <button class="btn btn-outline-danger btn-clear-user-remark" type="button" data-subid="${row.sub_id}" title="ลบหมายเหตุผู้ใช้" ${!data && !row.user_remark_ts ? 'style="display:none;"' : ''}>
+                                            <i class="bi bi-trash3-fill"></i>
                                         </button>
                                     </div>
                                     ${dateStr}
@@ -514,15 +517,15 @@ const loadGeoData = async () => {
                 const data = await res.json();
                 if (data.success) {
                     btn.html('<i class="bi bi-check-lg"></i>').removeClass('btn-outline-primary').addClass('btn-success');
-                    
+
                     const updatedTs = data.data && data.data[0] ? data.data[0].user_remark_ts : new Date().toISOString();
-                    
+
                     const dataTable = $('#featureTable').DataTable();
                     const rowData = dataTable.row(row).data();
                     rowData.user_remark = userRemark;
                     rowData.user_remark_ts = updatedTs;
                     dataTable.row(row).data(rowData);
-                    
+
                     let dateStr = '';
                     if (updatedTs) {
                         const date = new Date(updatedTs);
@@ -532,7 +535,13 @@ const loadGeoData = async () => {
                     const cellDiv = btn.closest('div').parent();
                     cellDiv.find('.user-remark-time').remove();
                     cellDiv.append(dateStr);
-                    
+
+                    if (updatedTs) {
+                        cellDiv.find('.btn-clear-user-remark').show();
+                    } else {
+                        cellDiv.find('.btn-clear-user-remark').hide();
+                    }
+
                     setTimeout(() => {
                         btn.html('<i class="bi bi-floppy"></i>').removeClass('btn-success').addClass('btn-outline-primary').prop('disabled', false);
                     }, 2000);
@@ -544,6 +553,16 @@ const loadGeoData = async () => {
                 console.error('Save user remark error:', err);
                 alert('เกิดข้อผิดพลาด: ' + err.message);
                 btn.html('<i class="bi bi-floppy"></i>').prop('disabled', false);
+            }
+        });
+
+        // Clear user remark handler
+        $('#featureTable tbody').on('click', '.btn-clear-user-remark', function () {
+            const btn = $(this);
+            const row = btn.closest('tr');
+            if (confirm('ยืนยันลบหมายเหตุผู้ใช้ ใช่หรือไม่?')) {
+                row.find('.user-remark').val('');
+                row.find('.btn-save-user-remark').click();
             }
         });
 
@@ -693,18 +712,18 @@ const loadGeoData = async () => {
                 if (data.success) {
                     const dataTable = $('#featureTable').DataTable();
                     const rowData = dataTable.row(row).data();
-                    
+
                     rowData.check_area = '';
                     rowData.check_shape = '';
                     rowData.remark = '';
                     rowData.reviewer = '';
                     rowData.review_ts = '';
                     dataTable.row(row).data(rowData);
-                    
+
                     row.find('.review-check-area').val('');
                     row.find('.review-check-shape').val('');
                     row.find('.review-remark').val('');
-                    
+
                     const reviewerCell = row.find('td').eq(-3);
                     reviewerCell.html('<span class="text-muted">-</span>');
                 } else {
