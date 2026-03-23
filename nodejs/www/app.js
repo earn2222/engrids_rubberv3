@@ -7,18 +7,27 @@ const initUser = async () => {
         usersDiv.innerHTML = '';
 
         result.forEach(async (item) => {
-            const img = document.createElement('img');
-            img.className = 'rounded-circle me-2';
-            img.style = 'width: 32px; height: 32px; object-fit: cover';
-            img.src = item.photo
-
             const panel = document.createElement('div');
-            panel.className = 'alert alert-dismissible alert-success';
+            panel.className = 'alert alert-dismissible alert-success d-flex align-items-center mb-2';
+
+            const avatarDiv = document.createElement('div');
+            if (item.photo) {
+                const img = document.createElement('img');
+                img.className = 'rounded-circle me-2';
+                img.style = 'width: 32px; height: 32px; object-fit: cover; border: 1px solid #ddd;';
+                img.src = item.photo;
+                img.onerror = function() {
+                    this.outerHTML = '<div class="rounded-circle bg-light d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px; border: 1px solid #ddd;"><i class="bi bi-person-fill text-secondary"></i></div>';
+                };
+                avatarDiv.appendChild(img);
+            } else {
+                avatarDiv.innerHTML = '<div class="rounded-circle bg-light d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px; border: 1px solid #ddd;"><i class="bi bi-person-fill text-secondary"></i></div>';
+            }
 
             const username = document.createElement('span');
-            username.innerHTML = `&nbsp;&nbsp;<strong>${item.display_name}</strong>`;
+            username.innerHTML = `<strong>${item.display_name}</strong>`;
 
-            panel.appendChild(img);
+            panel.appendChild(avatarDiv);
             panel.appendChild(username);
             usersDiv.appendChild(panel);
         });
@@ -27,6 +36,162 @@ const initUser = async () => {
         console.error('Error initializing app:', error);
     }
 };
+
+/**
+ * Show a selection modal for assignees before going to Reshape or Dashboard
+ */
+async function showAssigneeSelect(event, tb, targetType) {
+    if (event) event.preventDefault();
+
+    const chkLogin = document.getElementById('chkLogin').value;
+    if (chkLogin === 'false') {
+        alert('กรุณา Login ก่อนเข้าใช้งานส่วนนี้ครับ');
+        return;
+    }
+
+    const modalEl = document.getElementById('selectionModal');
+    const listEl = document.getElementById('assigneeList');
+    if (!modalEl || !listEl) {
+        console.error('Selection Modal or list not found!');
+        return;
+    }
+    
+    const modal = new bootstrap.Modal(modalEl);
+
+    listEl.innerHTML = `
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary spinner-border-sm" role="status"></div>
+            <div class="mt-2 small text-muted">กำลังเรียกรายชื่อผู้ได้รับมอบหมาย...</div>
+        </div>
+    `;
+    modal.show();
+
+    try {
+        const response = await fetch(`/rub/api/task-progress/${tb}`);
+        const { data } = await response.json();
+
+        if (!data || data.length === 0) {
+            listEl.innerHTML = `
+                <div class="alert alert-warning border-0 small mb-4" style="border-radius: 12px; background: rgba(255,193,7, 0.1);">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>โครงการนี้ยังไม่มีการมอบหมายงาน
+                </div>
+                <button class="btn btn-primary-premium rounded-pill w-100 py-2 shadow-sm" onclick="window.location.href='./${targetType === 'reshape' ? 'reshape' : 'reclassdash'}/index.html?tb=${tb}'">
+                    ไปต่อโดยไม่ระบุชื่อ (ดูทั้งหมด)
+                </button>
+            `;
+            return;
+        }
+
+        listEl.innerHTML = '';
+        const myName = document.getElementById('display-name')?.textContent || '';
+
+        // Added a "SEE ALL" option at top
+        const allOption = document.createElement('button');
+        allOption.className = `btn btn-item-premium w-100 text-start d-flex align-items-center mb-2 px-3 py-2 rounded-card-premium transition-all border-0 shadow-sm`;
+        allOption.style.borderRadius = '15px';
+        allOption.style.background = 'linear-gradient(135deg, #ffffff, #f1f8e9)';
+        allOption.innerHTML = `
+            <div class="d-flex align-items-center">
+                <div class="rounded-circle d-flex align-items-center justify-content-center text-white me-3" 
+                     style="width: 42px; height: 42px; background: linear-gradient(135deg, #81c784, #388e3c); box-shadow: 0 4px 10px rgba(76, 175, 80, 0.25);">
+                    <i class="bi bi-people-fill" style="font-size: 1.2rem;"></i>
+                </div>
+                <div>
+                    <div class="fw-bold" style="color: #1b5e20;">ดูทั้งหมด</div>
+                    <div class="small" style="color: #689f63;">เข้าชมข้อมูลของทุกคนในโครงการ</div>
+                </div>
+            </div>
+            <i class="bi bi-chevron-right ms-auto" style="color: #388e3c; font-size: 1.1rem;"></i>
+        `;
+        allOption.onclick = () => {
+            modal.hide();
+            window.location.href = `./${targetType === 'reshape' ? 'reshape' : 'reclassdash'}/index.html?tb=${tb}`;
+        };
+        listEl.appendChild(allOption);
+
+        data.forEach(item => {
+            const isMe = myName && item.assignee_name.toLowerCase().includes(myName.toLowerCase());
+            const btn = document.createElement('button');
+            btn.className = `btn ${isMe ? 'btn-primary-premium' : 'btn-item-premium'} w-100 text-start d-flex align-items-center mb-2 px-3 py-2 rounded-card-premium transition-all border-0 shadow-sm`;
+            btn.style.borderRadius = '15px';
+            
+            const avatarHtml = item.assignee_photo 
+                ? `<img src="${item.assignee_photo}" class="rounded-circle me-3" style="width: 42px; height: 42px; object-fit: cover; border: 2px solid ${isMe ? 'rgba(255,255,255,0.8)' : '#e8f5e9'}" onerror="this.onerror=null; this.outerHTML='<div class=\\'rounded-circle d-flex align-items-center justify-content-center me-3\\' style=\\'width: 42px; height: 42px; background: ${isMe ? 'rgba(255,255,255,0.2)' : '#e8f5e9'}; border: 2px solid ${isMe ? 'rgba(255,255,255,0.5)' : '#c8e6c9'}\\'><i class=\\'bi bi-person-fill ${isMe ? 'text-white' : 'text-success'}\\' style=\\'font-size: 1.2rem;\\'></i></div>';">`
+                : `<div class="rounded-circle d-flex align-items-center justify-content-center me-3" 
+                        style="width: 42px; height: 42px; background: ${isMe ? 'rgba(255,255,255,0.2)' : '#e8f5e9'}; border: 2px solid ${isMe ? 'rgba(255,255,255,0.5)' : '#c8e6c9'}">
+                    <i class="bi bi-person-fill ${isMe ? 'text-white' : 'text-success'}" style="font-size: 1.2rem;"></i>
+                   </div>`;
+
+            btn.innerHTML = `
+                <div class="d-flex align-items-center">
+                    ${avatarHtml}
+                    <div>
+                        <div class="fw-bold ${isMe ? 'text-white' : 'text-dark'}" style="${!isMe ? 'color: #1b5e20 !important;' : ''}">
+                            ${item.assignee_name} 
+                            ${isMe ? '<span class="badge bg-white text-success ms-1" style="font-size: 0.65rem; vertical-align: middle; padding: 2px 6px; border-radius: 8px;">คุณ</span>' : ''}
+                        </div>
+                        <div class="small ${isMe ? 'text-white-50' : 'text-muted'}">ช่วง ID: ${item.id_from} - ${item.id_to}</div>
+                    </div>
+                </div>
+                <i class="bi bi-chevron-right ms-auto" style="${isMe ? 'color: rgba(255,255,255,0.8);' : 'color: #388e3c;'} font-size: 1.1rem;"></i>
+            `;
+            btn.onclick = () => {
+                modal.hide();
+                const url = targetType === 'reshape' 
+                    ? `./reshape/index.html?tb=${tb}&id_from=${item.id_from}&id_to=${item.id_to}&assignee=${encodeURIComponent(item.assignee_name)}`
+                    : `./reclassdash/index.html?tb=${tb}&id_from=${item.id_from}&id_to=${item.id_to}&assignee=${encodeURIComponent(item.assignee_name)}`;
+                window.location.href = url;
+            };
+            listEl.appendChild(btn);
+        });
+
+    } catch (error) {
+        console.error('Error loading assignees:', error);
+        listEl.innerHTML = '<div class="text-danger small text-center p-3">ไม่สามารถโหลดข้อมูลผู้รับผิดชอบได้</div>';
+    }
+}
+
+
+/* ── Load assignments for home project cards ── */
+async function loadAssignmentHome(tb_name) {
+    const el = document.getElementById(`assign_home_${tb_name}`);
+    if (!el) return;
+
+    try {
+        const res = await fetch(`/rub/api/task-progress/${tb_name}`);
+        const { data } = await res.json();
+        const myName = document.getElementById('display-name')?.textContent || '';
+
+        if (!data || data.length === 0) {
+            el.innerHTML = '<div class="text-muted" style="font-size:0.75rem;">(ยังไม่มีการมอบหมายงาน)</div>';
+            return;
+        }
+
+        const myTask = data.find(d => d.assignee_name && d.assignee_name.toLowerCase().includes(myName.toLowerCase()));
+
+        el.innerHTML = `
+            <div class="ah-title"><i class="bi bi-people-fill me-1"></i> รายชื่อผู้รับผิดชอบ</div>
+            <div class="ah-list">
+                ${data.map(d => {
+                    const avatarHtml = d.assignee_photo 
+                        ? `<img src="${d.assignee_photo}" class="ha-avatar" style="border: 1px solid #eee;" onerror="this.onerror=null; this.outerHTML='<i class=\\'bi bi-person-circle fs-6 opacity-75 me-2\\'></i>';">`
+                        : `<i class="bi bi-person-circle fs-6 opacity-75 me-2"></i>`;
+
+                    return `
+                    <div class="home-assignee-card shadow-sm" onclick="showAssigneeSelect(event, '${tb_name}', 'reshape')">
+                        ${avatarHtml}
+                        <span class="fw-bold">${d.assignee_name}</span>
+                        <span class="ha-range">ID ${d.id_from}-${d.id_to}</span>
+                    </div>`;
+
+                }).join('')}
+            </div>
+        `;
+
+    } catch (e) {
+        console.error('loadAssignmentHome error:', e);
+    }
+}
 
 const initApp = async () => {
     try {
@@ -37,97 +202,92 @@ const initApp = async () => {
         const layerList = document.getElementById('layerList');
         layerList.innerHTML = ''; // clear existing
 
-        await result.forEach((item, index) => {
-            const { tb_name, remark } = item;
+        const promises = result.map(async (item, index) => {
+            const { tb_name } = item;
             const wrapper = document.createElement('div');
             wrapper.innerHTML = `
-                <div class="alert alert-dismissible alert-info">
-                    <strong>${index + 1}. ชื่อ layer: ${tb_name}</strong><br>
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <button class="btn btn-secondary reshape" data-tb="${tb_name}">
-                                ปรับรูปแปลง
+                <div class="alert alert-dismissible alert-info shadow-sm mb-3 border-0 project-card-premium">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+
+                        <strong style="color: #2e7d32; font-size: 1.1rem;"><i class="bi bi-folder-fill text-warning me-2"></i>${index + 1}. โครงการ: ${tb_name}</strong>
+                    </div>
+                    
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        <button class="btn btn-secondary reshape btn-sm px-3" data-tb="${tb_name}" style="background-color: #5c727d; border-color: #5c727d;">
+                            <i class="bi bi-pencil-square me-1"></i>ปรับรูปแปลง
+                        </button>
+                        <button class="btn btn-secondary dashboard-btn btn-sm px-3" data-tb="${tb_name}" style="background-color: #5c727d; border-color: #5c727d;">
+                            <i class="bi bi-graph-up-arrow me-1"></i>Dashboard
+                        </button>
+                        <div class="dropdown d-inline-block">
+                            <button class="btn btn-success dropdown-toggle btn-sm px-3" type="button" id="dropdownMenuButton${tb_name}" data-bs-toggle="dropdown" aria-expanded="false" style="background-color: #43a047; border-color: #43a047;">
+                                <i class="bi bi-download me-1"></i>Download ข้อมูล
                             </button>
-                            <button class="btn btn-secondary dashboard" data-tb="${tb_name}">
-                                Dashboard
-                            </button>
-                            <div class="dropdown d-inline-block mt-1">
-                                <button class="btn btn-success dropdown-toggle layer-btn" type="button" id="dropdownMenuButton${tb_name}" data-bs-toggle="dropdown" aria-expanded="false">
-                                    <i class="bi bi-download me-1"></i>Download ข้อมูล
-                                </button>
-                                <ul class="dropdown-menu premium-dropdown-menu" aria-labelledby="dropdownMenuButton${tb_name}">
-                                    <li>
-                                        <a class="dropdown-item download_all" href="javascript:void(0);" data-tb="${tb_name}">
-                                            <div class="icon-wrapper" style="color: #e91e63 !important; background: #fce4ec !important;"><i class="bi bi-download"></i></div>
-                                            <span class="fw-bold">Download ทั้งหมด</span>
-                                        </a>
-                                    </li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li>
-                                        <a class="dropdown-item reshape_download" href="javascript:void(0);" data-tb="${tb_name}">
-                                            <div class="icon-wrapper"><i class="bi bi-file-earmark-text"></i></div>
-                                            <span>Download แปลงยาง</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item classify_download" href="javascript:void(0);" data-tb="${tb_name}">
-                                            <div class="icon-wrapper"><i class="bi bi-file-earmark-check"></i></div>
-                                            <span>Download reclassify</span>
-                                        </a>
-                                    </li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li>
-                                        <a class="dropdown-item classify_download_rubber" href="javascript:void(0);" data-tb="${tb_name}">
-                                            <div class="icon-wrapper" style="color: #0288d1 !important; background: #e1f5fe !important;"><i class="bi bi-cloud-arrow-down"></i></div>
-                                            <span>Download Reclassify (ยางลงทะเบียน)</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item classify_download_all_rubber" href="javascript:void(0);" data-tb="${tb_name}">
-                                            <div class="icon-wrapper" style="color: #6a1b9a !important; background: #f3e5f5 !important;"><i class="bi bi-cloud-download"></i></div>
-                                            <span>Download Reclassify (ยางลงทะเบียน+ยางไม่ลงทะเบียน)</span>
-                                        </a>
-                                    </li>
-                                </ul>
-                            </div>
-                            
-                        </div>
-                        <div>
-                            <!--button class="btn btn-danger deleteBtn" data-tb="${tb_name}">
-                                <i class="bi bi-trash3-fill"></i>
-                            </button-->
+
+                            <ul class="dropdown-menu premium-dropdown-menu shadow-lg border-0" style="border-radius: 12px;" aria-labelledby="dropdownMenuButton${tb_name}">
+                                <li>
+                                    <a class="dropdown-item download_all" href="javascript:void(0);" data-tb="${tb_name}">
+                                        <div class="icon-wrapper" style="color: #e91e63 !important; background: #fce4ec !important;"><i class="bi bi-download"></i></div>
+                                        <span class="fw-bold">Download ทั้งหมด</span>
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <a class="dropdown-item reshape_download" href="javascript:void(0);" data-tb="${tb_name}">
+                                        <div class="icon-wrapper"><i class="bi bi-file-earmark-text"></i></div>
+                                        <span>Download แปลงยาง</span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item classify_download" href="javascript:void(0);" data-tb="${tb_name}">
+                                        <div class="icon-wrapper"><i class="bi bi-file-earmark-check"></i></div>
+                                        <span>Download reclassify</span>
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <a class="dropdown-item classify_download_rubber" href="javascript:void(0);" data-tb="${tb_name}">
+                                        <div class="icon-wrapper" style="color: #0288d1 !important; background: #e1f5fe !important;"><i class="bi bi-cloud-arrow-down"></i></div>
+                                        <span>Download Reclassify (ยางลงทะเบียน)</span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item classify_download_all_rubber" href="javascript:void(0);" data-tb="${tb_name}">
+                                        <div class="icon-wrapper" style="color: #6a1b9a !important; background: #f3e5f5 !important;"><i class="bi bi-cloud-download"></i></div>
+                                        <span>Download Reclassify (ยางลงทะเบียน+ยางไม่ลงทะเบียน)</span>
+                                    </a>
+                                </li>
+                            </ul>
                         </div>
                     </div>
 
+                    <!-- Assignment Section -->
+                    <div class="assignment-home-section" id="assign_home_${tb_name}"></div>
                 </div>
-        `;
+            `;
             layerList.appendChild(wrapper);
+            await loadAssignmentHome(tb_name);
         });
 
-        const reshape = document.getElementsByClassName('reshape');
-        for (let i = 0; i < reshape.length; i++) {
-            reshape[i].addEventListener('click', function (e) {
-                e.preventDefault();
-                const chkLogin = document.getElementById('chkLogin').value;
-                if (chkLogin === 'false') {
-                    alert('กรุณา Login ก่อนครับ');
-                    return;
-                }
-                const tb = this.getAttribute('data-tb');
-                window.location.href = `./reshape/index.html?tb=${tb}`;
-            });
-        }
+        await Promise.all(promises);
 
+        // Event listeners for premium buttons
+        const reshapeBtns = document.querySelectorAll('.reshape');
+        reshapeBtns.forEach(btn => {
+            btn.onclick = (e) => {
+                const tb = btn.getAttribute('data-tb');
+                showAssigneeSelect(e, tb, 'reshape');
+            };
+        });
 
+        const dashboardBtns = document.querySelectorAll('.dashboard-btn');
+        dashboardBtns.forEach(btn => {
+            btn.onclick = (e) => {
+                const tb = btn.getAttribute('data-tb');
+                showAssigneeSelect(e, tb, 'dashboard');
+            };
+        });
 
-        const dashboard = document.getElementsByClassName('dashboard');
-        for (let i = 0; i < dashboard.length; i++) {
-            dashboard[i].addEventListener('click', function (e) {
-                e.preventDefault();
-                const tb = this.getAttribute('data-tb');
-                window.location.href = `./reclassdash/index.html?tb=${tb}`;
-            });
-        }
 
 
         const reshape_download = document.getElementsByClassName('reshape_download');

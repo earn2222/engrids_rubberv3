@@ -390,11 +390,41 @@ const onEachFeature = (feature, layer) => {
 var selectedLayer = null;
 const loadGeoData = async () => {
     try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const id_from = parseInt(urlParams.get('id_from'));
+        const id_to = parseInt(urlParams.get('id_to'));
+        const assignee = urlParams.get('assignee');
+
         const tb = document.getElementById('tb').value;
         const response = await fetch(`/rub/api/getfeatures/${tb}`);
         const { data } = await response.json();
 
-        const tableData = data.map(item => {
+        let filteredData = data;
+        if (!isNaN(id_from) && !isNaN(id_to)) {
+            filteredData = data.filter(item => item.id >= id_from && item.id <= id_to);
+            console.log(`Filtering for ${assignee}: IDs ${id_from} - ${id_to}. Found ${filteredData.length} records.`);
+            
+            const infoEl = document.getElementById('assignmentInfo');
+            if (infoEl && assignee) {
+                infoEl.innerHTML = `
+                    <div class="card border-0 shadow-sm" style="border-radius: 15px; background: linear-gradient(135deg, #66bb6a, #2e7d32); color: white;">
+                        <div class="card-body p-3">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-person-circle fs-4 me-2"></i>
+                                <div>
+                                    <div class="small opacity-75">ผู้รับผิดชอบ</div>
+                                    <div class="fw-bold fs-5">${assignee}</div>
+                                    <div class="small mt-1 px-2 py-1 bg-white bg-opacity-25 rounded-pill d-inline-block">ID: ${id_from} - ${id_to}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+
+        const tableData = filteredData.map(item => {
             let geom = null;
             if (item.geom) {
                 geom = JSON.parse(item.geom);
@@ -415,7 +445,8 @@ const loadGeoData = async () => {
                 shparea_sq: item.shparea_sq,
                 classified: item.classified,
             };
-        }).filter(item => item.geom !== null); // Filter out items without geometry
+        }).filter(item => item.geom !== null);
+
 
         // สร้างตารางหน้า ui
         const dataTable = $('#featureTable').DataTable({
@@ -760,6 +791,18 @@ document.getElementById('classify').addEventListener('click', () => {
         return;
     }
     const tb = document.getElementById('tb').value;
+    
+    // Capture current assignment params
+    const urlParams = new URLSearchParams(window.location.search);
+    const id_from = urlParams.get('id_from');
+    const id_to = urlParams.get('id_to');
+    const assignee = urlParams.get('assignee');
+    
+    let url = `/rub/reclass/index.html?tb=${tb}&id=${id}&sqm_yang=${document.getElementById('sqm_yang').value}`;
+    if (id_from && id_to && assignee) {
+        url += `&id_from=${id_from}&id_to=${id_to}&assignee=${encodeURIComponent(assignee)}`;
+    }
+
     fetch(`/rub/api/create_reclass_feature/${tb}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -767,8 +810,7 @@ document.getElementById('classify').addEventListener('click', () => {
     }).then(response => response.json())
         .then(data => {
             if (data.success) {
-                const sqm_yang_val = document.getElementById('sqm_yang').value;
-                window.open(`/rub/reclass/index.html?tb=${tb}&id=${id}&sqm_yang=${sqm_yang_val}`, '_self');
+                window.open(url, '_self');
             } else {
                 alert('Failed to create reclassification layer');
             }
@@ -782,7 +824,16 @@ document.getElementById('classify').addEventListener('click', () => {
 document.getElementById('dashboard').addEventListener('click', (e) => {
     e.preventDefault();
     const tb = document.getElementById('tb').value;
-    window.location.href = './../reclassdash/index.html?tb=' + tb;
+    const urlParams = new URLSearchParams(window.location.search);
+    const id_from = urlParams.get('id_from');
+    const id_to = urlParams.get('id_to');
+    const assignee = urlParams.get('assignee');
+
+    let url = './../reclassdash/index.html?tb=' + tb;
+    if (id_from && id_to && assignee) {
+        url += `&id_from=${id_from}&id_to=${id_to}&assignee=${encodeURIComponent(assignee)}`;
+    }
+    window.location.href = url;
 });
 
 const initApp = async () => {

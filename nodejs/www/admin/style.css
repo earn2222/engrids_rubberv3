@@ -627,4 +627,341 @@ a:hover {
 
 .alert-info:has(.dropdown .show) {
     z-index: 100 !important;
-}
+}
+
+/* ══════════════════════════════════════════
+   TASK ASSIGNMENT – Button
+══════════════════════════════════════════ */
+.btn-assign {
+    background: linear-gradient(135deg, #ab47bc, #7b1fa2) !important;
+    border: none !important;
+    color: #fff !important;
+    font-size: 0.82rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    box-shadow: 0 2px 8px rgba(123, 31, 162, 0.18);
+    transition: all 0.22s ease;
+}
+.btn-assign:hover {
+    background: linear-gradient(135deg, #9c27b0, #4a148c) !important;
+    box-shadow: 0 4px 14px rgba(123, 31, 162, 0.32) !important;
+    transform: translateY(-1px);
+    color: #fff !important;
+}
+
+/* ══════════════════════════════════════════
+   TASK ASSIGNMENT – Modal Badge
+══════════════════════════════════════════ */
+.assign-tb-badge {
+    font-family: 'Courier New', monospace;
+    font-size: 0.78rem;
+    background: rgba(46, 125, 50, 0.1);
+    color: #2e7d32;
+    padding: 0.1rem 0.5rem;
+    border-radius: 6px;
+    border: 1px solid rgba(46, 125, 50, 0.2);
+    font-weight: 600;
+}
+
+/* ══════════════════════════════════════════
+   TASK ASSIGNMENT – ID Range Visualisation
+══════════════════════════════════════════ */
+.assign-range-viz {
+    background: rgba(232, 245, 233, 0.4);
+    border: 1px solid rgba(76, 175, 80, 0.2);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+}
+.assign-range-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #388e3c;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.6rem;
+    text-transform: uppercase;
+}
+.assign-range-bar {
+    position: relative;
+    height: 28px;
+    background: #e8f5e9;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: inset 0 1px 4px rgba(0,0,0,0.08);
+}
+.assign-range-seg {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    border-radius: 0;
+    opacity: 0.85;
+    transition: opacity 0.2s;
+    cursor: pointer;
+}
+.assign-range-seg:first-child { border-radius: 8px 0 0 8px; }
+.assign-range-seg:last-child  { border-radius: 0 8px 8px 0; }
+.assign-range-seg:only-child  { border-radius: 8px; }
+.assign-range-seg:hover { opacity: 1; }
+
+.assign-range-labels {
+    position: relative;
+    height: 20px;
+    margin-top: 4px;
+}
+.assign-range-tick {
+    position: absolute;
+    font-size: 0.7rem;
+    color: #689f63;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* ══════════════════════════════════════════
+   TASK ASSIGNMENT – Row cards
+══════════════════════════════════════════ */
+.assign-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.assign-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: rgba(255,255,255,0.85);
+    border: 1px solid rgba(76,175,80,0.15);
+    border-radius: 12px;
+    padding: 0.65rem 0.9rem;
+    transition: box-shadow 0.2s;
+}
+.assign-row:hover {
+    box-shadow: 0 3px 12px rgba(76,175,80,0.12);
+}
+.assign-row-color {
+    width: 4px;
+    height: 40px;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+.assign-row-avatar {
+    flex-shrink: 0;
+}
+.assign-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(76,175,80,0.25);
+}
+.assign-avatar-placeholder {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1rem;
+    color: #fff;
+}
+.assign-row-info {
+    flex: 1;
+    min-width: 0;
+}
+.assign-row-name {
+    font-weight: 700;
+    font-size: 0.92rem;
+    color: #2e3a2e;
+}
+.assign-row-range {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.2rem;
+}
+.assign-badge {
+    font-size: 0.75rem;
+    padding: 0.18rem 0.55rem;
+    border-radius: 20px;
+    color: #fff;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.assign-count {
+    font-size: 0.75rem;
+    color: #689f63;
+}
+.assign-note-text {
+    font-size: 0.75rem;
+    color: #78909c;
+    font-style: italic;
+}
+.assign-row-actions {
+    display: flex;
+    gap: 0.3rem;
+    flex-shrink: 0;
+}
+.assign-row-actions .btn {
+    padding: 0.25rem 0.45rem;
+    font-size: 0.75rem;
+    border-radius: 7px;
+}
+
+/* ══════════════════════════════════════════
+   TASK ASSIGNMENT – Assignee chip picker
+══════════════════════════════════════════ */
+.assignee-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    min-height: 44px;
+    padding: 0.4rem 0;
+}
+.assignee-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.7rem;
+    border: 2px solid rgba(76,175,80,0.25);
+    border-radius: 20px;
+    background: rgba(255,255,255,0.8);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #2e3a2e;
+}
+.assignee-chip img {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+.assignee-chip:hover {
+    border-color: #66bb6a;
+    background: rgba(232,245,233,0.8);
+    transform: translateY(-1px);
+}
+.assignee-chip.selected {
+    border-color: #2e7d32;
+    background: linear-gradient(135deg, rgba(200,230,201,0.5), rgba(232,245,233,0.8));
+    color: #1b5e20;
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(46,125,50,0.18);
+}
+
+/* ══════════════════════════════════════════
+   TASK ASSIGNMENT – Form card
+══════════════════════════════════════════ */
+.assign-form-card {
+    background: rgba(232,245,233,0.35);
+    border: 1px solid rgba(76,175,80,0.2);
+    border-radius: 14px;
+    padding: 1.25rem 1.25rem;
+}
+.assign-form-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #2e7d32;
+    margin-bottom: 1rem;
+}
+
+/* ══════════════════════════════════════════
+   TASK ASSIGNMENT – Empty state
+══════════════════════════════════════════ */
+.assign-empty {
+    text-align: center;
+    color: #a5d6a7;
+    padding: 1.5rem 0;
+    font-size: 0.9rem;
+}
+
+/* ══════════════════════════════════════════
+   TASK ASSIGNMENT – Mini strip in layer card (progress)
+══════════════════════════════════════════ */
+.assignment-strip {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    margin-top: 0.3rem;
+}
+
+/* Keep old chip style for backward compat */
+.strip-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.74rem;
+    padding: 0.18rem 0.55rem;
+    border-radius: 20px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.strip-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+/* ── Progress block ── */
+.strip-progress-block {
+    padding: 0.5rem 0.7rem;
+    border: 1px solid rgba(76,175,80,0.2);
+    border-radius: 10px;
+    background: rgba(255,255,255,0.7);
+}
+
+.strip-progress-header {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.78rem;
+    margin-bottom: 0.3rem;
+    flex-wrap: wrap;
+}
+
+.strip-progress-name {
+    font-weight: 700;
+}
+
+.strip-id-range {
+    font-size: 0.72rem;
+    color: #78909c;
+    background: rgba(0,0,0,0.04);
+    padding: 0.05rem 0.4rem;
+    border-radius: 10px;
+}
+
+.strip-pct {
+    font-weight: 800;
+    font-size: 0.82rem;
+    margin-left: auto;
+}
+
+.strip-ts {
+    font-size: 0.68rem;
+    color: #9e9e9e;
+}
+
+.strip-bar-bg {
+    height: 6px;
+    background: rgba(0,0,0,0.07);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 0.25rem;
+}
+
+.strip-bar-fill {
+    height: 100%;
+    border-radius: 10px;
+    transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
+}
+
+.strip-progress-sub {
+    font-size: 0.7rem;
+    color: #78909c;
+}
+

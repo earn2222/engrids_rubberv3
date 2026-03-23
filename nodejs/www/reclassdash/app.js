@@ -147,9 +147,9 @@ function showFeaturePanel(feature, layer) {
     const xls_id_farmer = document.getElementById('xls_id_farmer');
     const shpsplit_sqm = document.getElementById('shpsplit_sqm');
 
-    id.value = feature.properties.id;
-    xls_id_farmer.value = feature.properties.id_farmer;
-    shpsplit_sqm.value = Number(feature.properties.shparea_sqm).toFixed(0);
+    if (id) id.value = feature.properties.id || '';
+    if (xls_id_farmer) xls_id_farmer.value = feature.properties.id_farmer || '';
+    if (shpsplit_sqm) shpsplit_sqm.value = Number(feature.properties.shparea_sqm || 0).toFixed(0);
 }
 
 const getFeatureStyle = (feature) => {
@@ -203,7 +203,36 @@ const loadGeoData = async () => {
             return;
         }
 
-        const data = result.data;
+        const urlParams = new URLSearchParams(window.location.search);
+        const id_from = parseInt(urlParams.get('id_from'));
+        const id_to = parseInt(urlParams.get('id_to'));
+        const assignee = urlParams.get('assignee');
+
+        let data = result.data;
+        if (!isNaN(id_from) && !isNaN(id_to)) {
+            data = result.data.filter(item => item.id >= id_from && item.id <= id_to);
+            console.log(`Filtering for ${assignee}: IDs ${id_from} - ${id_to}. Found ${data.length} records.`);
+            
+            const infoEl = document.getElementById('assignmentInfo');
+            if (infoEl && assignee) {
+                infoEl.innerHTML = `
+                    <div class="card border-0 shadow-sm" style="border-radius: 15px; background: linear-gradient(135deg, #66bb6a, #2e7d32); color: white;">
+                        <div class="card-body p-3">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-person-circle fs-4 me-2"></i>
+                                <div>
+                                    <div class="small opacity-75">ผู้รับผิดชอบ</div>
+                                    <div class="fw-bold fs-5">${assignee}</div>
+                                    <div class="small mt-1 px-2 py-1 bg-white bg-opacity-25 rounded-pill d-inline-block">ID: ${id_from} - ${id_to}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+
 
         const tableData = data.map(item => ({
             id: item.id,
@@ -237,12 +266,22 @@ const loadGeoData = async () => {
                     orderable: false,
                     render: (data, type, row) => {
                         const _geojson = JSON.stringify(row.geom);
+                        const urlParams = new URLSearchParams(window.location.search);
+                        const id_from = urlParams.get('id_from');
+                        const id_to = urlParams.get('id_to');
+                        const assignee = urlParams.get('assignee');
+                        
+                        let reclassUrl = `./../reclass/index.html?tb=${document.getElementById('tb').value}&id=${row.id}&sqm_yang=${row.sqm_yang}`;
+                        if (id_from && id_to && assignee) {
+                            reclassUrl += `&id_from=${id_from}&id_to=${id_to}&assignee=${encodeURIComponent(assignee)}`;
+                        }
+
                         return `<a class="btn btn-success btn-sm map-btn" 
                                     data-refid="${row.id}" 
                                     data-geojson='${_geojson}'
                                     href="#"><i class="bi bi-zoom-in"></i> ซูม</a>
                                 <a class="btn btn-warning btn-sm mt-1" 
-                                    href="./../reclass/index.html?tb=${document.getElementById('tb').value}&id=${row.id}&sqm_yang=${row.sqm_yang}"
+                                    href="${reclassUrl}"
                                     ><i class="bi bi-pencil-square"></i> แก้ไข</a>`
                     }
                 },
@@ -797,8 +836,97 @@ legend.addTo(map);
 document.getElementById('reshape').addEventListener('click', (e) => {
     e.preventDefault();
     const tb = document.getElementById('tb').value;
-    window.location.href = './../reshape/index.html?tb=' + tb;
+    const urlParams = new URLSearchParams(window.location.search);
+    const id_from = urlParams.get('id_from');
+    const id_to = urlParams.get('id_to');
+    const assignee = urlParams.get('assignee');
+    
+    let url = `./../reshape/index.html?tb=${tb}`;
+    if (id_from && id_to) {
+        url += `&id_from=${id_from}&id_to=${id_to}&assignee=${encodeURIComponent(assignee)}`;
+    }
+    window.location.href = url;
 });
+
+
+/* ══════════════════════════════════════════════════════════
+   Task Assignment Progress Card
+══════════════════════════════════════════════════════════ */
+async function loadTaskProgress(tb, currentUser) {
+    const card = document.getElementById('taskProgressCard');
+    const listEl = document.getElementById('taskProgressList');
+    if (!card || !listEl) return;
+
+    try {
+        const res = await fetch(`/rub/api/task-progress/${tb}`);
+        const { data } = await res.json();
+
+        if (!data || data.length === 0) {
+            card.style.display = 'none';
+            return;
+        }
+
+        card.style.display = '';
+
+        const palette = ['#4CAF50', '#2196F3', '#FF9800', '#9C27B0', '#F44336', '#00BCD4', '#FF5722', '#795548'];
+        const colorMap = {};
+        let ci = 0;
+        data.forEach(d => {
+            if (!colorMap[d.assignee_name]) { colorMap[d.assignee_name] = palette[ci++ % palette.length]; }
+        });
+
+        // Filter to show only current user's progress if specified
+        let displayData = data;
+        if (currentUser) {
+            displayData = data.filter(d => 
+                d.assignee_name.toLowerCase().includes(currentUser.toLowerCase())
+            );
+        }
+
+        listEl.innerHTML = displayData.map(d => {
+            const c = colorMap[d.assignee_name];
+            const pct = d.pct || 0;
+            const isMe = currentUser && d.assignee_name.toLowerCase().includes(currentUser.toLowerCase());
+            const meBadge = isMe ? `<span class="tp-me-badge">คุณ</span>` : '';
+
+            let tsStr = '';
+            if (d.last_ts) {
+                const dt = new Date(d.last_ts);
+                tsStr = `<div class="tp-ts"><i class="bi bi-clock"></i> ${dt.toLocaleDateString('th-TH', { year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' })}น.</div>`;
+            }
+
+            let editorStr = '';
+            if (d.last_editor) {
+                editorStr = `<div class="tp-editor"><i class="bi bi-pencil-fill"></i> แก้ล่าสุดโดย <b>${d.last_editor}</b></div>`;
+            }
+
+            return `
+            <div class="tp-block ${isMe ? 'tp-block-me' : ''}" style="--tp-color:${c};">
+                <div class="tp-header">
+                    ${d.assignee_photo ? `<img src="${d.assignee_photo}" class="tp-avatar" onerror="this.style.display='none'">` : `<div class="tp-avatar-placeholder" style="background:${c};">${d.assignee_name.charAt(0).toUpperCase()}</div>`}
+                    <div class="tp-info">
+                        <div class="tp-name">${d.assignee_name} ${meBadge}</div>
+                        <div class="tp-range" style="color:${c};">ID ${d.id_from} – ${d.id_to} <span class="tp-total">(${d.total} รายการ)</span></div>
+                    </div>
+                    <div class="tp-pct" style="color:${c};">${pct}%</div>
+                </div>
+                <div class="tp-bar-bg">
+                    <div class="tp-bar-fill" style="width:${pct}%; background:${c};"></div>
+                </div>
+                <div class="tp-sub">
+                    <span class="tp-done-count">${d.done}/<b>${d.total}</b> แปลงเสร็จแล้ว</span>
+                    ${editorStr}
+                    ${tsStr}
+                </div>
+                ${d.note ? `<div class="tp-note"><i class="bi bi-info-circle"></i> ${d.note}</div>` : ''}
+            </div>`;
+        }).join('');
+    } catch (e) {
+        console.error('loadTaskProgress error:', e);
+    }
+}
+
+
 
 
 
@@ -893,6 +1021,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         const raiFetch = await fetch('/rub/api/countsrai/reclass_' + tb);
         const raiData = await raiFetch.json();
 
+        // ── Load task assignment progress ──
+        const assignee = urlParams.get('assignee');
+        const loginUser = document.getElementById('display-name')?.textContent || '';
+        const currentUser = assignee || loginUser;
+        await loadTaskProgress(tb, currentUser);
+
         // จัดกลุ่มประเภทต่างๆ ก่อนแสดงผล เพื่อป้องกันแถวซ้ำกัน (เช่น มี "ไม่ระบุ" หลายอัน)
         const groupedData = {};
         raiData.forEach(r => {
@@ -950,6 +1084,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('profile-section').style.display = 'flex';
             document.getElementById('profile-image').src = user.photo;
             document.getElementById('display-name').textContent = user.displayName;
+
+            // Re-load progress with correct user identity after login
+            const urlParams = new URLSearchParams(window.location.search);
+            const tb = urlParams.get('tb');
+            const assignee = urlParams.get('assignee');
+            if (tb) {
+                // If assignee is in URL, prioritize that, otherwise use logged-in name
+                await loadTaskProgress(tb, assignee || user.displayName);
+            }
 
             // Logout handler
             document.getElementById('logout-link').addEventListener('click', async (e) => {

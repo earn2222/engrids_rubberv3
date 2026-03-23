@@ -508,3 +508,126 @@ hr {
     cursor: not-allowed;
     transform: none;
 }
+
+/* ===== Task Progress Card ===== */
+.tp-block {
+    background: rgba(255, 255, 255, 0.6);
+    border: 1px solid rgba(76, 175, 80, 0.15);
+    border-radius: 12px;
+    padding: 0.75rem;
+    margin-bottom: 0.75rem;
+    transition: all 0.2s ease;
+}
+
+.tp-block:hover {
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.tp-block-me {
+    border: 2px solid var(--tp-color);
+    background: rgba(255, 255, 255, 0.95);
+}
+
+.tp-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.tp-avatar, .tp-avatar-placeholder {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.tp-avatar-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+
+.tp-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.tp-name {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: #2e3a2e;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.tp-me-badge {
+    background: #2e7d32;
+    color: #fff;
+    font-size: 0.65rem;
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-weight: 600;
+}
+
+.tp-range {
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.tp-total {
+    color: #78909c;
+    font-weight: 400;
+}
+
+.tp-pct {
+    font-weight: 800;
+    font-size: 1.1rem;
+}
+
+.tp-bar-bg {
+    height: 8px;
+    background: rgba(0,0,0,0.06);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+}
+
+.tp-bar-fill {
+    height: 100%;
+    border-radius: 10px;
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tp-sub {
+    font-size: 0.75rem;
+    color: #546e7a;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.tp-done-count b {
+    color: #2e3a2e;
+}
+
+.tp-editor, .tp-ts {
+    font-size: 0.7rem;
+    color: #78909c;
+}
+
+.tp-note {
+    margin-top: 0.5rem;
+    font-size: 0.7rem;
+    font-style: italic;
+    color: #607d8b;
+    padding: 4px 8px;
+    background: rgba(0,0,0,0.03);
+    border-radius: 6px;
+}

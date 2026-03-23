@@ -1009,17 +1009,44 @@ document.getElementById('classtype').addEventListener('change', async (e) => {
 document.getElementById('reshape').addEventListener('click', (e) => {
     e.preventDefault();
     const tb = document.getElementById('tb').value;
-    window.location.href = './../reshape/index.html?tb=' + tb;
+    const urlParams = new URLSearchParams(window.location.search);
+    const id_from = urlParams.get('id_from');
+    const id_to = urlParams.get('id_to');
+    const assignee = urlParams.get('assignee');
+
+    let url = './../reshape/index.html?tb=' + tb;
+    if (id_from && id_to && assignee) {
+        url += `&id_from=${id_from}&id_to=${id_to}&assignee=${encodeURIComponent(assignee)}`;
+    }
+    window.location.href = url;
 });
 document.getElementById('reshapeBottom').addEventListener('click', (e) => {
     e.preventDefault();
     const tb = document.getElementById('tb').value;
-    window.location.href = './../reshape/index.html?tb=' + tb;
+    const urlParams = new URLSearchParams(window.location.search);
+    const id_from = urlParams.get('id_from');
+    const id_to = urlParams.get('id_to');
+    const assignee = urlParams.get('assignee');
+
+    let url = './../reshape/index.html?tb=' + tb;
+    if (id_from && id_to && assignee) {
+        url += `&id_from=${id_from}&id_to=${id_to}&assignee=${encodeURIComponent(assignee)}`;
+    }
+    window.location.href = url;
 });
 document.getElementById('dashboard').addEventListener('click', (e) => {
     e.preventDefault();
     const tb = document.getElementById('tb').value;
-    window.location.href = './../reclassdash/index.html?tb=' + tb;
+    const urlParams = new URLSearchParams(window.location.search);
+    const id_from = urlParams.get('id_from');
+    const id_to = urlParams.get('id_to');
+    const assignee = urlParams.get('assignee');
+
+    let url = './../reclassdash/index.html?tb=' + tb;
+    if (id_from && id_to && assignee) {
+        url += `&id_from=${id_from}&id_to=${id_to}&assignee=${encodeURIComponent(assignee)}`;
+    }
+    window.location.href = url;
 });
 
 // ── 17. Merge mode ────────────────────────────────────────
@@ -1281,6 +1308,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('displayName').value = user.displayName;
 
             await initApp();
+            await checkMyAssignment(user.displayName);
 
             document.getElementById('logout-link').addEventListener('click', async (e) => {
                 e.preventDefault();
@@ -1296,3 +1324,27 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error('Init error:', err);
     }
 });
+
+async function checkMyAssignment(displayName) {
+    const tb = document.getElementById('tb').value;
+    const alertEl = document.getElementById('myAssignmentAlert');
+    const rangeText = document.getElementById('myAssignmentRange');
+    if (!alertEl || !rangeText || !tb) return;
+
+    try {
+        const res = await fetch(`/rub/api/task-assignments/${tb}`);
+        const { data } = await res.json();
+        
+        if (!data || data.length === 0) return;
+
+        // Find assignment for current user
+        const mine = data.find(a => a.assignee_name && a.assignee_name.toLowerCase().includes(displayName.toLowerCase()));
+        
+        if (mine) {
+            rangeText.textContent = `ID ${mine.id_from} – ${mine.id_to}`;
+            alertEl.style.display = 'block';
+        }
+    } catch (e) {
+        console.error('checkMyAssignment error:', e);
+    }
+}

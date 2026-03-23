@@ -481,7 +481,19 @@ app.post('/api/updatefeatures/:tb', async (req, res) => {
                 // ✅ บันทึกลงฐานข้อมูล
                 await client.query(`
                     UPDATE ${tb}
-                    SET geom = ST_Multi(ST_SetSRID(ST_GeomFromGeoJSON($1), 4326)),
+                    SET 
+                        geom = CASE 
+                            WHEN ST_GeometryType(ST_SetSRID(ST_GeomFromGeoJSON($1), 4326)) IN ('ST_Polygon', 'ST_MultiPolygon') 
+                            THEN ST_Multi(ST_SetSRID(ST_GeomFromGeoJSON($1), 4326))
+                            ELSE geom 
+                        END,
+                        geom_point = CASE 
+                            WHEN ST_GeometryType(ST_SetSRID(ST_GeomFromGeoJSON($1), 4326)) = 'ST_Point' 
+                            THEN ST_SetSRID(ST_GeomFromGeoJSON($1), 4326)
+                            WHEN ST_GeometryType(ST_SetSRID(ST_GeomFromGeoJSON($1), 4326)) IN ('ST_Polygon', 'ST_MultiPolygon')
+                            THEN ST_Centroid(ST_SetSRID(ST_GeomFromGeoJSON($1), 4326))
+                            ELSE geom_point
+                        END,
                         shparea_sq = $3,
                         refinal = $4,
                         editor = $5
@@ -562,6 +574,7 @@ app.get('/api/getreclassfeatures/:tb', async (req, res) => {
                     a.user_remark,
                     a.user_remark_ts,
                     a.review_ts,
+                    a.ts,
                     ST_ASGeoJSON(a.geom) AS geom FROM reclass_${tb} a
                 LEFT JOIN ${tb} b
                 ON a.id = b.id
@@ -1129,7 +1142,18 @@ app.put('/api/update_geometry/:tb', async (req, res) => {
             )
             UPDATE reclass_${tb}
             SET
-                geom = g.geom_wgs,
+                geom = CASE 
+                    WHEN ST_GeometryType(g.geom_wgs) IN ('ST_Polygon', 'ST_MultiPolygon') 
+                    THEN ST_Multi(g.geom_wgs)
+                    ELSE geom 
+                END,
+                geom_point = CASE 
+                    WHEN ST_GeometryType(g.geom_wgs) = 'ST_Point' 
+                    THEN g.geom_wgs
+                    WHEN ST_GeometryType(g.geom_wgs) IN ('ST_Polygon', 'ST_MultiPolygon')
+                    THEN ST_Centroid(g.geom_wgs)
+                    ELSE geom_point
+                END,
                 shpsplit_sqm = ST_Area(ST_Transform(g.geom_wgs, 32647)),
                 editor = g.editor
             FROM geom_input g
@@ -2287,6 +2311,210 @@ app.get('/api/backup-diff/:tb', async (req, res) => {
         });
     } catch (err) {
         console.error('[BACKUP] diff error:', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+/* ══════════════════════════════════════════════════════════════
+   TASK ASSIGNMENT APIs
+   เก็บ assignment ของแต่ละคนต่อ table (tb_name, assignee, id_from, id_to)
+══════════════════════════════════════════════════════════════ */
+
+async function ensureTaskAssignmentsTable() {
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS task_assignments (
+            id        SERIAL PRIMARY KEY,
+            tb_name   TEXT NOT NULL,
+            assignee_name  TEXT NOT NULL,
+            assignee_photo TEXT,
+            id_from   INTEGER NOT NULL,
+            id_to     INTEGER NOT NULL,
+            note      TEXT,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+}
+
+/* GET /api/task-assignments/:tb  – ดึง assignments ของ table นั้น */
+app.get('/api/task-assignments/:tb', async (req, res) => {
+    try {
+        await ensureTaskAssignmentsTable();
+        const { tb } = req.params;
+        const result = await pool.query(
+            `SELECT * FROM task_assignments WHERE tb_name = $1 ORDER BY id_from`,
+            [tb]
+        );
+        res.json({ success: true, data: result.rows });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+/* GET /api/task-assignments-all  – ดึง assignments ทั้งหมด */
+app.get('/api/task-assignments-all', async (req, res) => {
+    try {
+        await ensureTaskAssignmentsTable();
+        const result = await pool.query(
+            `SELECT * FROM task_assignments ORDER BY tb_name, id_from`
+        );
+        res.json({ success: true, data: result.rows });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+/* POST /api/task-assignments  – สร้าง assignment ใหม่ */
+app.post('/api/task-assignments', async (req, res) => {
+    try {
+        await ensureTaskAssignmentsTable();
+        const { tb_name, assignee_name, assignee_photo, id_from, id_to, note } = req.body;
+        if (!tb_name || !assignee_name || id_from == null || id_to == null) {
+            return res.status(400).json({ error: 'tb_name, assignee_name, id_from, id_to are required' });
+        }
+        if (parseInt(id_from) > parseInt(id_to)) {
+            return res.status(400).json({ error: 'id_from must be <= id_to' });
+        }
+        const result = await pool.query(
+            `INSERT INTO task_assignments (tb_name, assignee_name, assignee_photo, id_from, id_to, note)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             RETURNING *`,
+            [tb_name, assignee_name, assignee_photo || null, parseInt(id_from), parseInt(id_to), note || null]
+        );
+        res.json({ success: true, data: result.rows[0] });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+/* PUT /api/task-assignments/:id  – อัปเดต assignment */
+app.put('/api/task-assignments/:id', async (req, res) => {
+    try {
+        await ensureTaskAssignmentsTable();
+        const { id } = req.params;
+        const { assignee_name, assignee_photo, id_from, id_to, note } = req.body;
+        if (!assignee_name || id_from == null || id_to == null) {
+            return res.status(400).json({ error: 'assignee_name, id_from, id_to are required' });
+        }
+        if (parseInt(id_from) > parseInt(id_to)) {
+            return res.status(400).json({ error: 'id_from must be <= id_to' });
+        }
+        const result = await pool.query(
+            `UPDATE task_assignments
+             SET assignee_name=$1, assignee_photo=$2, id_from=$3, id_to=$4, note=$5, updated_at=NOW()
+             WHERE id=$6
+             RETURNING *`,
+            [assignee_name, assignee_photo || null, parseInt(id_from), parseInt(id_to), note || null, parseInt(id)]
+        );
+        if (result.rowCount === 0) return res.status(404).json({ error: 'Assignment not found' });
+        res.json({ success: true, data: result.rows[0] });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+/* DELETE /api/task-assignments/:id  – ลบ assignment */
+app.delete('/api/task-assignments/:id', async (req, res) => {
+    try {
+        await ensureTaskAssignmentsTable();
+        const { id } = req.params;
+        const result = await pool.query(
+            `DELETE FROM task_assignments WHERE id=$1 RETURNING id`,
+            [parseInt(id)]
+        );
+        if (result.rowCount === 0) return res.status(404).json({ error: 'Assignment not found' });
+        res.json({ success: true, deleted: parseInt(id) });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+/* GET /api/task-progress/:tb
+   คำนวณ progress ของแต่ละ assignment โดยนับ ID ที่ classified=true ในช่วง id_from..id_to
+   พร้อม editor คนล่าสุดใน reclass_<tb> และ ts ล่าสุด */
+app.get('/api/task-progress/:tb', async (req, res) => {
+    try {
+        await ensureTaskAssignmentsTable();
+        const { tb } = req.params;
+        if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tb)) {
+            return res.status(400).json({ error: 'Invalid table name' });
+        }
+
+        // ดึง assignments ของ table นี้
+        const assignRes = await pool.query(
+            `SELECT id, assignee_name, assignee_photo, id_from, id_to, note
+             FROM task_assignments WHERE tb_name = $1 ORDER BY id_from`,
+            [tb]
+        );
+        if (assignRes.rowCount === 0) {
+            return res.json({ success: true, data: [] });
+        }
+
+        // ตรวจว่า main table มี classified column
+        const colCheck = await pool.query(
+            `SELECT column_name FROM information_schema.columns
+             WHERE table_name=$1 AND column_name='classified'`, [tb]
+        );
+        const hasClassified = colCheck.rowCount > 0;
+
+        // ตรวจว่า reclass table มีอยู่
+        const reclassCheck = await pool.query(
+            `SELECT EXISTS(SELECT 1 FROM information_schema.tables
+              WHERE table_schema='public' AND table_name=$1)`,
+            [`reclass_${tb}`]
+        );
+        const hasReclass = reclassCheck.rows[0].exists;
+
+        // สร้าง progress สำหรับแต่ละ assignment
+        const progressData = await Promise.all(assignRes.rows.map(async (a) => {
+            const total = a.id_to - a.id_from + 1;
+
+            // นับ classified
+            let done = 0;
+            if (hasClassified) {
+                const doneRes = await pool.query(
+                    `SELECT COUNT(*) AS cnt FROM ${tb}
+                     WHERE id >= $1 AND id <= $2 AND classified = TRUE`,
+                    [a.id_from, a.id_to]
+                );
+                done = parseInt(doneRes.rows[0].cnt) || 0;
+            }
+
+            // หา editor + ts ล่าสุดจาก reclass table
+            let last_editor = null;
+            let last_ts = null;
+            if (hasReclass) {
+                const editorRes = await pool.query(
+                    `SELECT editor, ts FROM reclass_${tb}
+                     WHERE id >= $1 AND id <= $2
+                       AND editor IS NOT NULL
+                     ORDER BY ts DESC LIMIT 1`,
+                    [a.id_from, a.id_to]
+                );
+                if (editorRes.rowCount > 0) {
+                    last_editor = editorRes.rows[0].editor;
+                    last_ts = editorRes.rows[0].ts;
+                }
+            }
+
+            return {
+                ...a,
+                total,
+                done,
+                pct: total > 0 ? Math.round((done / total) * 100) : 0,
+                last_editor,
+                last_ts
+            };
+        }));
+
+        res.json({ success: true, data: progressData });
+    } catch (err) {
+        console.error('[TASK-PROGRESS]', err);
         res.status(500).json({ success: false, error: err.message });
     }
 });

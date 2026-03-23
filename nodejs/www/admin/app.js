@@ -2,6 +2,7 @@
    Admin App  –  Two-step project workflow
    1) "สร้าง Project" → create empty table (no upload)
    2) "เพิ่มข้อมูล"   → upload shapefile (polygon / point) to existing table
+   3) "มอบหมายงาน"  → assign ID ranges to team members
 ================================================================ */
 
 /* ── Initialise logged-in users list ── */
@@ -86,6 +87,9 @@ const initApp = async () => {
                         <button class="btn btn-secondary layer-btn dashboard" data-tb="${tb_name}">
                             Dashboard
                         </button>
+                        <button class="btn btn-assign layer-btn assignBtn" data-tb="${tb_name}" title="มอบหมายงาน">
+                            <i class="bi bi-people-fill me-1"></i>มอบหมายงาน
+                        </button>
                         <div class="dropdown d-inline-block mt-1">
                             <button class="btn btn-success dropdown-toggle layer-btn" type="button" id="dropdownMenuButton${tb_name}" data-bs-toggle="dropdown" aria-expanded="false">
                                 <i class="bi bi-download me-1"></i>Download ข้อมูล
@@ -129,10 +133,13 @@ const initApp = async () => {
                             <i class="bi bi-trash3-fill"></i>
                         </button>
                     </div>
+                    <!-- Mini assignment strip -->
+                    <div class="assignment-strip mt-2" id="strip_${tb_name}"></div>
                     <div class="mt-2 border" id="chart_${tb_name}"></div>
                 </div>`;
             layerList.appendChild(wrapper);
             await showChart(tb_name, tb_name);
+            await loadAssignmentStrip(tb_name);
         });
 
         await Promise.all(promises);
@@ -142,6 +149,14 @@ const initApp = async () => {
             btn.addEventListener('click', function () {
                 const tb = this.getAttribute('data-tb');
                 openAddDataModal(tb);
+            });
+        });
+
+        /* ── มอบหมายงาน per-row button ── */
+        document.querySelectorAll('.assignBtn').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const tb = this.getAttribute('data-tb');
+                openAssignModal(tb);
             });
         });
 
@@ -172,7 +187,6 @@ const initApp = async () => {
             btn.addEventListener('click', function (e) {
                 e.preventDefault();
                 const tb = this.getAttribute('data-tb');
-                // Trigger 4 downloads sequentially
                 downloadFile(`/rub/api/download/reshape/${tb}`, `${tb}.geojson`);
                 downloadFile(`/rub/api/download/reshape/v_reclass_${tb}`, `v_reclass_${tb}.geojson`);
                 downloadFile(`/rub/api/download/reshape/v_reclass_${tb}?type=rubber`, `v_reclass_rubber_${tb}.geojson`);
@@ -421,7 +435,6 @@ function setSelectedFile(file) {
         display.innerHTML = '';
         display.style.display = 'none';
     });
-    // Assign file to input (for browsers that support DataTransfer)
     try {
         const dt = new DataTransfer();
         dt.items.add(file);
@@ -498,6 +511,384 @@ document.getElementById('btnAddData').addEventListener('click', async () => {
 });
 
 
+/* ═════════════════════════════════════════════════════════════
+   MODAL 3 – มอบหมายงาน (Task Assignment)
+═════════════════════════════════════════════════════════════ */
+
+let assignModal = null;
+let currentAssignTb = null;
+let allUsers = [];
+
+/* ── โหลด users ไว้ใน cache ── */
+async function loadUsersCache() {
+    try {
+        const res = await fetch('/rub/api/users');
+        allUsers = await res.json();
+    } catch (e) {
+        allUsers = [];
+    }
+}
+
+/* ── เปิด Modal ── */
+async function openAssignModal(tb_name) {
+    currentAssignTb = tb_name;
+    if (!assignModal) {
+        assignModal = new bootstrap.Modal(document.getElementById('assignModal'));
+    }
+
+    // set badge
+    document.getElementById('assignModalTbBadge').textContent = tb_name;
+    document.getElementById('assign_tb_name').value = tb_name;
+
+    // reset form
+    resetAssignForm();
+
+    // render user picker
+    renderAssigneePicker(null);
+
+    // load existing assignments
+    await renderAssignmentList(tb_name);
+
+    assignModal.show();
+}
+
+/* ── Render assignee picker จาก users table ── */
+function renderAssigneePicker(selectedName) {
+    const picker = document.getElementById('assigneePicker');
+    picker.innerHTML = '';
+
+    if (allUsers.length === 0) {
+        picker.innerHTML = '<small class="text-muted">ไม่มีผู้ใช้ในระบบ (ใช้ช่องพิมพ์ด้านล่างแทน)</small>';
+        return;
+    }
+
+    allUsers.forEach(u => {
+        const chip = document.createElement('div');
+        chip.className = 'assignee-chip';
+        if (selectedName === u.display_name) chip.classList.add('selected');
+        chip.dataset.name = u.display_name;
+        chip.dataset.photo = u.photo || '';
+        chip.innerHTML = `
+            <img src="${u.photo || ''}" onerror="this.style.display='none'">
+            <span>${u.display_name}</span>
+        `;
+        chip.addEventListener('click', () => {
+            document.querySelectorAll('.assignee-chip').forEach(c => c.classList.remove('selected'));
+            chip.classList.add('selected');
+            document.getElementById('assign_name').value = u.display_name;
+            document.getElementById('assign_photo').value = u.photo || '';
+            document.getElementById('assign_name_manual').value = '';
+        });
+        picker.appendChild(chip);
+    });
+}
+
+/* ── Reset form ── */
+function resetAssignForm() {
+    document.getElementById('assign_id').value = '';
+    document.getElementById('assign_name').value = '';
+    document.getElementById('assign_photo').value = '';
+    document.getElementById('assign_name_manual').value = '';
+    document.getElementById('assign_id_from').value = '';
+    document.getElementById('assign_id_to').value = '';
+    document.getElementById('assign_note').value = '';
+    document.getElementById('assignFormTitle').innerHTML = '<i class="bi bi-plus-circle me-1"></i>เพิ่มการมอบหมายงานใหม่';
+    document.getElementById('btnCancelAssignEdit').style.display = 'none';
+    document.querySelectorAll('.assignee-chip').forEach(c => c.classList.remove('selected'));
+}
+
+/* ── แสดงรายการ assignments ── */
+async function renderAssignmentList(tb_name) {
+    const listEl = document.getElementById('assignmentList');
+    listEl.innerHTML = '<div class="text-muted text-center py-2"><span class="spinner-border spinner-border-sm"></span></div>';
+
+    try {
+        const res = await fetch(`/rub/api/task-assignments/${tb_name}`);
+        const { data } = await res.json();
+
+        if (!data || data.length === 0) {
+            listEl.innerHTML = `<div class="assign-empty">
+                <i class="bi bi-inbox" style="font-size:2rem; color:#a5d6a7;"></i>
+                <div class="mt-1">ยังไม่มีการมอบหมายงาน</div>
+            </div>`;
+            return;
+        }
+
+        // Sort by id_from
+        data.sort((a, b) => a.id_from - b.id_from);
+
+        listEl.innerHTML = '';
+
+        // Visualise ID range bar
+        const maxId = Math.max(...data.map(d => d.id_to));
+
+        // Color palette
+        const palette = [
+            '#4CAF50', '#2196F3', '#FF9800', '#9C27B0',
+            '#F44336', '#00BCD4', '#FF5722', '#795548'
+        ];
+
+        // Group by assignee to assign consistent color
+        const colorMap = {};
+        let colorIdx = 0;
+        data.forEach(d => {
+            if (!colorMap[d.assignee_name]) {
+                colorMap[d.assignee_name] = palette[colorIdx % palette.length];
+                colorIdx++;
+            }
+        });
+
+        // Render header summary
+        const summaryDiv = document.createElement('div');
+        summaryDiv.className = 'assign-summary mb-3';
+
+        // ID range visualization
+        const vizDiv = document.createElement('div');
+        vizDiv.className = 'assign-range-viz mb-3';
+        vizDiv.innerHTML = `<div class="assign-range-label">ภาพรวม ID Range</div>`;
+
+        const rangeBar = document.createElement('div');
+        rangeBar.className = 'assign-range-bar';
+
+        data.forEach(d => {
+            const pct_start = ((d.id_from - 1) / maxId) * 100;
+            const pct_width = ((d.id_to - d.id_from + 1) / maxId) * 100;
+            const seg = document.createElement('div');
+            seg.className = 'assign-range-seg';
+            seg.style.left = `${pct_start}%`;
+            seg.style.width = `${pct_width}%`;
+            seg.style.background = colorMap[d.assignee_name];
+            seg.title = `${d.assignee_name}: ID ${d.id_from}–${d.id_to}`;
+            rangeBar.appendChild(seg);
+        });
+        vizDiv.appendChild(rangeBar);
+
+        // Range labels
+        const labelRow = document.createElement('div');
+        labelRow.className = 'assign-range-labels';
+        data.forEach(d => {
+            const lbl = document.createElement('span');
+            lbl.className = 'assign-range-tick';
+            lbl.style.left = `${((d.id_from - 1) / maxId) * 100}%`;
+            lbl.textContent = d.id_from;
+            labelRow.appendChild(lbl);
+        });
+        // Last id label
+        const lastLbl = document.createElement('span');
+        lastLbl.className = 'assign-range-tick';
+        lastLbl.style.left = '100%';
+        lastLbl.style.transform = 'translateX(-100%)';
+        lastLbl.textContent = maxId;
+        labelRow.appendChild(lastLbl);
+        vizDiv.appendChild(labelRow);
+
+        listEl.appendChild(vizDiv);
+
+        // Render each row
+        const rowsDiv = document.createElement('div');
+        rowsDiv.className = 'assign-rows';
+
+        data.forEach(d => {
+            const color = colorMap[d.assignee_name];
+            const row = document.createElement('div');
+            row.className = 'assign-row';
+            row.innerHTML = `
+                <div class="assign-row-color" style="background:${color};"></div>
+                <div class="assign-row-avatar">
+                    ${d.assignee_photo
+                    ? `<img src="${d.assignee_photo}" class="assign-avatar" onerror="this.style.display='none'">`
+                    : `<div class="assign-avatar-placeholder" style="background:${color};">${d.assignee_name.charAt(0).toUpperCase()}</div>`
+                }
+                </div>
+                <div class="assign-row-info">
+                    <div class="assign-row-name">${d.assignee_name}</div>
+                    <div class="assign-row-range">
+                        <span class="assign-badge" style="background:${color};">ID ${d.id_from} – ${d.id_to}</span>
+                        <span class="assign-count">(${d.id_to - d.id_from + 1} รายการ)</span>
+                        ${d.note ? `<span class="assign-note-text">• ${d.note}</span>` : ''}
+                    </div>
+                </div>
+                <div class="assign-row-actions">
+                    <button class="btn btn-sm btn-outline-primary assign-edit-btn" data-id="${d.id}" title="แก้ไข">
+                        <i class="bi bi-pencil-fill"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger assign-del-btn" data-id="${d.id}" title="ลบ">
+                        <i class="bi bi-trash3-fill"></i>
+                    </button>
+                </div>
+            `;
+            rowsDiv.appendChild(row);
+        });
+
+        listEl.appendChild(rowsDiv);
+
+        // Edit button handler
+        listEl.querySelectorAll('.assign-edit-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const rowId = btn.getAttribute('data-id');
+                const d = data.find(x => x.id == rowId);
+                if (!d) return;
+
+                document.getElementById('assign_id').value = d.id;
+                document.getElementById('assign_name').value = d.assignee_name;
+                document.getElementById('assign_photo').value = d.assignee_photo || '';
+                document.getElementById('assign_name_manual').value = '';
+                document.getElementById('assign_id_from').value = d.id_from;
+                document.getElementById('assign_id_to').value = d.id_to;
+                document.getElementById('assign_note').value = d.note || '';
+                document.getElementById('assignFormTitle').innerHTML =
+                    '<i class="bi bi-pencil-fill me-1"></i>แก้ไขการมอบหมายงาน';
+                document.getElementById('btnCancelAssignEdit').style.display = 'inline-flex';
+
+                // Highlight chip
+                renderAssigneePicker(d.assignee_name);
+
+                // Scroll to form
+                document.getElementById('assignFormCard').scrollIntoView({ behavior: 'smooth' });
+            });
+        });
+
+        // Delete button handler
+        listEl.querySelectorAll('.assign-del-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const rowId = btn.getAttribute('data-id');
+                const d = data.find(x => x.id == rowId);
+                if (!d) return;
+                if (!confirm(`ลบการมอบหมาย "${d.assignee_name} (ID ${d.id_from}–${d.id_to})" ใช่หรือไม่?`)) return;
+
+                try {
+                    const res = await fetch(`/rub/api/task-assignments/${rowId}`, { method: 'DELETE' });
+                    const result = await res.json();
+                    if (result.success) {
+                        await renderAssignmentList(tb_name);
+                        await loadAssignmentStrip(tb_name);
+                    } else {
+                        alert(`เกิดข้อผิดพลาด: ${result.error}`);
+                    }
+                } catch (err) {
+                    alert(`เกิดข้อผิดพลาด: ${err.message}`);
+                }
+            });
+        });
+
+    } catch (err) {
+        listEl.innerHTML = `<div class="text-danger">โหลดข้อมูลไม่ได้: ${err.message}</div>`;
+    }
+}
+
+/* ── Save assignment ── */
+document.getElementById('btnSaveAssign').addEventListener('click', async () => {
+    const assignId = document.getElementById('assign_id').value;
+    const tb_name = document.getElementById('assign_tb_name').value;
+    let name = document.getElementById('assign_name').value.trim();
+    const nameManual = document.getElementById('assign_name_manual').value.trim();
+    const photo = document.getElementById('assign_photo').value.trim();
+    const id_from = document.getElementById('assign_id_from').value;
+    const id_to = document.getElementById('assign_id_to').value;
+    const note = document.getElementById('assign_note').value.trim();
+
+    // ถ้าพิมพ์ชื่อเองให้ใช้
+    if (!name && nameManual) name = nameManual;
+
+    if (!name) { alert('กรุณาเลือกหรือพิมพ์ชื่อผู้รับผิดชอบ'); return; }
+    if (!id_from || !id_to) { alert('กรุณากรอก ID เริ่มต้น และ ID สิ้นสุด'); return; }
+    if (parseInt(id_from) > parseInt(id_to)) { alert('ID เริ่มต้นต้องไม่มากกว่า ID สิ้นสุด'); return; }
+
+    const btn = document.getElementById('btnSaveAssign');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>กำลังบันทึก...';
+
+    try {
+        let res;
+        if (assignId) {
+            // Update
+            res = await fetch(`/rub/api/task-assignments/${assignId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ assignee_name: name, assignee_photo: photo, id_from, id_to, note })
+            });
+        } else {
+            // Create
+            res = await fetch(`/rub/api/task-assignments`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tb_name, assignee_name: name, assignee_photo: photo, id_from, id_to, note })
+            });
+        }
+        const result = await res.json();
+        if (result.success) {
+            resetAssignForm();
+            renderAssigneePicker(null);
+            await renderAssignmentList(tb_name);
+            await loadAssignmentStrip(tb_name);
+        } else {
+            alert(`เกิดข้อผิดพลาด: ${result.error}`);
+        }
+    } catch (err) {
+        alert(`เกิดข้อผิดพลาด: ${err.message}`);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-check-circle me-1"></i>บันทึก';
+    }
+});
+
+/* ── Cancel edit ── */
+document.getElementById('btnCancelAssignEdit').addEventListener('click', () => {
+    resetAssignForm();
+    renderAssigneePicker(null);
+});
+
+/* ── Mini assignment strip inside layer card (with progress) ── */
+async function loadAssignmentStrip(tb_name) {
+    const stripEl = document.getElementById(`strip_${tb_name}`);
+    if (!stripEl) return;
+
+    try {
+        const res = await fetch(`/rub/api/task-progress/${tb_name}`);
+        const { data } = await res.json();
+
+        if (!data || data.length === 0) {
+            stripEl.innerHTML = '';
+            return;
+        }
+
+        const palette = ['#4CAF50', '#2196F3', '#FF9800', '#9C27B0', '#F44336', '#00BCD4', '#FF5722', '#795548'];
+        const colorMap = {};
+        let ci = 0;
+        data.forEach(d => {
+            if (!colorMap[d.assignee_name]) { colorMap[d.assignee_name] = palette[ci++ % palette.length]; }
+        });
+
+        stripEl.innerHTML = data.map(d => {
+            const c = colorMap[d.assignee_name];
+            const pct = d.pct || 0;
+            let tsStr = '';
+            if (d.last_ts) {
+                const dt = new Date(d.last_ts);
+                tsStr = `<span class="strip-ts"> · ${dt.toLocaleDateString('th-TH', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}น.</span>`;
+            }
+            return `
+            <div class="strip-progress-block" style="border-color:${c}33;">
+                <div class="strip-progress-header">
+                    <span class="strip-dot" style="background:${c};"></span>
+                    <span class="strip-progress-name" style="color:${c};">${d.assignee_name}</span>
+                    <span class="strip-id-range">ID ${d.id_from}–${d.id_to}</span>
+                    <span class="strip-pct" style="color:${c};">${pct}%</span>
+                    ${tsStr}
+                </div>
+                <div class="strip-bar-bg">
+                    <div class="strip-bar-fill" style="width:${pct}%; background:${c};"></div>
+                </div>
+                <div class="strip-progress-sub">${d.done}/${d.total} แปลง
+                    ${d.last_editor ? `· แก้ล่าสุดโดย <b>${d.last_editor}</b>` : ''}
+                </div>
+            </div>`;
+        }).join('');
+    } catch (e) {
+        stripEl.innerHTML = '';
+    }
+}
+
 
 /* ── Bootstrap DOMContentLoaded: auth check → init ── */
 document.addEventListener('DOMContentLoaded', async () => {
@@ -524,6 +915,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
 
+        await loadUsersCache();
         await initApp();
         await initUser();
     } catch (err) {
