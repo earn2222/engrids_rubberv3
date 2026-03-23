@@ -379,21 +379,26 @@ const loadGeoData = async () => {
                 {
                     data: 'reviewer',
                     title: 'ผู้ตรวจสอบ',
+                    width: '280px',
                     render: (data, type, row) => {
                         if (type === 'sort' || type === 'filter' || type === 'type') {
                             return data || '';
                         }
-                        if (!data) return '<span class="text-muted">-</span>';
+                        
                         let dateStr = '';
                         if (row.review_ts) {
                             const date = new Date(row.review_ts);
                             const options = { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' };
-                            dateStr = `<div class="text-muted mt-1" style="font-size: 0.75rem;"><i class="bi bi-clock"></i> ${date.toLocaleDateString('th-TH', options)}น.</div>`;
+                            dateStr = `<div class="text-muted mt-1 reviewer-time" style="font-size: 0.75rem;"><i class="bi bi-clock"></i> ${date.toLocaleDateString('th-TH', options)}น.</div>`;
                         }
                         return `
                         <div class="d-flex justify-content-between align-items-start">
-                            <div class="reviewer-badge-container">
-                                <span class="badge bg-success bg-opacity-75">${data}</span>${dateStr}
+                            <div class="reviewer-input-container" style="flex-grow: 1;">
+                                <input type="text" class="form-control form-control-sm review-reviewer" 
+                                    data-subid="${row.sub_id}" 
+                                    value="${data || ''}" 
+                                    placeholder="ชื่อผู้ตรวจ...">
+                                ${dateStr}
                             </div>
                             <button class="btn btn-sm btn-link text-danger p-0 ms-2 btn-clear-review" data-subid="${row.sub_id}" title="ลบข้อมูลการตรวจแถวนี้">
                                 <i class="bi bi-x-circle-fill"></i>
@@ -425,6 +430,16 @@ const loadGeoData = async () => {
             pageLength: 10,
             select: true,
             destroy: true,
+        });
+
+        // Auto-fill reviewer name when changing status
+        $('#featureTable tbody').on('change', '.review-check-area, .review-check-shape', function() {
+            const row = $(this).closest('tr');
+            const reviewerInputEl = row.find('.review-reviewer');
+            const displayName = document.getElementById('display-name')?.textContent || '';
+            if (displayName && !reviewerInputEl.val()) {
+                reviewerInputEl.val(displayName);
+            }
         });
 
         // แก้ปัญหาตารางไม่ตรงช่องเมื่อวาดเสร็จ
@@ -575,6 +590,7 @@ const loadGeoData = async () => {
             const checkShape = row.find('.review-check-shape').val();
             const remark = row.find('.review-remark').val();
             const userRemark = row.find('.user-remark').val();
+            const reviewerInput = row.find('.review-reviewer').val();
             const tb = document.getElementById('tb').value;
 
             // Get reviewer name from profile
@@ -594,11 +610,16 @@ const loadGeoData = async () => {
                 (checkShape !== originalCheckShape) ||
                 (remark !== originalRemark);
 
-            // If Review fields changed -> Update Reviewer to current user (displayName)
-            // If ONLY User Remark changed (or no review change) -> Keep existing Reviewer
-            let reviewerToSave = currentReviewer;
-            if (isReviewChanged) {
+            // If input is empty and review changed, auto-fill with displayName
+            let reviewerToSave = reviewerInput;
+            if (!reviewerToSave && displayName) {
                 reviewerToSave = displayName;
+                row.find('.review-reviewer').val(displayName);
+            }
+            
+            // If still no reviewer name, fallback to current 
+            if (!reviewerToSave) {
+                reviewerToSave = currentReviewer;
             }
 
             btn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i>');
@@ -622,25 +643,21 @@ const loadGeoData = async () => {
                     btn.html('<i class="bi bi-check-lg"></i> สำเร็จ').addClass('btn-review-saved');
                     const updatedTs = data.data && data.data[0] ? data.data[0].review_ts : new Date().toISOString();
 
-                    // Update reviewer badge in the row
-                    const reviewerCell = row.find('td').eq(-3); // reviewer column
+                    // Update reviewer input and timestamp in the row
                     if (reviewerToSave) {
                         let dateStr = '';
                         if (updatedTs) {
                             const date = new Date(updatedTs);
                             const options = { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' };
-                            dateStr = `<div class="text-muted mt-1" style="font-size: 0.75rem;"><i class="bi bi-clock"></i> ${date.toLocaleDateString('th-TH', options)}น.</div>`;
+                            dateStr = `<div class="text-muted mt-1 reviewer-time" style="font-size: 0.75rem;"><i class="bi bi-clock"></i> ${date.toLocaleDateString('th-TH', options)}น.</div>`;
                         }
-                        const htmlContent = `
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div class="reviewer-badge-container">
-                                <span class="badge bg-success bg-opacity-75">${reviewerToSave}</span>${dateStr}
-                            </div>
-                            <button class="btn btn-sm btn-link text-danger p-0 ms-2 btn-clear-review" data-subid="${subId}" title="ลบข้อมูลการตรวจแถวนี้">
-                                <i class="bi bi-x-circle-fill"></i>
-                            </button>
-                        </div>`;
-                        reviewerCell.html(htmlContent);
+                        
+                        const container = row.find('.reviewer-input-container');
+                        if (container.length) {
+                            container.find('.review-reviewer').val(reviewerToSave);
+                            container.find('.reviewer-time').remove();
+                            container.append(dateStr);
+                        }
                     }
 
                     // Update internal DataTable data so next save compares correctly against these new values
@@ -723,9 +740,9 @@ const loadGeoData = async () => {
                     row.find('.review-check-area').val('');
                     row.find('.review-check-shape').val('');
                     row.find('.review-remark').val('');
-
-                    const reviewerCell = row.find('td').eq(-3);
-                    reviewerCell.html('<span class="text-muted">-</span>');
+                    
+                    row.find('.review-reviewer').val('');
+                    row.find('.reviewer-time').remove();
                 } else {
                     alert('ลบไม่สำเร็จ: ' + (data.error || 'Unknown error'));
                     btn.html('<i class="bi bi-x-circle-fill"></i>').prop('disabled', false);

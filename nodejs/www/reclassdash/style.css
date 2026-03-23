@@ -346,6 +346,25 @@ table.dataTable tbody tr.even {
     padding: 6px 12px;
 }
 
+.review-reviewer {
+    min-width: 180px;
+    font-size: 0.85rem;
+    padding: 4px 8px;
+    border-color: rgba(76, 175, 80, 0.4);
+    background-color: #fafffa;
+}
+
+.review-reviewer:focus {
+    border-color: #2e7d32;
+    background-color: #ffffff;
+}
+
+.reviewer-input-container {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
 .user-remark {
     border-color: rgba(33, 150, 243, 0.3);
     background-color: #f0f7ff;
