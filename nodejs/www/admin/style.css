@@ -7,8 +7,8 @@ body {
     font-weight: 400;
     font-style: normal;
     font-variation-settings: "wdth" 100;
-    background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 40%, #e0f2f1 100%) !important;
-    color: #2e3a2e !important;
+    background: linear-gradient(135deg, #f8faf8 0%, #f1f4f1 40%, #eef1ee 100%) !important;
+    color: #2d3e2d !important;
 }
 
 h1,
@@ -18,7 +18,7 @@ h4,
 h5,
 h6 {
     font-family: "Noto Sans Thai", serif !important;
-    color: #2e7d32 !important;
+    color: #4a7c59 !important;
 }
 
 .btn,
@@ -204,10 +204,10 @@ h6 {
 }
 
 .btn-light {
-    background: linear-gradient(135deg, #66bb6a, #43a047) !important;
+    background: linear-gradient(135deg, #6b9c75, #4a7c59) !important;
     border: none !important;
     color: #fff !important;
-    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.2);
+    box-shadow: 0 2px 8px rgba(74, 124, 89, 0.2);
 }
 
 .btn-light:hover {
@@ -644,8 +644,8 @@ a:hover {
     transition: all 0.22s ease;
 }
 .btn-assign:hover {
-    background: linear-gradient(135deg, #9c27b0, #4a148c) !important;
-    box-shadow: 0 4px 14px rgba(123, 31, 162, 0.32) !important;
+    background: linear-gradient(135deg, #6b9c75, #4a7c59) !important;
+    box-shadow: 0 4px 14px rgba(74, 124, 89, 0.25) !important;
     transform: translateY(-1px);
     color: #fff !important;
 }

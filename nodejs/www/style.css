@@ -15,8 +15,8 @@ body {
     font-weight: 400;
     font-style: normal;
     font-variation-settings: "wdth" 100;
-    background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 40%, #e0f2f1 100%) !important;
-    color: #2e3a2e !important;
+    background: linear-gradient(135deg, #f8faf8 0%, #f1f4f1 40%, #eef1ee 100%) !important;
+    color: #2d3e2d !important;
 }
 
 /* ===== Page Header / Title ===== */
@@ -30,28 +30,28 @@ body {
 .page-header .page-icon {
     width: 48px;
     height: 48px;
-    background: linear-gradient(135deg, #66bb6a, #2e7d32);
+    background: linear-gradient(135deg, #6b9c75, #4a7c59);
     border-radius: 14px;
     display: flex;
     align-items: center;
     justify-content: center;
     color: #fff;
     font-size: 1.5rem;
-    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+    box-shadow: 0 4px 12px rgba(74, 124, 89, 0.2);
     flex-shrink: 0;
 }
 
 .page-header h1 {
     font-size: 1.5rem;
     font-weight: 700;
-    color: #2e7d32;
+    color: #4a7c59;
     margin: 0;
     letter-spacing: 0.02em;
 }
 
 .page-header p {
     font-size: 1rem;
-    color: #689f63;
+    color: #6b9c75;
     margin: 0;
 }
 
@@ -92,7 +92,7 @@ h6 {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: #388e3c;
+    color: #4a7c59;
     margin-bottom: 0.5rem;
     display: flex;
     align-items: center;
@@ -102,7 +102,7 @@ h6 {
 .label i,
 .section-title i {
     font-size: 1rem;
-    color: #43a047;
+    color: #6b9c75;
 }
 
 /* ===== User Panel ===== */
@@ -111,7 +111,7 @@ h6 {
 }
 
 #user-panel .dropdown-toggle {
-    color: #2e7d32;
+    color: #4a7c59;
     font-weight: 500;
     font-size: 1rem;
 }
@@ -139,9 +139,10 @@ h6 {
 /* ===== Premium Dropdown for Download ===== */
 .premium-dropdown-menu {
     z-index: 1080 !important;
-    border: 1px solid rgba(76, 175, 80, 0.15) !important;
+    background: #ffffff !important;
+    border: 1px solid rgba(74, 124, 89, 0.1) !important;
     border-radius: 14px !important;
-    box-shadow: 0 12px 35px rgba(46, 125, 50, 0.12) !important;
+    box-shadow: 0 12px 35px rgba(45, 62, 45, 0.1) !important;
     padding: 0.5rem !important;
     background: rgba(255, 255, 255, 1) !important;
     backdrop-filter: none !important;
@@ -217,10 +218,10 @@ h6 {
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #66bb6a, #43a047);
+    background: linear-gradient(135deg, #6b9c75, #4a7c59);
     border: none;
     color: #fff;
-    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.2);
+    box-shadow: 0 2px 8px rgba(74, 124, 89, 0.2);
 }
 
 .btn-primary:hover {
@@ -490,9 +491,9 @@ hr {
 }
 
 .home-assignee-card.is-me {
-    background: linear-gradient(135deg, #f3e5f5, #ffffff);
-    border: 2px solid #7b1fa2;
-    color: #4a148c;
+    background: linear-gradient(135deg, #f9fbf9, #ffffff);
+    border: 2px solid #4a7c59;
+    color: #2d3e2d;
     position: relative;
     padding-right: 0.8rem;
 }
@@ -514,19 +515,19 @@ hr {
 }
 
 .is-me .ha-range {
-    background: rgba(123, 31, 162, 0.1);
-    color: #7b1fa2;
+    background: rgba(74, 124, 89, 0.1);
+    color: #4a7c59;
 }
 
 .btn-work-now {
-    background: linear-gradient(135deg, #7b1fa2, #4a148c);
+    background: linear-gradient(135deg, #6b9c75, #4a7c59);
     color: #fff !important;
     border: none;
     border-radius: 20px;
     padding: 0.25rem 0.85rem;
     font-size: 0.82rem;
     font-weight: 700;
-    box-shadow: 0 4px 10px rgba(123, 31, 162, 0.3);
+    box-shadow: 0 4px 10px rgba(74, 124, 89, 0.25);
     margin-left: auto;
     text-decoration: none;
     display: inline-flex;
@@ -556,7 +557,7 @@ hr {
 }
 
 .badge-my-work {
-    background: #7b1fa2;
+    background: #4a7c59;
     color: #fff;
     font-size: 0.7rem;
     padding: 2px 7px;
@@ -628,10 +629,10 @@ hr {
 }
 
 .btn-primary-premium {
-    background: linear-gradient(135deg, #66bb6a, #2e7d32);
+    background: linear-gradient(135deg, #6b9c75, #4a7c59);
     color: white !important;
     border: none;
-    box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+    box-shadow: 0 4px 15px rgba(74, 124, 89, 0.2);
 }
 
 .btn-primary-premium:hover {

@@ -16,8 +16,8 @@ body {
     font-weight: 400;
     font-style: normal;
     font-variation-settings: "wdth" 100;
-    background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 40%, #e0f2f1 100%);
-    color: #2e3a2e;
+    background: linear-gradient(135deg, #f8faf8 0%, #f1f4f1 40%, #eef1ee 100%);
+    color: #2d3e2d;
 }
 
 /* ===== Full-height Layout ===== */
@@ -76,8 +76,8 @@ body {
     min-height: 0;
     position: relative;
     border-radius: 16px;
-    border: 2px solid rgba(76, 175, 80, 0.25);
-    box-shadow: 0 4px 24px rgba(76, 175, 80, 0.10), 0 1px 6px rgba(0, 0, 0, 0.04);
+    border: 2px solid rgba(74, 124, 89, 0.15);
+    box-shadow: 0 4px 24px rgba(74, 124, 89, 0.08), 0 1px 6px rgba(0, 0, 0, 0.04);
     overflow: hidden;
 }
 
@@ -106,16 +106,12 @@ body {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: #388e3c;
-    margin-bottom: 0.5rem;
-    display: flex;
-    align-items: center;
-    gap: 6px;
+    color: #4a7c59;
 }
 
 .section-title i {
     font-size: 1rem;
-    color: #43a047;
+    color: #6b9c75;
 }
 
 /* ===== User Panel ===== */
@@ -242,15 +238,15 @@ body {
 }
 
 .btn-success {
-    background: linear-gradient(135deg, #66bb6a, #2e7d32);
+    background: linear-gradient(135deg, #6b9c75, #4a7c59);
     border: none;
     color: #fff;
-    box-shadow: 0 2px 8px rgba(46, 125, 50, 0.2);
+    box-shadow: 0 2px 8px rgba(74, 124, 89, 0.2);
 }
 
 .btn-success:hover {
-    background: linear-gradient(135deg, #4caf50, #1b5e20);
-    box-shadow: 0 4px 14px rgba(46, 125, 50, 0.35);
+    background: linear-gradient(135deg, #5c8b67, #3d664a);
+    box-shadow: 0 4px 14px rgba(74, 124, 89, 0.35);
     transform: translateY(-1px);
 }
 

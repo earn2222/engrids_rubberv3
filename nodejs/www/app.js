@@ -94,26 +94,26 @@ async function showAssigneeSelect(event, tb, targetType) {
         const allOption = document.createElement('button');
         allOption.className = `btn btn-item-premium w-100 text-start d-flex align-items-center mb-2 px-3 py-2 rounded-card-premium transition-all border-0 shadow-sm`;
         allOption.style.borderRadius = '15px';
-        allOption.style.background = 'linear-gradient(135deg, #ffffff, #f1f8e9)';
+        allOption.style.background = 'linear-gradient(135deg, #ffffff, #f9fbf9)';
         allOption.innerHTML = `
             <div class="d-flex align-items-center w-100">
                 <div class="rounded-circle d-flex align-items-center justify-content-center text-white me-3" 
-                     style="width: 42px; height: 42px; background: linear-gradient(135deg, #81c784, #388e3c); box-shadow: 0 4px 10px rgba(76, 175, 80, 0.25);">
+                     style="width: 42px; height: 42px; background: linear-gradient(135deg, #6b9c75, #4a7c59); box-shadow: 0 4px 10px rgba(74, 124, 89, 0.2);">
                     <i class="bi bi-people-fill" style="font-size: 1.2rem;"></i>
                 </div>
                 <div class="flex-grow-1">
                     <div class="d-flex justify-content-between align-items-end">
-                        <div class="fw-bold" style="color: #1b5e20;">ดูทั้งหมด</div>
-                        <div class="small fw-bold" style="color: #2e7d32; font-size: 0.85rem;">${totalPct}%</div>
+                        <div class="fw-bold" style="color: #2d3e2d;">ดูทั้งหมด</div>
+                        <div class="small fw-bold" style="color: #4a7c59; font-size: 0.85rem;">${totalPct}%</div>
                     </div>
-                    <div class="progress mt-1 mb-1" style="height: 6px; border-radius: 10px; background-color: rgba(76, 175, 80, 0.1);">
-                        <div class="progress-bar" role="progressbar" style="width: ${totalPct}%; background: linear-gradient(90deg, #66bb6a, #43a047); border-radius: 10px;" 
+                    <div class="progress mt-1 mb-1" style="height: 6px; border-radius: 10px; background-color: rgba(74, 124, 89, 0.1);">
+                        <div class="progress-bar" role="progressbar" style="width: ${totalPct}%; background: #5ea36a; border-radius: 10px;" 
                              aria-valuenow="${totalPct}" aria-valuemin="0" aria-valuemax="100"></div>
                     </div>
-                    <div class="small" style="color: #689f63; font-size: 0.75rem;">ความคืบหน้าภาพรวม (${totalDone}/${totalTotal} แปลง)</div>
+                    <div class="small" style="color: #6a8c6a; font-size: 0.75rem;">ความคืบหน้าภาพรวม (${totalDone}/${totalTotal} แปลง)</div>
                 </div>
             </div>
-            <i class="bi bi-chevron-right ms-2" style="color: #388e3c; font-size: 1.1rem;"></i>
+            <i class="bi bi-chevron-right ms-2" style="color: #4a7c59; font-size: 1.1rem;"></i>
         `;
         allOption.onclick = () => {
             modal.hide();
@@ -126,11 +126,17 @@ async function showAssigneeSelect(event, tb, targetType) {
             const btn = document.createElement('button');
             btn.className = `btn ${isMe ? 'btn-primary-premium' : 'btn-item-premium'} w-100 text-start d-flex align-items-center mb-2 px-3 py-2 rounded-card-premium transition-all border-0 shadow-sm`;
             btn.style.borderRadius = '15px';
+            if (isMe) {
+                btn.style.background = 'linear-gradient(135deg, #5ea36a, #4a7c59)';
+                btn.style.boxShadow = '0 6px 15px rgba(74, 124, 89, 0.25)';
+            } else {
+                btn.style.background = '#ffffff';
+            }
             
             const avatarHtml = item.assignee_photo 
-                ? `<img src="${item.assignee_photo}" class="rounded-circle me-3" style="width: 42px; height: 42px; object-fit: cover; border: 2px solid ${isMe ? 'rgba(255,255,255,0.8)' : '#e8f5e9'}" onerror="this.onerror=null; this.outerHTML='<div class=\\'rounded-circle d-flex align-items-center justify-content-center me-3\\' style=\\'width: 42px; height: 42px; background: ${isMe ? 'rgba(255,255,255,0.2)' : '#e8f5e9'}; border: 2px solid ${isMe ? 'rgba(255,255,255,0.5)' : '#c8e6c9'}\\'><i class=\\'bi bi-person-fill ${isMe ? 'text-white' : 'text-success'}\\' style=\\'font-size: 1.2rem;\\'></i></div>';">`
+                ? `<img src="${item.assignee_photo}" class="rounded-circle me-3" style="width: 42px; height: 42px; object-fit: cover; border: 2px solid ${isMe ? 'rgba(255,255,255,0.6)' : '#f1f7f1'}" onerror="this.onerror=null; this.outerHTML='<div class=\\'rounded-circle d-flex align-items-center justify-content-center me-3\\' style=\\'width: 42px; height: 42px; background: ${isMe ? 'rgba(255,255,255,0.15)' : '#f1f7f1'}; border: 2px solid ${isMe ? 'rgba(255,255,255,0.4)' : '#e3eddf'}\\'><i class=\\'bi bi-person-fill ${isMe ? 'text-white' : 'text-success'}\\' style=\\'font-size: 1.2rem;\\'></i></div>';">`
                 : `<div class="rounded-circle d-flex align-items-center justify-content-center me-3" 
-                        style="width: 42px; height: 42px; background: ${isMe ? 'rgba(255,255,255,0.2)' : '#e8f5e9'}; border: 2px solid ${isMe ? 'rgba(255,255,255,0.5)' : '#c8e6c9'}">
+                        style="width: 42px; height: 42px; background: ${isMe ? 'rgba(255,255,255,0.15)' : '#f1f7f1'}; border: 2px solid ${isMe ? 'rgba(255,255,255,0.4)' : '#e3eddf'}">
                     <i class="bi bi-person-fill ${isMe ? 'text-white' : 'text-success'}" style="font-size: 1.2rem;"></i>
                    </div>`;
 
@@ -139,14 +145,14 @@ async function showAssigneeSelect(event, tb, targetType) {
                     ${avatarHtml}
                     <div class="flex-grow-1">
                         <div class="d-flex justify-content-between align-items-center">
-                            <div class="fw-bold ${isMe ? 'text-white' : 'text-dark'}" style="${!isMe ? 'color: #1b5e20 !important;' : ''}">
+                            <div class="fw-bold ${isMe ? 'text-white' : ''}" style="${!isMe ? 'color: #2d3e2d;' : ''}">
                                 ${item.assignee_name} 
                                 ${isMe ? '<span class="badge bg-white text-success ms-1" style="font-size: 0.65rem; vertical-align: middle; padding: 2px 6px; border-radius: 8px;">คุณ</span>' : ''}
                             </div>
-                            <div class="small fw-bold ${isMe ? 'text-white' : 'text-success'}" style="font-size: 0.85rem;">${item.pct || 0}%</div>
+                            <div class="small fw-bold ${isMe ? 'text-white' : ''}" style="${!isMe ? 'color: #4a7c59;' : ''} font-size: 0.85rem;">${item.pct || 0}%</div>
                         </div>
-                        <div class="progress mt-1 mb-1" style="height: 4px; border-radius: 10px; background-color: ${isMe ? 'rgba(255,255,255,0.2)' : 'rgba(76, 175, 80, 0.1)'};">
-                            <div class="progress-bar" role="progressbar" style="width: ${item.pct || 0}%; background: ${isMe ? '#fff' : 'linear-gradient(90deg, #66bb6a, #43a047)'}; border-radius: 10px;" 
+                        <div class="progress mt-1 mb-1" style="height: 4px; border-radius: 10px; background-color: ${isMe ? 'rgba(255,255,255,0.2)' : 'rgba(74, 124, 89, 0.08)'};">
+                            <div class="progress-bar" role="progressbar" style="width: ${item.pct || 0}%; background: ${isMe ? '#fff' : '#5ea36a'}; border-radius: 10px;" 
                                  aria-valuenow="${item.pct || 0}" aria-valuemin="0" aria-valuemax="100"></div>
                         </div>
                         <div class="d-flex justify-content-between small ${isMe ? 'text-white-50' : 'text-muted'}" style="font-size: 0.7rem;">
@@ -155,7 +161,7 @@ async function showAssigneeSelect(event, tb, targetType) {
                         </div>
                     </div>
                 </div>
-                <i class="bi bi-chevron-right ms-2" style="${isMe ? 'color: rgba(255,255,255,0.8);' : 'color: #388e3c;'} font-size: 1.1rem;"></i>
+                <i class="bi bi-chevron-right ms-2" style="${isMe ? 'color: rgba(255,255,255,0.8);' : 'color: #4a7c59;'} font-size: 1.1rem;"></i>
             `;
             btn.onclick = () => {
                 modal.hide();
@@ -204,10 +210,10 @@ async function loadAssignmentHome(tb_name) {
                         <div class="d-flex align-items-center mb-1">
                             ${avatarHtml}
                             <span class="fw-bold text-truncate" style="max-width: 100px;">${d.assignee_name}</span>
-                            <span class="ms-auto fw-bold" style="font-size: 0.7rem; color: #2e7d32;">${d.pct || 0}%</span>
+                            <span class="ms-auto fw-bold" style="font-size: 0.7rem; color: #4a7c59;">${d.pct || 0}%</span>
                         </div>
-                        <div class="progress" style="height: 4px; border-radius: 10px; background-color: rgba(76, 175, 80, 0.1); margin-bottom: 4px;">
-                            <div class="progress-bar" role="progressbar" style="width: ${d.pct || 0}%; background: linear-gradient(90deg, #66bb6a, #43a047); border-radius: 10px;" 
+                        <div class="progress" style="height: 4px; border-radius: 10px; background-color: rgba(74, 124, 89, 0.1); margin-bottom: 4px;">
+                            <div class="progress-bar" role="progressbar" style="width: ${d.pct || 0}%; background: #5ea36a; border-radius: 10px;" 
                                  aria-valuenow="${d.pct || 0}" aria-valuemin="0" aria-valuemax="100"></div>
                         </div>
                         <span class="ha-range" style="font-size: 0.65rem;">ID ${d.id_from}-${d.id_to} (${d.done}/${d.total})</span>

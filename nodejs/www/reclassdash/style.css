@@ -15,8 +15,8 @@ body {
     font-weight: 400;
     font-style: normal;
     font-variation-settings: "wdth" 100;
-    background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 40%, #e0f2f1 100%);
-    color: #2e3a2e;
+    background: linear-gradient(135deg, #f8faf8 0%, #f1f4f1 40%, #eef1ee 100%);
+    color: #2d3e2d;
 }
 
 /* ===== Map ===== */
@@ -24,8 +24,8 @@ body {
     height: 100%;
     min-height: 600px;
     border-radius: 16px;
-    border: 2px solid rgba(76, 175, 80, 0.25);
-    box-shadow: 0 4px 24px rgba(76, 175, 80, 0.10), 0 1px 6px rgba(0, 0, 0, 0.04);
+    border: 2px solid rgba(74, 124, 89, 0.15);
+    box-shadow: 0 4px 24px rgba(74, 124, 89, 0.08), 0 1px 6px rgba(0, 0, 0, 0.04);
     overflow: hidden;
     width: 100%;
 }
@@ -35,9 +35,9 @@ body {
     background: rgba(255, 255, 255, 0.82);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(76, 175, 80, 0.18);
+    border: 1px solid rgba(74, 124, 89, 0.12);
     border-radius: 14px;
-    box-shadow: 0 2px 16px rgba(76, 175, 80, 0.08), 0 1px 4px rgba(0, 0, 0, 0.03);
+    box-shadow: 0 2px 16px rgba(74, 124, 89, 0.05), 0 1px 4px rgba(0, 0, 0, 0.03);
     transition: box-shadow 0.3s ease, transform 0.2s ease;
 }
 
@@ -55,7 +55,7 @@ body {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: #388e3c;
+    color: #4a7c59;
     margin-bottom: 0.5rem;
     display: flex;
     align-items: center;
@@ -64,7 +64,7 @@ body {
 
 .section-title i {
     font-size: 1rem;
-    color: #43a047;
+    color: #6b9c75;
 }
 
 /* ===== User Panel ===== */
