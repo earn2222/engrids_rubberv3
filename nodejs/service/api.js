@@ -543,7 +543,7 @@ app.get('/api/getreclassfeatures/:tb', async (req, res) => {
         }
 
         // Auto-add review columns if they don't exist (for older tables)
-        const alterCols = ['check_area', 'check_shape', 'remark', 'reviewer', 'user_remark', 'review_ts', 'user_remark_ts'];
+        const alterCols = ['check_area', 'check_shape', 'remark', 'reviewer', 'user_remark', 'review_ts', 'user_remark_ts', 'user_name'];
         for (const col of alterCols) {
             let colType = 'text';
             if (col === 'review_ts' || col === 'user_remark_ts') colType = 'timestamp without time zone';
@@ -572,6 +572,7 @@ app.get('/api/getreclassfeatures/:tb', async (req, res) => {
                     a.remark,
                     a.reviewer,
                     a.user_remark,
+                    a.user_name,
                     a.user_remark_ts,
                     a.review_ts,
                     a.ts,
@@ -605,12 +606,11 @@ app.put('/api/update_review/:tb', async (req, res) => {
                 check_shape = $2,
                 remark = $3,
                 reviewer = $4,
-                user_remark = $5,
                 review_ts = NOW()
-            WHERE sub_id = $6
+            WHERE sub_id = $5
             RETURNING *`;
 
-        const values = [check_area || null, check_shape || null, remark || null, reviewer || null, user_remark || null, sub_id];
+        const values = [check_area || null, check_shape || null, remark || null, reviewer || null, sub_id];
         const result = await pool.query(sql, values);
 
         if (result.rowCount === 0) {
@@ -662,7 +662,7 @@ app.put('/api/update_user_remark/:tb', async (req, res) => {
         if (!tb) {
             return res.status(400).json({ error: 'Table name is required' });
         }
-        const { sub_id, user_remark } = req.body;
+        const { sub_id, user_remark, user_name } = req.body;
         if (!sub_id) {
             return res.status(400).json({ error: 'sub_id is required' });
         }
@@ -670,11 +670,12 @@ app.put('/api/update_user_remark/:tb', async (req, res) => {
         const sql = `
             UPDATE reclass_${tb}
             SET user_remark = $1,
+                user_name = $2,
                 user_remark_ts = CASE WHEN $1::text IS NULL THEN NULL ELSE NOW() END
-            WHERE sub_id = $2
+            WHERE sub_id = $3
             RETURNING *`;
 
-        const values = [user_remark || null, sub_id];
+        const values = [user_remark || null, user_name || null, sub_id];
         const result = await pool.query(sql, values);
 
         if (result.rowCount === 0) {

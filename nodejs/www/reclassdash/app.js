@@ -144,14 +144,214 @@ fetch('/rub/api/gee')
         ndwi.addTo(ndwiTile);
     });
 
-function showFeaturePanel(feature, layer) {
-    const id = document.getElementById('id');
-    const xls_id_farmer = document.getElementById('xls_id_farmer');
-    const shpsplit_sqm = document.getElementById('shpsplit_sqm');
+// Helper to find layer on map
+const findLayerBySubId = (subId) => {
+    let found = null;
+    featureGroup.eachLayer(layer => {
+        // Handle GeoJson group structure
+        if (typeof layer.eachLayer === 'function') {
+            layer.eachLayer(subLayer => {
+                if (subLayer.feature && subLayer.feature.properties && subLayer.feature.properties.sub_id == subId) {
+                    found = subLayer;
+                }
+            });
+        } else if (layer.feature && layer.feature.properties && layer.feature.properties.sub_id == subId) {
+            found = layer;
+        }
+    });
+    return found;
+};
 
-    if (id) id.value = feature.properties.id || '';
-    if (xls_id_farmer) xls_id_farmer.value = feature.properties.id_farmer || '';
-    if (shpsplit_sqm) shpsplit_sqm.value = Number(feature.properties.shparea_sqm || 0).toFixed(0);
+// Helper function to focus on a specific plot (Map + Panel + Table)
+const focusPlot = (rowData) => {
+    if (!rowData) return;
+
+    const dt = $('#featureTable').DataTable();
+    const subId = rowData.sub_id;
+
+    // 1. Map: Zoom and Open Popup
+    if (rowData.geom) {
+        try {
+            const tempLayer = L.geoJSON(rowData.geom);
+            const bounds = tempLayer.getBounds();
+            if (bounds.isValid()) {
+                // Use flyToBounds for a smoother, more noticeable transition
+                map.flyToBounds(bounds, { 
+                    padding: [50, 50], 
+                    maxZoom: 22, 
+                    duration: 1.0 
+                });
+                
+                // Ensure map is properly sized
+                setTimeout(() => map.invalidateSize(), 500);
+            }
+        } catch (e) {
+            console.error('Zoom error:', e);
+        }
+    }
+
+    // Attempt to highlighting the actual layer on map
+    const layer = findLayerBySubId(subId);
+    if (layer) {
+        if (typeof layer.openPopup === 'function') layer.openPopup();
+        // Visual indicator: Highlight the polygon temporarily
+        if (typeof layer.setStyle === 'function') {
+            const originalStyle = getFeatureStyle({ properties: rowData });
+            layer.setStyle({ color: '#fffb00', weight: 5, opacity: 1, fillOpacity: 0.7 });
+            setTimeout(() => layer.setStyle(originalStyle), 1500);
+        }
+    }
+
+    // 2. Info Panel: Populate data
+    showFeaturePanel({ properties: rowData });
+
+    // 3. DataTable: Highlight selected row
+    const rowNode = dt.row((idx, d) => String(d.sub_id) === String(subId)).node();
+    if (rowNode) {
+        $(rowNode).addClass('selected').siblings().removeClass('selected');
+    }
+};
+
+// Helper to navigate between plots (Prev/Next)
+const navigatePlots = (direction) => {
+    const currentSubId = $('#panel-sub-id').val();
+    const dt = $('#featureTable').DataTable();
+    const allRows = dt.rows({ search: 'applied' }).data().toArray();
+    
+    // Find current index
+    let currentIndex = allRows.findIndex(r => String(r.sub_id) === String(currentSubId));
+    
+    // Fallback: If no parcel is selected, start from the first one
+    if (currentIndex === -1) {
+        currentIndex = (direction > 0) ? -1 : 0;
+    }
+
+    let nextIndex = currentIndex + direction;
+    if (nextIndex >= 0 && nextIndex < allRows.length) {
+        const nextRow = allRows[nextIndex];
+        console.log(`Plot Navigation: Moving to #${nextIndex + 1}/${allRows.length} (ID: ${nextRow.id})`);
+        focusPlot(nextRow);
+    } else {
+        console.log(`Plot Navigation: Reached ${direction > 0 ? 'End' : 'Start'} of list`);
+    }
+};
+
+
+const showFeaturePanel = (feature, layer) => {
+    const props = feature.properties;
+    
+    // Basic Info
+    $('#display-id-num').text(props.id || '-');
+    $('#display-id').text(`ID: ${props.id || '-'}`);
+    $('#id').val(props.id || '');
+    $('#display-farmer-id').text(props.id_farmer || '-');
+    $('#panel-sub-id').val(props.sub_id || '');
+
+    // Area land (Current vs Target)
+    const currLand = Number(props.shparea_sqm || 0);
+    const targetLand = Number(props.sqm_pacel || 0);
+    $('#curr-land-area').text(currLand.toLocaleString('th-TH', { maximumFractionDigits: 0 }));
+    $('#target-land-area').text(targetLand.toLocaleString('th-TH', { maximumFractionDigits: 0 }));
+    
+    // Land Difference
+    if (targetLand > 0) {
+        const diffArea = Math.round(targetLand - currLand); // เป้าหมายตั้ง ลบด้วยเนื้อที่ขณะนี้
+        const diffPct = (diffArea / targetLand) * 100;
+        const diffEl = $('#diff-land-area');
+        const sign = diffArea > 0 ? '+' : (diffArea < 0 ? '-' : '');
+        diffEl.text(`${sign}${Math.abs(diffArea).toLocaleString()} m² (${Math.round(Math.abs(diffPct))}%)`);
+        diffEl.removeClass('positive negative').addClass(Math.abs(diffPct) <= 5 ? 'positive' : 'negative');
+    }
+
+    // Area rubber (Current vs Target)
+    // Note: shpsplit_sqm is the area of the specific classification (e.g. rubber)
+    const currRubber = props.classtype === 'rubber' ? Number(props.shpsplit_sqm || 0) : 0;
+    const targetRubber = Number(props.sqm_yang || 0);
+    $('#curr-rubber-area').text(currRubber.toLocaleString('th-TH', { maximumFractionDigits: 0 }));
+    $('#target-rubber-area').text(targetRubber.toLocaleString('th-TH', { maximumFractionDigits: 0 }));
+
+    // Rubber Difference
+    if (targetRubber > 0 && props.classtype === 'rubber') {
+        const diffArea = Math.round(targetRubber - currRubber); // เป้าหมายตั้ง ลบด้วยเนื้อที่ขณะนี้
+        const diffPct = (diffArea / targetRubber) * 100;
+        const diffEl = $('#diff-rubber-area');
+        const sign = diffArea > 0 ? '+' : (diffArea < 0 ? '-' : '');
+        diffEl.text(`${sign}${Math.abs(diffArea).toLocaleString()} m² (${Math.round(Math.abs(diffPct))}%)`);
+        diffEl.removeClass('positive negative').addClass(Math.abs(diffPct) <= 5 ? 'positive' : 'outline-muted');
+        if (Math.abs(diffPct) > 5) diffEl.addClass('negative');
+    } else {
+        $('#diff-rubber-area').text('N/A').removeClass('positive negative');
+    }
+
+    // Area Other (Non-rubber)
+    const currOther = props.classtype !== 'rubber' ? Number(props.shpsplit_sqm || 0) : 0;
+    $('#curr-other-area').text(currOther.toLocaleString('th-TH', { maximumFractionDigits: 0 }));
+    
+    // Classtype Label & Color
+    const labelMap = {
+        'rubber': 'ยางพาราที่ลงทะเบียน', 'not-rubber': 'ยางพาราที่ไม่ได้ลงทะเบียน',
+        'Other': 'ไม่ใช่ยางพารา', 'ex-pond': 'พื้นที่กันออก (บ่อน้ำ)',
+        'ex-landcover': 'พื้นที่กันออก (สิ่งปกคลุมดินอื่นๆ)',
+        'ex-building': 'พื้นที่กันออก (สิ่งปลูกสร้าง)', 'ex-river': 'พื้นที่กันออก (ลำน้ำ)',
+        'ex-unreg-rubber': 'พื้นที่กันออก (ยางพาราไม่ลงทะเบียน)'
+    };
+    const colorMap = {
+        'rubber': '#006d2c', 'not-rubber': '#9900ff', 'Other': '#ff0004',
+        'ex-pond': '#00d9d0', 'ex-landcover': '#e6cc00', 'ex-building': '#ff00bf',
+        'ex-river': '#1100ff', 'ex-unreg-rubber': '#00cc0d'
+    };
+    const label = labelMap[props.classtype] || 'อื่นๆ';
+    const color = colorMap[props.classtype] || '#6c757d';
+
+    if (props.classtype !== 'rubber' && props.classtype) {
+        $('#display-other-type').text(label).removeClass('outline-muted');
+        // If it's something excluded, we might want a different style but let's keep it simple
+    } else {
+        $('#display-other-type').text('N/A').addClass('outline-muted');
+    }
+
+    // Classtype Badge
+    $('#display-classtype').html(`<span class="classtype-badge w-100 text-center" style="background:${color}15; color:${color}; border:1px solid ${color}40;">${label}</span>`);
+
+    // Review Fields
+    $('#panel-check-area').val(props.check_area || '');
+    $('#panel-check-shape').val(props.check_shape || '');
+    $('#panel-remark').val(props.remark || '');
+    $('#panel-user-remark').val(props.user_remark || '');
+
+    // Reviewer Info (Checker)
+    if (props.reviewer) {
+        $('#panel-reviewer-info').show();
+        $('#panel-reviewer-name').text(props.reviewer);
+        const date = new Date(props.review_ts);
+        $('#panel-review-time').text(props.review_ts ? date.toLocaleString('th-TH', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' น.' : '-');
+    } else {
+        $('#panel-reviewer-info').hide();
+    }
+
+    // User Info (Editor)
+    if (props.user_name || props.user_remark) {
+        $('#panel-user-info').show();
+        $('#panel-user-name').text(props.user_name || '-');
+        const date = new Date(props.user_remark_ts);
+        $('#panel-user-time').text(props.user_remark_ts ? date.toLocaleString('th-TH', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' น.' : '-');
+    } else {
+        $('#panel-user-info').hide();
+    }
+
+    // ✅ Navigation Update (Counter)
+    try {
+        const dt = $('#featureTable').DataTable();
+        const allRows = dt.rows({ search: 'applied' }).data().toArray();
+        const currentIndex = allRows.findIndex(r => r.sub_id == props.sub_id);
+        if (currentIndex !== -1) {
+            $('#plot-nav-count').text(`${currentIndex + 1} / ${allRows.length}`);
+        } else {
+            $('#plot-nav-count').text(`0 / ${allRows.length}`);
+        }
+    } catch (e) {
+        console.warn('DataTable not ready for counter');
+    }
 }
 
 const getFeatureStyle = (feature) => {
@@ -254,6 +454,7 @@ const loadGeoData = async () => {
             remark: item.remark || '',
             reviewer: item.reviewer || '',
             user_remark: item.user_remark || '',
+            user_name: item.user_name || '',
             user_remark_ts: item.user_remark_ts || '',
             review_ts: item.review_ts || ''
         }));
@@ -342,7 +543,7 @@ const loadGeoData = async () => {
                         };
                         const label = labelMap[data] || 'อื่นๆ';
                         const c = colorMap[data] || '#90a4ae';
-                        return `<span class="classtype-badge" style="background:${c}18;color:${c};border:1px solid ${c}55;padding:2px 7px;border-radius:999px;font-size:0.78rem;font-weight:600;white-space:nowrap">${label}</span>`;
+                        return `<span class="classtype-badge" style="background:${c}15;color:${c};border:1px solid ${c}40;">${label}</span>`;
                     }
                 },
                 {
@@ -470,6 +671,7 @@ const loadGeoData = async () => {
                 },
             ],
             pageLength: 10,
+            order: [[1, 'asc']], // Order by ID ascending for systematic checking
             select: true,
             destroy: true,
         });
@@ -481,6 +683,178 @@ const loadGeoData = async () => {
             const displayName = document.getElementById('display-name')?.textContent || '';
             if (displayName && !reviewerInputEl.val()) {
                 reviewerInputEl.val(displayName);
+            }
+        });
+
+        // Panel Save Checker Button Handler
+        $('#panel-btn-save-checker').on('click', async function() {
+            const subId = $('#panel-sub-id').val();
+            const tb = $('#tb').val();
+            if (!subId) { alert('กรุณาเลือกข้อมูลก่อน'); return; }
+
+            const btn = $(this);
+            const checkArea = $('#panel-check-area').val();
+            const checkShape = $('#panel-check-shape').val();
+            const remark = $('#panel-remark').val();
+            const displayName = document.getElementById('display-name')?.textContent || '';
+
+            btn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i> กำลังบันทึก...');
+
+            try {
+                const res = await fetch(`/rub/api/update_review/${tb}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sub_id: subId,
+                        check_area: checkArea,
+                        check_shape: checkShape,
+                        remark: remark,
+                        reviewer: displayName
+                    })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    btn.html('<i class="bi bi-check-circle-fill"></i> เรียบร้อย').removeClass('btn-success').addClass('btn-primary');
+                    
+                    const dataTable = $('#featureTable').DataTable();
+                    const tableRow = dataTable.row((idx, d) => d.sub_id == subId);
+                    
+                    if (tableRow.any()) {
+                        const rowData = tableRow.data();
+                        rowData.check_area = checkArea;
+                        rowData.check_shape = checkShape;
+                        rowData.remark = remark;
+                        rowData.reviewer = displayName;
+                        rowData.review_ts = data.data && data.data[0] ? data.data[0].review_ts : new Date().toISOString();
+                        tableRow.data(rowData).draw(false);
+                        showFeaturePanel({ properties: rowData });
+                    }
+
+                    setTimeout(() => {
+                        btn.html('<i class="bi bi-floppy-fill me-1"></i> บันทึกผลการตรวจ').removeClass('btn-primary').addClass('btn-success').prop('disabled', false);
+                    }, 2000);
+                } else {
+                    alert('บันทึกไม่สำเร็จ: ' + (data.error || 'Unknown error'));
+                    btn.prop('disabled', false).html('<i class="bi bi-floppy-fill me-1"></i> บันทึกผลการตรวจ');
+                }
+            } catch (err) {
+                console.error('Checker Save Error:', err);
+                alert('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+                btn.prop('disabled', false).html('<i class="bi bi-floppy-fill me-1"></i> บันบันทึกผลการตรวจ');
+            }
+        });
+
+        // Panel Save User Remark Button Handler
+        $('#panel-btn-save-user').on('click', async function() {
+            const subId = $('#panel-sub-id').val();
+            const tb = $('#tb').val();
+            if (!subId) { alert('กรุณาเลือกข้อมูลก่อน'); return; }
+
+            const btn = $(this);
+            const userRemark = $('#panel-user-remark').val();
+            const displayName = document.getElementById('display-name')?.textContent || '';
+
+            btn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i> กำลังบันทึก...');
+
+            try {
+                const res = await fetch(`/rub/api/update_user_remark/${tb}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sub_id: subId,
+                        user_remark: userRemark,
+                        user_name: displayName
+                    })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    btn.html('<i class="bi bi-check-circle-fill"></i> เรียบร้อย');
+                    
+                    const dataTable = $('#featureTable').DataTable();
+                    const tableRow = dataTable.row((idx, d) => d.sub_id == subId);
+                    
+                    if (tableRow.any()) {
+                        const rowData = tableRow.data();
+                        rowData.user_remark = userRemark;
+                        rowData.user_name = displayName;
+                        rowData.user_remark_ts = data.data && data.data[0] ? data.data[0].user_remark_ts : new Date().toISOString();
+                        tableRow.data(rowData).draw(false);
+                        showFeaturePanel({ properties: rowData });
+                    }
+
+                    setTimeout(() => {
+                        btn.html('<i class="bi bi-send-fill me-1"></i> บันทึกหมายเหตุผู้ใช้').prop('disabled', false);
+                    }, 2000);
+                } else {
+                    alert('บันทึกไม่สำเร็จ: ' + (data.error || 'Unknown error'));
+                    btn.prop('disabled', false).html('<i class="bi bi-send-fill me-1"></i> บันทึกหมายเหตุผู้ใช้');
+                }
+            } catch (err) {
+                console.error('User Remark Save Error:', err);
+                alert('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+                btn.prop('disabled', false).html('<i class="bi bi-send-fill me-1"></i> บันทึกหมายเหตุผู้ใช้');
+            }
+        });
+
+        // Panel Clear Checker Button Handler
+        $('#panel-btn-clear-checker').on('click', async function() {
+            const subId = $('#panel-sub-id').val();
+            const tb = $('#tb').val();
+            if (!subId) { alert('กรุณาเลือกข้อมูลก่อน'); return; }
+            if (!confirm('ยืนยันล้างข้อมูลผู้ตรวจสอบของแปลงนี้ใช่หรือไม่?')) return;
+
+            const btn = $(this);
+            btn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i>');
+
+            try {
+                const res = await fetch(`/rub/api/clear_review/${tb}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sub_id: subId })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    const dataTable = $('#featureTable').DataTable();
+                    const tableRow = dataTable.row((idx, d) => d.sub_id == subId);
+                    if (tableRow.any()) {
+                        const rowData = tableRow.data();
+                        rowData.check_area = '';
+                        rowData.check_shape = '';
+                        rowData.remark = '';
+                        rowData.reviewer = '';
+                        rowData.review_ts = '';
+                        tableRow.data(rowData).draw(false);
+                        showFeaturePanel({ properties: rowData });
+                    }
+                } else {
+                    alert('ลบไม่สำเร็จ: ' + (data.error || 'Unknown error'));
+                }
+            } catch (err) {
+                console.error('Clear Checker Error:', err);
+                alert('เกิดข้อผิดพลาด');
+            } finally {
+                btn.prop('disabled', false).html('<i class="bi bi-trash3-fill"></i> ลบ');
+            }
+        });
+
+        // Panel Clear User Remark Button Handler
+        $('#panel-btn-clear-user').on('click', function() {
+            const subId = $('#panel-sub-id').val();
+            if (!subId) { alert('กรุณาเลือกข้อมูลก่อน'); return; }
+            if (confirm('ยืนยันลบหมายเหตุผู้ใช้ ใช่หรือไม่?')) {
+                $('#panel-user-remark').val('');
+                $('#panel-btn-save-user').click();
+            }
+        });
+
+        // Sync Table Selection to Panel
+        $('#featureTable tbody').on('click', 'tr', function () {
+            const data = $('#featureTable').DataTable().row(this).data();
+            if (data) {
+                showFeaturePanel({ properties: data });
             }
         });
 
@@ -499,6 +873,65 @@ const loadGeoData = async () => {
         });
 
 
+        // ✅ Search Panel Plot
+        $('#btn-panel-search').on('click', function() {
+            const val = $('#search-plot-id').val().trim();
+            if (!val) return;
+            
+            const dt = $('#featureTable').DataTable();
+            // Try specific ID search
+            let foundData = dt.rows().data().toArray().find(r => r.id == val || r.sub_id == val || r.id_farmer == val);
+            
+            if (foundData) {
+                const layer = findLayerBySubId(foundData.sub_id);
+                if (layer) {
+                    if (typeof layer.getBounds === 'function' && layer.getBounds().isValid()) {
+                        map.fitBounds(layer.getBounds(), { padding: [50, 50] });
+                    } else if (typeof layer.getLatLng === 'function') {
+                        map.setView(layer.getLatLng(), 19);
+                    }
+                    showFeaturePanel({ properties: foundData });
+                }
+            } else {
+                // Generic search
+                dt.search(val).draw();
+                const firstResult = dt.rows({ search: 'applied' }).data()[0];
+                if (firstResult) {
+                    const layer = findLayerBySubId(firstResult.sub_id);
+                    if (layer) {
+                        if (typeof layer.getBounds === 'function' && layer.getBounds().isValid()) {
+                            map.fitBounds(layer.getBounds(), { padding: [50, 50] });
+                        } else if (typeof layer.getLatLng === 'function') {
+                            map.setView(layer.getLatLng(), 19);
+                        }
+                        showFeaturePanel({ properties: firstResult });
+                    }
+                    // Highlight first result
+                    const rowNode = dt.row((idx, d) => d.sub_id == firstResult.sub_id).node();
+                    if (rowNode) {
+                        rowNode.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        $(rowNode).addClass('selected').siblings().removeClass('selected');
+                    }
+                } else {
+                    alert('ไม่พบข้อมูลแปลงที่ระบุ');
+                }
+            }
+        });
+
+        $('#search-plot-id').on('keypress', function(e) {
+            if (e.which == 13) $('#btn-panel-search').click();
+        });
+
+        // ✅ Prev/Next Buttons
+        $('#btn-plot-prev').on('click', () => navigatePlots(-1));
+        $('#btn-plot-next').on('click', () => navigatePlots(1));
+        $('#plot-nav-count').css('cursor', 'pointer').on('click', () => {
+            const currentSubId = $('#panel-sub-id').val();
+            const dt = $('#featureTable').DataTable();
+            const rowData = dt.rows().data().toArray().find(r => String(r.sub_id) === String(currentSubId));
+            if (rowData) focusPlot(rowData);
+        });
+
         const updateMap = () => {
             featureGroup.clearLayers(); // Clear existing layers
             const visibleRows = dataTable.rows({ search: 'applied' }).data().toArray();
@@ -509,13 +942,23 @@ const loadGeoData = async () => {
                     geometry: row.geom,
                     properties: {
                         id: row.id,
+                        sub_id: row.sub_id,
                         refinal: row.refinal,
                         id_farmer: row.id_farmer,
                         sqm_pacel: row.sqm_pacel,
                         shparea_sqm: row.shparea_sqm,
-                        classtype: row.classtype
+                        sqm_yang: row.sqm_yang,
+                        shpsplit_sqm: row.shpsplit_sqm,
+                        classtype: row.classtype,
+                        check_area: row.check_area,
+                        check_shape: row.check_shape,
+                        remark: row.remark,
+                        user_remark: row.user_remark,
+                        reviewer: row.reviewer,
+                        review_ts: row.review_ts,
+                        user_remark_ts: row.user_remark_ts
                     }
-                }
+                };
 
                 L.geoJson(geojson, {
                     style: getFeatureStyle,

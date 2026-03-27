@@ -71,19 +71,167 @@
                     <div class="card-body">
                         <div class="section-title"><i class="bi bi-layers"></i> ข้อมูลแปลง</div>
                         <div id="featurePanel">
-                            <div>
-                                <strong>ID:</strong>
-                                <input class="form-control form-control-sm" id="id" disabled>
-                                <input type="hidden" id="tb">
+                            <!-- Plot Navigation & Search Bar -->
+                            <div class="plot-nav-bar mb-3">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="input-group input-group-sm flex-grow-1">
+                                        <input type="text" class="form-control border-end-0" id="search-plot-id"
+                                            placeholder="🔎 พิมพ์ ID หรือ เลขทะเบียน...">
+                                        <button class="btn btn-primary" id="btn-panel-search" title="ค้นหา"><i
+                                                class="bi bi-search"></i></button>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-1">
+                                        <button class="btn btn-outline-secondary btn-sm" id="btn-plot-prev" title="แปลงก่อนหน้า">
+                                            <i class="bi bi-chevron-left"></i>
+                                        </button>
+                                        <div id="plot-nav-count" class="badge bg-light text-dark border px-2 py-1" 
+                                            style="font-size: 0.75rem; min-width: 65px; font-family: 'Inter', sans-serif;">0 / 0</div>
+                                        <button class="btn btn-outline-secondary btn-sm" id="btn-plot-next" title="แปลงถัดไป">
+                                            <i class="bi bi-chevron-right"></i>
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
-                            <div>
-                                <strong>เลขทะเบียนเกษตรกร:</strong>
-                                <input class="form-control form-control-sm" id="xls_id_farmer">
+                            <div
+                                class="d-flex justify-content-between align-items-center mb-3 bg-white p-2 rounded-3 border">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="bg-primary text-white p-2 rounded-3"
+                                        style="width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.1rem;"
+                                        id="display-id-num">3</div>
+                                    <div>
+                                        <div class="text-muted"
+                                            style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase;">
+                                            Parcel ID</div>
+                                        <div id="display-id" class="fw-bold" style="font-size: 0.9rem;">ID: -</div>
+                                    </div>
+                                </div>
+                                <div class="text-end">
+                                    <div class="text-muted"
+                                        style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase;">
+                                        เลขทะเบียนเกษตรกร</div>
+                                    <div id="display-farmer-id" class="fw-bold text-primary" style="font-size: 1rem;"><i
+                                            class="bi bi-person-vcard"></i> -</div>
+                                </div>
                             </div>
-                            <!-- <div>
-                                <strong>เนื้อที่ (m²):</strong>
-                                <input class="form-control form-control-sm" id="shpsplit_sqm">
-                            </div> -->
+
+                            <input type="hidden" id="id">
+                            <input type="hidden" id="tb">
+                            <input type="hidden" id="panel-sub-id">
+
+                            <!-- Comparison Area Cards -->
+                            <div class="row g-2 mb-3">
+                                <div class="col-4">
+                                    <div class="area-comparison-card land">
+                                        <div class="card-label"><i class="bi bi-geo-alt-fill"></i> เนื้อที่โฉนด</div>
+                                        <div class="current-val"><span id="curr-land-area">0</span> <small>m²</small>
+                                        </div>
+                                        <div class="target-val"><i class="bi bi-bullseye me-1"></i>เป้าหมาย: <b id="target-land-area">0</b></div>
+                                        <div class="diff-val" id="diff-land-area">±0%</div>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="area-comparison-card rubber">
+                                        <div class="card-label"><i class="bi bi-tree-fill"></i> เนื้อที่ยางพารา</div>
+                                        <div class="current-val"><span id="curr-rubber-area">0</span> <small>m²</small>
+                                        </div>
+                                        <div class="target-val"><i class="bi bi-bullseye me-1"></i>เป้าหมาย: <b id="target-rubber-area">0</b></div>
+                                        <div class="diff-val" id="diff-rubber-area">±0%</div>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="area-comparison-card other">
+                                        <div class="card-label"><i class="bi bi-layers-half"></i> ประเภทอื่น</div>
+                                        <div class="current-val"><span id="curr-other-area">0</span> <small>m²</small>
+                                        </div>
+                                        <div class="diff-val outline-muted" id="display-other-type">N/A</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Additional classification info -->
+                            <div class="mb-3">
+                                <label class="small fw-bold text-success"><i class="bi bi-tag-fill"></i>
+                                    ประเภทปัจจุบัน</label>
+                                <div id="display-classtype" class="mt-1">
+                                    <span class="badge bg-light text-dark border w-100 py-2">-</span>
+                                </div>
+                            </div>
+
+                            <!-- Review Section -->
+                            <div class="review-section-container">
+                                <!-- Box สำหรับผู้ตรวจสอบ -->
+                                <div class="review-box checker-box mb-3">
+                                    <div class="section-title-sm mb-2"><i class="bi bi-shield-check"></i>
+                                        สำหรับเจ้าหน้าที่ (Checker)</div>
+                                    <div class="row g-2 mb-2">
+                                        <div class="col-6">
+                                            <label class="xs-label">ตรวจสอบโฉนด</label>
+                                            <select class="form-select form-select-sm" id="panel-check-area">
+                                                <option value="">-- เลือก --</option>
+                                                <option value="ผ่าน">✅ ผ่าน</option>
+                                                <option value="ไม่ผ่าน">❌ ไม่ผ่าน</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="xs-label">การจำแนกประเภท</label>
+                                            <select class="form-select form-select-sm" id="panel-check-shape">
+                                                <option value="">-- เลือก --</option>
+                                                <option value="ผ่าน">✅ ผ่าน</option>
+                                                <option value="ไม่ผ่าน">❌ ไม่ผ่าน</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="xs-label">หมายเหตุผู้เช็ค</label>
+                                        <textarea class="form-control form-control-sm" id="panel-remark" rows="2"
+                                            placeholder="ความเห็นผู้ตรวจสอบ..."></textarea>
+                                    </div>
+                                    <div class="reviewer-footer mt-2 pt-2 border-top mb-2" id="panel-reviewer-info"
+                                        style="display:none;">
+                                        <div class="x-small text-muted">
+                                            <div><i class="bi bi-person-fill"></i> ผู้ตรวจ: <span
+                                                    id="panel-reviewer-name">-</span></div>
+                                            <div><i class="bi bi-clock"></i> <span id="panel-review-time">-</span></div>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex gap-2">
+                                        <button class="btn btn-success btn-sm flex-grow-1" id="panel-btn-save-checker">
+                                            <i class="bi bi-floppy-fill me-1"></i> บันทึกผลการตรวจ
+                                        </button>
+                                        <button class="btn btn-outline-danger btn-sm" id="panel-btn-clear-checker" title="ล้างผลการตรวจ">
+                                            <i class="bi bi-trash3-fill"></i> ลบ
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Box สำหรับผู้ใช้งาน -->
+                                <div class="review-box user-box">
+                                    <div class="section-title-sm mb-2" style="color: #1976d2;"><i
+                                            class="bi bi-chat-dots-fill"></i> สำหรับผู้ใช้งาน (User)</div>
+                                    <div class="mb-2">
+                                        <label class="xs-label">หมายเหตุ/คำอธิบายจากผู้ใช้</label>
+                                        <textarea class="form-control form-control-sm" id="panel-user-remark" rows="2"
+                                            placeholder="คำอธิบาย หรือแจ้งการแก้ไข..."></textarea>
+                                    </div>
+                                    <div class="reviewer-footer mt-2 pt-2 border-top mb-2" id="panel-user-info"
+                                        style="display:none;">
+                                        <div class="x-small text-muted">
+                                            <div><i class="bi bi-person-circle"></i> ผู้ใช้: <span
+                                                    id="panel-user-name">-</span></div>
+                                            <div><i class="bi bi-clock-history"></i> <span id="panel-user-time">-</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex gap-2">
+                                        <button class="btn btn-outline-primary btn-sm flex-grow-1" id="panel-btn-save-user">
+                                            <i class="bi bi-send-fill me-1"></i> บันทึกหมายเหตุผู้ใช้
+                                        </button>
+                                        <button class="btn btn-outline-danger btn-sm" id="panel-btn-clear-user" title="ล้างหมายเหตุ">
+                                            <i class="bi bi-trash3-fill"></i> ลบ
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
