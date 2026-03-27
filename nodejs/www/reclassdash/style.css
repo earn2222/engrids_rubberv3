@@ -359,6 +359,17 @@ table.dataTable tbody tr.even {
     background-color: #ffffff;
 }
 
+.review-reviewer[readonly] {
+    background-color: #f1f8e9;
+    color: #555;
+    cursor: default;
+}
+
+.review-reviewer[readonly]:focus {
+    border-color: rgba(76, 175, 80, 0.4);
+    box-shadow: none;
+}
+
 .reviewer-input-container {
     display: flex;
     flex-direction: column;

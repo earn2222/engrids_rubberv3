@@ -436,6 +436,7 @@ const loadGeoData = async () => {
                                 <input type="text" class="form-control form-control-sm review-reviewer" 
                                     data-subid="${row.sub_id}" 
                                     value="${data || ''}" 
+                                    readonly
                                     placeholder="ชื่อผู้ตรวจ...">
                                 ${dateStr}
                             </div>
@@ -649,14 +650,14 @@ const loadGeoData = async () => {
                 (checkShape !== originalCheckShape) ||
                 (remark !== originalRemark);
 
-            // If input is empty and review changed, auto-fill with displayName
+            // If login name is available, always use it and update UI
             let reviewerToSave = reviewerInput;
-            if (!reviewerToSave && displayName) {
+            if (displayName) {
                 reviewerToSave = displayName;
                 row.find('.review-reviewer').val(displayName);
             }
             
-            // If still no reviewer name, fallback to current 
+            // Fallback to current if still no name
             if (!reviewerToSave) {
                 reviewerToSave = currentReviewer;
             }
