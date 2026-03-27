@@ -797,6 +797,38 @@ hr {
     transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* ===== Collapsible Sections ===== */
+.cursor-pointer {
+    cursor: pointer;
+}
+
+.card-header[data-bs-toggle="collapse"] {
+    position: relative;
+    transition: background-color 0.2s ease;
+}
+
+.card-header[data-bs-toggle="collapse"]:hover {
+    background-color: rgba(76, 175, 80, 0.03) !important;
+}
+
+.toggle-icon {
+    font-size: 1.1rem;
+    color: #2d5a3a;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-header.collapsed .toggle-icon {
+    transform: rotate(-90deg);
+}
+
+.card-header:hover .section-title {
+    color: #1b5e20;
+}
+
+/* Ensure progress bar is visible even when collapsed/expanded */
+#taskProgressCard .card-body {
+    transition: all 0.3s ease;
+}
 .tp-sub {
     font-size: 0.75rem;
     color: #546e7a;
