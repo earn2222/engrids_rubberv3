@@ -89,15 +89,6 @@ const rubber_parcel = L.tileLayer.wms("https://engrids.soc.cmu.ac.th/geoserver/r
     zIndex: 6
 });
 
-// const ldd_wms = L.tileLayer.wms("https://landsmaps.dol.go.th/geoserver/LANDSMAPS/wms?", {
-//     layers: 'LANDSMAPS:V_PARCEL48,LANDSMAPS:V_PARCEL47',
-//     // viewparams: 'utmmap:563821624',
-//     viewparams: 'utmmap:482941458',
-//     format: 'image/png',
-//     transparent: true,
-//     maxZoom: 24,
-//     zIndex: 6
-// });
 
 const baseLayers = {
     "Google Road": gmap_road,
@@ -113,10 +104,8 @@ const trueColorTile = L.featureGroup();
 const overlayMaps = {
     "แปลงยาง": featureGroup.addTo(map),
     "แปลงยาง(เดิม)": rubber_parcel,
-    "NDVI": ndvi,
     "NDVI gee": ndviTile,
     "S2 gee": trueColorTile,
-    "landsmaps": lddFeatureGroup,
     "Longdo Map": longdoLayer.addTo(map),
 };
 
@@ -406,7 +395,7 @@ const loadGeoData = async () => {
         if (!isNaN(id_from) && !isNaN(id_to)) {
             filteredData = data.filter(item => item.id >= id_from && item.id <= id_to);
             console.log(`Filtering for ${assignee}: IDs ${id_from} - ${id_to}. Found ${filteredData.length} records.`);
-            
+
             const infoEl = document.getElementById('assignmentInfo');
             if (infoEl && assignee) {
                 infoEl.innerHTML = `
@@ -794,13 +783,13 @@ document.getElementById('classify').addEventListener('click', () => {
         return;
     }
     const tb = document.getElementById('tb').value;
-    
+
     // Capture current assignment params
     const urlParams = new URLSearchParams(window.location.search);
     const id_from = urlParams.get('id_from');
     const id_to = urlParams.get('id_to');
     const assignee = urlParams.get('assignee');
-    
+
     let url = `/rub/reclass/index.html?tb=${tb}&id=${id}&sqm_yang=${document.getElementById('sqm_yang').value}`;
     if (id_from && id_to && assignee) {
         url += `&id_from=${id_from}&id_to=${id_to}&assignee=${encodeURIComponent(assignee)}`;
@@ -892,11 +881,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-document.getElementById('dashboard').addEventListener('click', (e) => {
-    e.preventDefault();
-    const tb = document.getElementById('tb').value;
-    window.location.href = './../reclassdash/index.html?tb=' + tb;
-});
 
 
 
