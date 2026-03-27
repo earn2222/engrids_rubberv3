@@ -155,9 +155,9 @@
                             <i class="bi bi-cloud-arrow-up-fill upload-zone-icon"></i>
                             <div class="upload-zone-text">คลิกหรือลากไฟล์มาวางที่นี่</div>
                             <div class="upload-zone-sub">รองรับ ZIP ที่มี .shp .shx .dbf .prj</div>
-                            <input type="file" id="ad_shpFile" accept=".zip" class="upload-file-input">
+                            <input type="file" id="ad_shpFile" accept=".zip" class="upload-file-input" multiple>
                         </div>
-                        <div id="fileNameDisplay" class="file-name-display" style="display:none;"></div>
+                        <div id="fileNameDisplay" class="file-name-display flex-column gap-2" style="display:none; max-height: 150px; overflow-y: auto;"></div>
                     </div>
                     <div id="ad_uploadProgress" style="display: none;" class="mb-2">
                         <div class="progress">

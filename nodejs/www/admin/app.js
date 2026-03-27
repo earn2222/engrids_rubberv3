@@ -374,6 +374,7 @@ document.getElementById('btnCreateProject').addEventListener('click', async () =
 ═════════════════════════════════════════════════════════════ */
 
 let addDataModal = null;
+let selectedZipFiles = [];
 
 function openAddDataModal(tb_name) {
     if (!addDataModal) {
@@ -385,8 +386,10 @@ function openAddDataModal(tb_name) {
     document.getElementById('ad_shpFile').value = '';
     document.getElementById('fileNameDisplay').style.display = 'none';
     document.getElementById('fileNameDisplay').textContent = '';
+    document.getElementById('fileNameDisplay').innerHTML = '';
     document.getElementById('ad_uploadProgress').style.display = 'none';
     document.getElementById('ad_progressBar').style.width = '0%';
+    selectedZipFiles = [];
     // clear geom type selection
     document.querySelectorAll('.geom-type-card').forEach(c => c.classList.remove('selected'));
 
@@ -414,100 +417,139 @@ uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag
 uploadZone.addEventListener('drop', e => {
     e.preventDefault();
     uploadZone.classList.remove('dragover');
-    const file = e.dataTransfer.files[0];
-    if (file) setSelectedFile(file);
+    if (e.dataTransfer.files.length > 0) {
+        setSelectedFiles(e.dataTransfer.files);
+    }
 });
 
 fileInput.addEventListener('change', function () {
-    if (this.files[0]) setSelectedFile(this.files[0]);
+    if (this.files.length > 0) {
+        setSelectedFiles(this.files);
+    }
 });
 
-function setSelectedFile(file) {
-    const display = document.getElementById('fileNameDisplay');
-    display.innerHTML = `
-        <span><i class="bi bi-file-earmark-zip me-1"></i>${file.name}</span>
-        <i class="bi bi-x-circle-fill btn-remove-file" id="btnRemoveFile" title="ลบไฟล์"></i>
-    `;
-    display.style.display = 'flex';
+function setSelectedFiles(files) {
+    for (let i = 0; i < files.length; i++) {
+        selectedZipFiles.push(files[i]);
+    }
+    renderSelectedFiles();
+}
 
-    document.getElementById('btnRemoveFile').addEventListener('click', () => {
-        fileInput.value = '';
-        display.innerHTML = '';
+function renderSelectedFiles() {
+    const display = document.getElementById('fileNameDisplay');
+    if (selectedZipFiles.length === 0) {
         display.style.display = 'none';
+        display.innerHTML = '';
+        fileInput.value = '';
+        return;
+    }
+
+    display.style.display = 'flex';
+    display.innerHTML = '';
+    
+    selectedZipFiles.forEach((file, index) => {
+        const item = document.createElement('div');
+        item.className = 'd-flex justify-content-between align-items-center w-100 p-2 border rounded border-secondary bg-white shadow-sm';
+        item.innerHTML = `
+            <span><i class="bi bi-file-earmark-zip me-1 text-primary"></i>${file.name}</span>
+            <i class="bi bi-x-circle-fill text-danger btn-remove-file ms-3" style="cursor:pointer;" title="ลบไฟล์" data-index="${index}"></i>
+        `;
+        display.appendChild(item);
     });
-    try {
-        const dt = new DataTransfer();
-        dt.items.add(file);
-        fileInput.files = dt.files;
-    } catch (_) { }
+
+    display.querySelectorAll('.btn-remove-file').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const idx = parseInt(this.getAttribute('data-index'));
+            selectedZipFiles.splice(idx, 1);
+            renderSelectedFiles();
+        });
+    });
 }
 
 /* Upload button */
 document.getElementById('btnAddData').addEventListener('click', async () => {
     const tb_name = document.getElementById('ad_tb_name').value.trim();
     const geom_type = document.getElementById('ad_geom_type').value;
-    const shpFile = fileInput.files[0];
 
     if (!geom_type) { alert('กรุณาเลือกประเภทข้อมูล (Polygon / Point)'); return; }
-    if (!shpFile) { alert('กรุณาเลือกไฟล์ ZIP ที่มี Shapefile'); return; }
-
-    const formData = new FormData();
-    formData.append('shpFile', shpFile);
-    formData.append('tb_name', tb_name);
-    formData.append('geom_type', geom_type);
+    if (selectedZipFiles.length === 0) { alert('กรุณาเลือกไฟล์ ZIP อย่างน้อย 1 ไฟล์'); return; }
 
     document.getElementById('ad_uploadProgress').style.display = 'block';
-    document.getElementById('ad_progressBar').style.width = '0%';
-    document.getElementById('ad_progressText').textContent = 'กำลังอัปโหลด...';
-
+    
     const btn = document.getElementById('btnAddData');
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>กำลังอัปโหลด...';
 
-    const xhr = new XMLHttpRequest();
+    let totalRecords = 0;
+    let hasError = false;
 
-    xhr.upload.addEventListener('progress', (e) => {
-        if (e.lengthComputable) {
-            const pct = Math.round((e.loaded / e.total) * 100);
-            document.getElementById('ad_progressBar').style.width = pct + '%';
-            document.getElementById('ad_progressText').textContent = `อัปโหลด ${pct}%`;
+    for (let i = 0; i < selectedZipFiles.length; i++) {
+        const file = selectedZipFiles[i];
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>กำลังอัปโหลดไฟล์ ${i + 1} / ${selectedZipFiles.length}...`;
+        
+        document.getElementById('ad_progressBar').style.width = '0%';
+        document.getElementById('ad_progressText').textContent = `กำลังอัปโหลด ${file.name} (ไฟล์ ${i+1}/${selectedZipFiles.length})...`;
+
+        const success = await new Promise((resolve) => {
+            const formData = new FormData();
+            formData.append('shpFile', file);
+            formData.append('tb_name', tb_name);
+            formData.append('geom_type', geom_type);
+
+            const xhr = new XMLHttpRequest();
+            xhr.upload.addEventListener('progress', (e) => {
+                if (e.lengthComputable) {
+                    const pct = Math.round((e.loaded / e.total) * 100);
+                    document.getElementById('ad_progressBar').style.width = pct + '%';
+                    document.getElementById('ad_progressText').textContent = `อัปโหลด ${file.name} ${pct}%`;
+                }
+            });
+
+            xhr.addEventListener('load', () => {
+                try {
+                    const result = JSON.parse(xhr.responseText);
+                    if (xhr.status === 200 && result.success) {
+                        totalRecords += result.recordCount || 0;
+                        resolve(true);
+                    } else {
+                        alert(`เกิดข้อผิดพลาดกับไฟล์ ${file.name}: ${result.error || 'Unknown error'}`);
+                        resolve(false);
+                    }
+                } catch (parseErr) {
+                    alert(`เกิดข้อผิดพลาดในการประมวลผลไฟล์ ${file.name}`);
+                    resolve(false);
+                }
+            });
+
+            xhr.addEventListener('error', () => {
+                alert(`เกิดข้อผิดพลาดในการส่งข้อมูลไฟล์ ${file.name} (Network Error)`);
+                resolve(false);
+            });
+
+            xhr.open('POST', '/rub/api/upload-shapefile-to-table', true);
+            xhr.send(formData);
+        });
+
+        if (!success) {
+            hasError = true;
+            break;
         }
-    });
+    }
 
-    xhr.addEventListener('load', () => {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>อัปโหลดข้อมูล';
-
-        try {
-            const result = JSON.parse(xhr.responseText);
-            if (xhr.status === 200 && result.success) {
-                document.getElementById('ad_progressBar').style.width = '100%';
-                document.getElementById('ad_progressText').textContent = 'อัปโหลดเสร็จแล้ว!';
-                setTimeout(() => {
-                    document.getElementById('ad_uploadProgress').style.display = 'none';
-                    alert(`อัปโหลดสำเร็จ! ${result.recordCount} records (${geom_type})`);
-                    addDataModal.hide();
-                    initApp();
-                }, 600);
-            } else {
-                document.getElementById('ad_uploadProgress').style.display = 'none';
-                alert(`เกิดข้อผิดพลาด: ${result.error || 'Unknown error'}`);
-            }
-        } catch (parseErr) {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>อัปโหลดข้อมูล';
+    
+    if (!hasError) {
+        document.getElementById('ad_progressBar').style.width = '100%';
+        document.getElementById('ad_progressText').textContent = 'อัปโหลดเสร็จแล้ว!';
+        setTimeout(() => {
             document.getElementById('ad_uploadProgress').style.display = 'none';
-            alert('เกิดข้อผิดพลาดในการประมวลผล');
-        }
-    });
-
-    xhr.addEventListener('error', () => {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>อัปโหลดข้อมูล';
+            alert(`อัปโหลดสำเร็จ! ทั้งหมด ${totalRecords} records (${geom_type})`);
+            addDataModal.hide();
+            initApp();
+        }, 600);
+    } else {
         document.getElementById('ad_uploadProgress').style.display = 'none';
-        alert('เกิดข้อผิดพลาดในการส่งข้อมูล (Network Error)');
-    });
-
-    xhr.open('POST', '/rub/api/upload-shapefile-to-table', true);
-    xhr.send(formData);
+    }
 });
 
 

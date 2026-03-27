@@ -105,7 +105,6 @@ const overlayMaps = {
     "แปลงยาง (reclass)": featureGroup.addTo(map),
     "แปลงยาง (reshape)": reshapeFeatureGroup,
     "แปลงยาง(เดิม)": rubber_parcel,
-    "NDVI": ndvi,
     "NDVI gee": ndviTile,
     "NDWI gee": ndwiTile,
     "S2 gee": trueColorTile,
@@ -215,7 +214,7 @@ const loadGeoData = async () => {
         if (!isNaN(id_from) && !isNaN(id_to)) {
             data = result.data.filter(item => item.id >= id_from && item.id <= id_to);
             console.log(`Filtering for ${assignee}: IDs ${id_from} - ${id_to}. Found ${data.length} records.`);
-            
+
             const infoEl = document.getElementById('assignmentInfo');
             if (infoEl && assignee) {
                 infoEl.innerHTML = `
@@ -273,7 +272,7 @@ const loadGeoData = async () => {
                         const id_from = urlParams.get('id_from');
                         const id_to = urlParams.get('id_to');
                         const assignee = urlParams.get('assignee');
-                        
+
                         let reclassUrl = `./../reclass/index.html?tb=${document.getElementById('tb').value}&id=${row.id}&sqm_yang=${row.sqm_yang}`;
                         if (id_from && id_to && assignee) {
                             reclassUrl += `&id_from=${id_from}&id_to=${id_to}&assignee=${encodeURIComponent(assignee)}`;
@@ -426,7 +425,7 @@ const loadGeoData = async () => {
                         if (type === 'sort' || type === 'filter' || type === 'type') {
                             return data || '';
                         }
-                        
+
                         let dateStr = '';
                         if (row.review_ts) {
                             const date = new Date(row.review_ts);
@@ -476,7 +475,7 @@ const loadGeoData = async () => {
         });
 
         // Auto-fill reviewer name when changing status
-        $('#featureTable tbody').on('change', '.review-check-area, .review-check-shape', function() {
+        $('#featureTable tbody').on('change', '.review-check-area, .review-check-shape', function () {
             const row = $(this).closest('tr');
             const reviewerInputEl = row.find('.review-reviewer');
             const displayName = document.getElementById('display-name')?.textContent || '';
@@ -659,7 +658,7 @@ const loadGeoData = async () => {
                 reviewerToSave = displayName;
                 row.find('.review-reviewer').val(displayName);
             }
-            
+
             // Fallback to current if still no name
             if (!reviewerToSave) {
                 reviewerToSave = currentReviewer;
@@ -694,7 +693,7 @@ const loadGeoData = async () => {
                             const options = { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' };
                             dateStr = `<div class="text-muted mt-1 reviewer-time" style="font-size: 0.75rem;"><i class="bi bi-clock"></i> ${date.toLocaleDateString('th-TH', options)}น.</div>`;
                         }
-                        
+
                         const container = row.find('.reviewer-input-container');
                         if (container.length) {
                             container.find('.review-reviewer').val(reviewerToSave);
@@ -783,7 +782,7 @@ const loadGeoData = async () => {
                     row.find('.review-check-area').val('');
                     row.find('.review-check-shape').val('');
                     row.find('.review-remark').val('');
-                    
+
                     row.find('.review-reviewer').val('');
                     row.find('.reviewer-time').remove();
                 } else {
@@ -844,7 +843,7 @@ document.getElementById('reshape').addEventListener('click', (e) => {
     const id_from = urlParams.get('id_from');
     const id_to = urlParams.get('id_to');
     const assignee = urlParams.get('assignee');
-    
+
     let url = `./../reshape/index.html?tb=${tb}`;
     if (id_from && id_to) {
         url += `&id_from=${id_from}&id_to=${id_to}&assignee=${encodeURIComponent(assignee)}`;
@@ -882,7 +881,7 @@ async function loadTaskProgress(tb, currentUser) {
         // Filter to show only current user's progress if specified
         let displayData = data;
         if (currentUser) {
-            displayData = data.filter(d => 
+            displayData = data.filter(d =>
                 d.assignee_name.toLowerCase().includes(currentUser.toLowerCase())
             );
         }
