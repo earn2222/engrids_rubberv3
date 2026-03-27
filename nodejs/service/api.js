@@ -96,7 +96,7 @@ app.get('/api/getfeatures/:tb/:fid', async (req, res) => {
             // Fallback to original table
             sql = `SELECT id, 
                         id as sub_id, 
-                        'rubber' as classtype, 
+                        NULL as classtype, 
                         id_farmer, 
                         shparea_sq as shpsplit_sqm, 
                         sqm_yang,
@@ -1079,7 +1079,66 @@ app.post('/api/splitfeature/:tb', async (req, res) => {
     }
 });
 
+// ── Unsplit: คืนแปลงเดิม (ลบแถว split ทั้งหมด แล้ว re-insert ต้นฉบับ) ──
+app.post('/api/unsplit_feature/:tb', async (req, res) => {
+    try {
+        const tb = req.params.tb;
+        if (!tb || !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tb)) {
+            return res.status(400).json({ error: 'Invalid table name' });
+        }
+        const { id, displayName } = req.body;
+        if (!id) {
+            return res.status(400).json({ error: 'id is required' });
+        }
+        const featureId = parseInt(id, 10);
+        if (isNaN(featureId)) {
+            return res.status(400).json({ error: 'id must be a number' });
+        }
 
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            // 1) ลบแถวใน reclass ที่เป็น split-children ทั้งหมดของ id นี้
+            await client.query(
+                `DELETE FROM reclass_${tb} WHERE id = $1`,
+                [featureId]
+            );
+
+            // 2) Re-insert แปลงเดิมจาก main table (sub_id = id.toString())
+            const inserted = await client.query(`
+                INSERT INTO reclass_${tb} (id, sub_id, id_farmer, shpsplit_sqm, geom, classtype, editor)
+                SELECT id,
+                       id::text AS sub_id,
+                       id_farmer,
+                       shparea_sq AS shpsplit_sqm,
+                       ST_Multi(geom) AS geom,
+                       NULL AS classtype,
+                       $2 AS editor
+                FROM ${tb}
+                WHERE id = $1
+                RETURNING id, sub_id, classtype, id_farmer, shpsplit_sqm,
+                          ST_AsGeoJSON(geom, 15) AS geom
+            `, [featureId, displayName || null]);
+
+            if (inserted.rowCount === 0) {
+                await client.query('ROLLBACK');
+                return res.status(404).json({ error: 'Original feature not found in main table' });
+            }
+
+            await client.query('COMMIT');
+            res.status(200).json({ success: true, data: inserted.rows });
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
+    } catch (err) {
+        console.error('Unsplit error:', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
 
 app.put('/api/update_landuse/:tb', async (req, res) => {
     try {

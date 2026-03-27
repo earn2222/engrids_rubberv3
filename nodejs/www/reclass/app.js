@@ -400,8 +400,9 @@ function showFeaturePanel(feature) {
     document.getElementById('xls_id_farmer').value = feature.get('id_farmer') || '';
     document.getElementById('sqm_yang').value = feature.get('sqm_yang') || 0;
     document.getElementById('shpsplit_sqm').value = Number(feature.get('shpsplit_sqm')).toFixed(0);
-    document.getElementById('classtype').value = feature.get('classtype') || '';
-    updateClasstypeColor(feature.get('classtype'));
+    const ct = feature.get('classtype');
+    document.getElementById('classtype').value = ct ? ct : '';
+    updateClasstypeColor(ct);
 }
 
 // ── 11. Map click → select polygon ───────────────────────
@@ -688,6 +689,10 @@ document.getElementById('confirmSplitSidebarBtn').addEventListener('click', asyn
     await executeSplit();
 });
 
+document.getElementById('unsplitBtn').addEventListener('click', () => {
+    executeUnsplit();
+});
+
 // Step 2: Execute Split Automatically
 async function executeSplit() {
     if (!selectedFeature) {
@@ -728,10 +733,84 @@ async function executeSplit() {
                 map.removeInteraction(snapInteraction);
                 snapInteraction = null;
             }
+            // Clear selection first
+            if (selectedFeature) {
+                selectedFeature.set('selected', false);
+                selectedFeature = null;
+            }
             vectorSource.clear();
             await loadGeoData(id, false);
+
+            // Auto-select first feature after split and update area panel
+            const allFeatures = vectorSource.getFeatures();
+            if (allFeatures.length > 0) {
+                selectedFeature = allFeatures[0];
+                selectedFeature.set('selected', true);
+                showFeaturePanel(selectedFeature);
+                await updateAreaDisplay(selectedFeature);
+                const tbSplit = document.getElementById('mapTool-split');
+                if (tbSplit) { tbSplit.classList.remove('map-tool-disabled'); tbSplit.disabled = false; }
+                const tbEdit = document.getElementById('mapTool-edit');
+                if (tbEdit) { tbEdit.classList.remove('map-tool-disabled'); tbEdit.disabled = false; }
+            }
+            showToast('ตัดแปลงสำเร็จ!', 'success');
         } else {
             alert('Split failed: ' + (data.error || ''));
+        }
+    } catch (err) {
+        alert('เกิดข้อผิดพลาด: ' + err.message);
+    }
+}
+
+// ── 12c. Unsplit (คืนแปลงเดิม) ──────────────────────────────
+async function executeUnsplit() {
+    const id = document.getElementById('id').value;
+    const tb = document.getElementById('tb').value;
+    const displayName = document.getElementById('displayName').value;
+
+    if (!id || !tb) {
+        alert('ไม่พบข้อมูลแปลง');
+        return;
+    }
+
+    if (!confirm('ต้องการคืนแปลงเดิมหรือไม่?\nการกระทำนี้จะลบการ Split ทั้งหมดของแปลงนี้และคืนเป็นแปลงเดิม')) {
+        return;
+    }
+
+    try {
+        const res = await fetch('/rub/api/unsplit_feature/' + tb, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, displayName })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            // Clear selection
+            if (selectedFeature) {
+                selectedFeature.set('selected', false);
+                selectedFeature = null;
+            }
+            splitLineSource.clear();
+            splitLineCoords = null;
+            vectorSource.clear();
+            await loadGeoData(id, false);
+
+            // Auto-select the restored single feature
+            const allFeatures = vectorSource.getFeatures();
+            if (allFeatures.length > 0) {
+                selectedFeature = allFeatures[0];
+                selectedFeature.set('selected', true);
+                showFeaturePanel(selectedFeature);
+                await updateAreaDisplay(selectedFeature);
+                const tbSplit = document.getElementById('mapTool-split');
+                if (tbSplit) { tbSplit.classList.remove('map-tool-disabled'); tbSplit.disabled = false; }
+                const tbEdit = document.getElementById('mapTool-edit');
+                if (tbEdit) { tbEdit.classList.remove('map-tool-disabled'); tbEdit.disabled = false; }
+            }
+            showToast('คืนแปลงเดิมสำเร็จ!', 'success');
+        } else {
+            alert('เกิดข้อผิดพลาด: ' + (data.error || ''));
         }
     } catch (err) {
         alert('เกิดข้อผิดพลาด: ' + err.message);
@@ -807,7 +886,33 @@ function startEditMode() {
         })
     });
 
-    modifyInteraction.on('modifyend', async () => {
+    let geomChangeListener;
+    modifyInteraction.on('modifystart', (evt) => {
+        const feature = evt.features.getArray()[0];
+        if (feature) {
+            geomChangeListener = () => {
+                const geom = feature.getGeometry();
+                const area = ol.sphere.getArea(geom, { projection: 'EPSG:3857' });
+                document.getElementById('shpsplit_sqm').value = Math.round(area);
+                
+                const sqmYang = parseFloat(document.getElementById('sqm_yang').value) || 0;
+                const el = document.getElementById('checkarea');
+                if (Math.abs(sqmYang - area) <= 800) {
+                    el.innerHTML = '<span style="color:green">* พื้นที่ตรงกับข้อมูลเป้าหมาย</span>';
+                } else {
+                    el.innerHTML = '<span style="color:red">* พื้นที่ไม่ตรงกับข้อมูลเป้าหมาย</span>';
+                }
+            };
+            feature.getGeometry().on('change', geomChangeListener);
+        }
+    });
+
+    modifyInteraction.on('modifyend', async (evt) => {
+        const feature = evt.features.getArray()[0];
+        if (feature && geomChangeListener) {
+            feature.getGeometry().un('change', geomChangeListener);
+            geomChangeListener = null;
+        }
         await updateAreaDisplay(selectedFeature);
     });
 
