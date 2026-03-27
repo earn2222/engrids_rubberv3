@@ -6,26 +6,29 @@ const lddFeatureGroup = L.featureGroup();
 // Custom Rubber Tree Icon
 const rubberTreeIcon = L.icon({
     iconUrl: 'data:image/svg+xml;base64,' + btoa(`
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 640">
             <defs>
-                <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-                    <feGaussianBlur in="SourceAlpha" stdDeviation="15" />
+                <filter id="p-shadow" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur in="SourceAlpha" stdDeviation="12" />
                     <feOffset dx="0" dy="10" result="offsetblur" />
                     <feComponentTransfer><feFuncA type="linear" slope="0.3" /></feComponentTransfer>
                     <feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge>
                 </filter>
+                <linearGradient id="p-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" style="stop-color:#81c784" />
+                    <stop offset="100%" style="stop-color:#2e7d32" />
+                </linearGradient>
             </defs>
-            <circle cx="256" cy="256" r="230" fill="#FFF9C4" stroke="#FBC02D" stroke-width="20" filter="url(#shadow)" />
-            <path fill="#5D4037" d="M236 340h40v120h-40z"/>
-            <path fill="#2E7D32" d="M256 80s-140 70-140 180c0 50 140 100 140 100s140-50 140-100c0-110-140-180-140-180z"/>
-            <path fill="#4CAF50" d="M256 110s-110 50-110 150c0 40 110 80 110 80s110-40 110-80c0-100-110-150-110-150z"/>
-            <path fill="#81C784" d="M256 140s-80 30-80 120c0 30 80 60 80 60s80-30 80-60c0-90-80-120-80-120z"/>
-            <circle cx="190" cy="200" r="30" fill="white" fill-opacity="0.2" />
+            <path fill="url(#p-grad)" filter="url(#p-shadow)" d="M256 640c-15 0-30-5-40-15C160 560 32 420 32 256 32 120 144 0 256 0s224 120 224 256c0 164-128 304-184 369-10 10-25 15-40 15z"/>
+            <circle cx="256" cy="245" r="170" fill="white"/>
+            <path fill="#2e7d32" d="M256 120c-40 0-80 35-80 110 0 60 80 110 80 110s80-50 80-110c0-75-40-110-80-110z"/>
+            <path fill="#1b5e20" d="M256 150c-30 0-60 25-60 80 0 50 60 90 60 90s60-40 60-90c0-55-30-80-60-80z" opacity="0.6"/>
+            <path fill="#5d4037" d="M236 320h40v40h-40z"/>
         </svg>
     `),
-    iconSize: [32, 32],
-    iconAnchor: [16, 32],
-    popupAnchor: [0, -32]
+    iconSize: [28, 35],
+    iconAnchor: [14, 35],
+    popupAnchor: [0, -35]
 });
 
 // Configure base layer
