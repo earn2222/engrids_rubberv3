@@ -176,12 +176,12 @@ const focusPlot = (rowData) => {
             const bounds = tempLayer.getBounds();
             if (bounds.isValid()) {
                 // Use flyToBounds for a smoother, more noticeable transition
-                map.flyToBounds(bounds, { 
-                    padding: [50, 50], 
-                    maxZoom: 22, 
-                    duration: 1.0 
+                map.flyToBounds(bounds, {
+                    padding: [50, 50],
+                    maxZoom: 22,
+                    duration: 1.0
                 });
-                
+
                 // Ensure map is properly sized
                 setTimeout(() => map.invalidateSize(), 500);
             }
@@ -217,10 +217,10 @@ const navigatePlots = (direction) => {
     const currentSubId = $('#panel-sub-id').val();
     const dt = $('#featureTable').DataTable();
     const allRows = dt.rows({ search: 'applied' }).data().toArray();
-    
+
     // Find current index
     let currentIndex = allRows.findIndex(r => String(r.sub_id) === String(currentSubId));
-    
+
     // Fallback: If no parcel is selected, start from the first one
     if (currentIndex === -1) {
         currentIndex = (direction > 0) ? -1 : 0;
@@ -239,7 +239,7 @@ const navigatePlots = (direction) => {
 
 const showFeaturePanel = (feature, layer) => {
     const props = feature.properties;
-    
+
     // Basic Info
     $('#display-id-num').text(props.id || '-');
     $('#display-id').text(`ID: ${props.id || '-'}`);
@@ -252,7 +252,7 @@ const showFeaturePanel = (feature, layer) => {
     const targetLand = Number(props.sqm_pacel || 0);
     $('#curr-land-area').text(currLand.toLocaleString('th-TH', { maximumFractionDigits: 0 }));
     $('#target-land-area').text(targetLand.toLocaleString('th-TH', { maximumFractionDigits: 0 }));
-    
+
     // Land Difference
     if (targetLand > 0) {
         const diffArea = Math.round(currLand - targetLand); // เนื้อที่ขณะนี้ ลบด้วยเป้าหมาย
@@ -286,7 +286,7 @@ const showFeaturePanel = (feature, layer) => {
     // Area Other (Non-rubber)
     const currOther = props.classtype !== 'rubber' ? Number(props.shpsplit_sqm || 0) : 0;
     $('#curr-other-area').text(currOther.toLocaleString('th-TH', { maximumFractionDigits: 0 }));
-    
+
     // Classtype Label & Color
     const labelMap = {
         'rubber': 'ยางพาราที่ลงทะเบียน', 'not-rubber': 'ยางพาราที่ไม่ได้ลงทะเบียน',
@@ -687,7 +687,7 @@ const loadGeoData = async () => {
         });
 
         // Panel Save Checker Button Handler
-        $('#panel-btn-save-checker').on('click', async function() {
+        $('#panel-btn-save-checker').on('click', async function () {
             const subId = $('#panel-sub-id').val();
             const tb = $('#tb').val();
             if (!subId) { alert('กรุณาเลือกข้อมูลก่อน'); return; }
@@ -716,10 +716,10 @@ const loadGeoData = async () => {
                 const data = await res.json();
                 if (data.success) {
                     btn.html('<i class="bi bi-check-circle-fill"></i> เรียบร้อย').removeClass('btn-success').addClass('btn-primary');
-                    
+
                     const dataTable = $('#featureTable').DataTable();
                     const tableRow = dataTable.row((idx, d) => d.sub_id == subId);
-                    
+
                     if (tableRow.any()) {
                         const rowData = tableRow.data();
                         rowData.check_area = checkArea;
@@ -746,7 +746,7 @@ const loadGeoData = async () => {
         });
 
         // Panel Save User Remark Button Handler
-        $('#panel-btn-save-user').on('click', async function() {
+        $('#panel-btn-save-user').on('click', async function () {
             const subId = $('#panel-sub-id').val();
             const tb = $('#tb').val();
             if (!subId) { alert('กรุณาเลือกข้อมูลก่อน'); return; }
@@ -771,10 +771,10 @@ const loadGeoData = async () => {
                 const data = await res.json();
                 if (data.success) {
                     btn.html('<i class="bi bi-check-circle-fill"></i> เรียบร้อย');
-                    
+
                     const dataTable = $('#featureTable').DataTable();
                     const tableRow = dataTable.row((idx, d) => d.sub_id == subId);
-                    
+
                     if (tableRow.any()) {
                         const rowData = tableRow.data();
                         rowData.user_remark = userRemark;
@@ -799,7 +799,7 @@ const loadGeoData = async () => {
         });
 
         // Panel Clear Checker Button Handler
-        $('#panel-btn-clear-checker').on('click', async function() {
+        $('#panel-btn-clear-checker').on('click', async function () {
             const subId = $('#panel-sub-id').val();
             const tb = $('#tb').val();
             if (!subId) { alert('กรุณาเลือกข้อมูลก่อน'); return; }
@@ -841,7 +841,7 @@ const loadGeoData = async () => {
         });
 
         // Panel Clear User Remark Button Handler
-        $('#panel-btn-clear-user').on('click', function() {
+        $('#panel-btn-clear-user').on('click', function () {
             const subId = $('#panel-sub-id').val();
             if (!subId) { alert('กรุณาเลือกข้อมูลก่อน'); return; }
             if (confirm('ยืนยันลบหมายเหตุผู้ใช้ ใช่หรือไม่?')) {
@@ -874,14 +874,14 @@ const loadGeoData = async () => {
 
 
         // ✅ Search Panel Plot
-        $('#btn-panel-search').on('click', function() {
+        $('#btn-panel-search').on('click', function () {
             const val = $('#search-plot-id').val().trim();
             if (!val) return;
-            
+
             const dt = $('#featureTable').DataTable();
             // Try specific ID search
             let foundData = dt.rows().data().toArray().find(r => r.id == val || r.sub_id == val || r.id_farmer == val);
-            
+
             if (foundData) {
                 const layer = findLayerBySubId(foundData.sub_id);
                 if (layer) {
@@ -918,7 +918,7 @@ const loadGeoData = async () => {
             }
         });
 
-        $('#search-plot-id').on('keypress', function(e) {
+        $('#search-plot-id').on('keypress', function (e) {
             if (e.which == 13) $('#btn-panel-search').click();
         });
 
