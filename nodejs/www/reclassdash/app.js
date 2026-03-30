@@ -255,7 +255,7 @@ const showFeaturePanel = (feature, layer) => {
     
     // Land Difference
     if (targetLand > 0) {
-        const diffArea = Math.round(targetLand - currLand); // เป้าหมายตั้ง ลบด้วยเนื้อที่ขณะนี้
+        const diffArea = Math.round(currLand - targetLand); // เนื้อที่ขณะนี้ ลบด้วยเป้าหมาย
         const diffPct = (diffArea / targetLand) * 100;
         const diffEl = $('#diff-land-area');
         const sign = diffArea > 0 ? '+' : (diffArea < 0 ? '-' : '');
@@ -272,7 +272,7 @@ const showFeaturePanel = (feature, layer) => {
 
     // Rubber Difference
     if (targetRubber > 0 && props.classtype === 'rubber') {
-        const diffArea = Math.round(targetRubber - currRubber); // เป้าหมายตั้ง ลบด้วยเนื้อที่ขณะนี้
+        const diffArea = Math.round(currRubber - targetRubber); // เนื้อที่ขณะนี้ ลบด้วยเป้าหมาย
         const diffPct = (diffArea / targetRubber) * 100;
         const diffEl = $('#diff-rubber-area');
         const sign = diffArea > 0 ? '+' : (diffArea < 0 ? '-' : '');
