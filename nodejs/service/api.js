@@ -1463,8 +1463,17 @@ app.delete('/api/layerlist/:tb', async (req, res) => {
         await pool.query(sql2);
 
         // delete source table
-        // const sql3 = `DROP TABLE IF EXISTS ${tb}`;
-        // await pool.query(sql3);
+        const sql3 = `DROP TABLE IF EXISTS ${tb}`;
+        await pool.query(sql3);
+
+        const sql4 = `DROP TABLE IF EXISTS backup_${tb}`;
+        await pool.query(sql4);
+
+        try {
+            await pool.query('DELETE FROM task_assignments WHERE tb_name = $1', [tb]);
+        } catch (e) {
+            console.log('task_assignments table might not exist yet');
+        }
 
         if (result.rowCount === 0) {
             return res.status(404).json({ error: 'Table not found' });
@@ -1737,6 +1746,11 @@ app.post('/api/upload-shapefile', upload.single('shpFile'), async (req, res) => 
         await pool.query(`DROP VIEW IF EXISTS v_reclass_${tb_name}`);
         await pool.query(`DROP TABLE IF EXISTS reclass_${tb_name}`);
         await pool.query(`DROP TABLE IF EXISTS ${tb_name}`);
+        await pool.query(`DROP TABLE IF EXISTS backup_${tb_name}`);
+        try {
+            await pool.query(`DELETE FROM task_assignments WHERE tb_name = $1`, [tb_name]);
+        } catch (e) {}
+
         await pool.query(createTableSql);
 
         // Detect Source SRID (Automatic UTM vs WGS84 detection)
@@ -1852,6 +1866,10 @@ app.post('/api/create-project', async (req, res) => {
         await pool.query(`DROP VIEW IF EXISTS v_reclass_${tb_name}`);
         await pool.query(`DROP TABLE IF EXISTS reclass_${tb_name}`);
         await pool.query(`DROP TABLE IF EXISTS ${tb_name}`);
+        await pool.query(`DROP TABLE IF EXISTS backup_${tb_name}`);
+        try {
+            await pool.query(`DELETE FROM task_assignments WHERE tb_name = $1`, [tb_name]);
+        } catch (e) {}
 
         // Create main rubber table with full template schema
         const createMainTable = `
