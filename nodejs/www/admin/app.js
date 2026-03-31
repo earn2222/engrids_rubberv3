@@ -105,13 +105,13 @@ const initApp = async () => {
                                 <li>
                                     <a class="dropdown-item reshape_download" href="javascript:void(0);" data-tb="${tb_name}">
                                         <div class="icon-wrapper"><i class="bi bi-file-earmark-text"></i></div>
-                                        <span>Download แปลงยาง</span>
+                                        <span>Download แปลงโฉนดของยางพารา</span>
                                     </a>
                                 </li>
                                 <li>
                                     <a class="dropdown-item classify_download" href="javascript:void(0);" data-tb="${tb_name}">
                                         <div class="icon-wrapper"><i class="bi bi-file-earmark-check"></i></div>
-                                        <span>Download reclassify</span>
+                                        <span>Download reclassify (LU)</span>
                                     </a>
                                 </li>
                                 <li><hr class="dropdown-divider"></li>
@@ -446,7 +446,7 @@ function renderSelectedFiles() {
 
     display.style.display = 'flex';
     display.innerHTML = '';
-    
+
     selectedZipFiles.forEach((file, index) => {
         const item = document.createElement('div');
         item.className = 'd-flex justify-content-between align-items-center w-100 p-2 border rounded border-secondary bg-white shadow-sm';
@@ -458,7 +458,7 @@ function renderSelectedFiles() {
     });
 
     display.querySelectorAll('.btn-remove-file').forEach(btn => {
-        btn.addEventListener('click', function() {
+        btn.addEventListener('click', function () {
             const idx = parseInt(this.getAttribute('data-index'));
             selectedZipFiles.splice(idx, 1);
             renderSelectedFiles();
@@ -475,7 +475,7 @@ document.getElementById('btnAddData').addEventListener('click', async () => {
     if (selectedZipFiles.length === 0) { alert('กรุณาเลือกไฟล์ ZIP อย่างน้อย 1 ไฟล์'); return; }
 
     document.getElementById('ad_uploadProgress').style.display = 'block';
-    
+
     const btn = document.getElementById('btnAddData');
     btn.disabled = true;
 
@@ -485,9 +485,9 @@ document.getElementById('btnAddData').addEventListener('click', async () => {
     for (let i = 0; i < selectedZipFiles.length; i++) {
         const file = selectedZipFiles[i];
         btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>กำลังอัปโหลดไฟล์ ${i + 1} / ${selectedZipFiles.length}...`;
-        
+
         document.getElementById('ad_progressBar').style.width = '0%';
-        document.getElementById('ad_progressText').textContent = `กำลังอัปโหลด ${file.name} (ไฟล์ ${i+1}/${selectedZipFiles.length})...`;
+        document.getElementById('ad_progressText').textContent = `กำลังอัปโหลด ${file.name} (ไฟล์ ${i + 1}/${selectedZipFiles.length})...`;
 
         const success = await new Promise((resolve) => {
             const formData = new FormData();
@@ -537,7 +537,7 @@ document.getElementById('btnAddData').addEventListener('click', async () => {
 
     btn.disabled = false;
     btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>อัปโหลดข้อมูล';
-    
+
     if (!hasError) {
         document.getElementById('ad_progressBar').style.width = '100%';
         document.getElementById('ad_progressText').textContent = 'อัปโหลดเสร็จแล้ว!';
@@ -907,7 +907,7 @@ async function loadAssignmentStrip(tb_name) {
             let tsStr = '';
             if (d.last_ts) {
                 const dt = new Date(d.last_ts);
-                tsStr = `<span class="strip-ts"> · ${dt.toLocaleDateString('th-TH', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}น.</span>`;
+                tsStr = `<span class="strip-ts"> · ${dt.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}น.</span>`;
             }
             return `
             <div class="strip-progress-block" style="border-color:${c}33;">

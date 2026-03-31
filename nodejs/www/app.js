@@ -16,7 +16,7 @@ const initUser = async () => {
                 img.className = 'rounded-circle me-2';
                 img.style = 'width: 32px; height: 32px; object-fit: cover; border: 1px solid #ddd;';
                 img.src = item.photo;
-                img.onerror = function() {
+                img.onerror = function () {
                     this.outerHTML = '<div class="rounded-circle bg-light d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px; border: 1px solid #ddd;"><i class="bi bi-person-fill text-secondary"></i></div>';
                 };
                 avatarDiv.appendChild(img);
@@ -55,7 +55,7 @@ async function showAssigneeSelect(event, tb, targetType) {
         console.error('Selection Modal or list not found!');
         return;
     }
-    
+
     const modal = new bootstrap.Modal(modalEl);
 
     listEl.innerHTML = `
@@ -132,8 +132,8 @@ async function showAssigneeSelect(event, tb, targetType) {
             } else {
                 btn.style.background = '#ffffff';
             }
-            
-            const avatarHtml = item.assignee_photo 
+
+            const avatarHtml = item.assignee_photo
                 ? `<img src="${item.assignee_photo}" class="rounded-circle me-3" style="width: 42px; height: 42px; object-fit: cover; border: 2px solid ${isMe ? 'rgba(255,255,255,0.6)' : '#f1f7f1'}" onerror="this.onerror=null; this.outerHTML='<div class=\\'rounded-circle d-flex align-items-center justify-content-center me-3\\' style=\\'width: 42px; height: 42px; background: ${isMe ? 'rgba(255,255,255,0.15)' : '#f1f7f1'}; border: 2px solid ${isMe ? 'rgba(255,255,255,0.4)' : '#e3eddf'}\\'><i class=\\'bi bi-person-fill ${isMe ? 'text-white' : 'text-success'}\\' style=\\'font-size: 1.2rem;\\'></i></div>';">`
                 : `<div class="rounded-circle d-flex align-items-center justify-content-center me-3" 
                         style="width: 42px; height: 42px; background: ${isMe ? 'rgba(255,255,255,0.15)' : '#f1f7f1'}; border: 2px solid ${isMe ? 'rgba(255,255,255,0.4)' : '#e3eddf'}">
@@ -165,7 +165,7 @@ async function showAssigneeSelect(event, tb, targetType) {
             `;
             btn.onclick = () => {
                 modal.hide();
-                const url = targetType === 'reshape' 
+                const url = targetType === 'reshape'
                     ? `./reshape/index.html?tb=${tb}&id_from=${item.id_from}&id_to=${item.id_to}&assignee=${encodeURIComponent(item.assignee_name)}`
                     : `./reclassdash/index.html?tb=${tb}&id_from=${item.id_from}&id_to=${item.id_to}&assignee=${encodeURIComponent(item.assignee_name)}`;
                 window.location.href = url;
@@ -201,11 +201,11 @@ async function loadAssignmentHome(tb_name) {
             <div class="ah-title"><i class="bi bi-people-fill me-1"></i> รายชื่อผู้รับผิดชอบและความคืบหน้า</div>
             <div class="ah-list">
                 ${data.map(d => {
-                    const avatarHtml = d.assignee_photo 
-                        ? `<img src="${d.assignee_photo}" class="ha-avatar" style="border: 1px solid #eee;" onerror="this.onerror=null; this.outerHTML='<i class=\\'bi bi-person-circle fs-6 opacity-75 me-2\\'></i>';">`
-                        : `<i class="bi bi-person-circle fs-6 opacity-75 me-2"></i>`;
+            const avatarHtml = d.assignee_photo
+                ? `<img src="${d.assignee_photo}" class="ha-avatar" style="border: 1px solid #eee;" onerror="this.onerror=null; this.outerHTML='<i class=\\'bi bi-person-circle fs-6 opacity-75 me-2\\'></i>';">`
+                : `<i class="bi bi-person-circle fs-6 opacity-75 me-2"></i>`;
 
-                    return `
+            return `
                     <div class="home-assignee-card shadow-sm" onclick="showAssigneeSelect(event, '${tb_name}', 'reshape')">
                         <div class="d-flex align-items-center mb-1">
                             ${avatarHtml}
@@ -219,7 +219,7 @@ async function loadAssignmentHome(tb_name) {
                         <span class="ha-range" style="font-size: 0.65rem;">ID ${d.id_from}-${d.id_to} (${d.done}/${d.total})</span>
                     </div>`;
 
-                }).join('')}
+        }).join('')}
             </div>
         `;
 
@@ -270,13 +270,13 @@ const initApp = async () => {
                                 <li>
                                     <a class="dropdown-item reshape_download" href="javascript:void(0);" data-tb="${tb_name}">
                                         <div class="icon-wrapper"><i class="bi bi-file-earmark-text"></i></div>
-                                        <span>Download แปลงยาง</span>
+                                        <span>Download แปลงโฉนดของยางพารา</span>
                                     </a>
                                 </li>
                                 <li>
                                     <a class="dropdown-item classify_download" href="javascript:void(0);" data-tb="${tb_name}">
                                         <div class="icon-wrapper"><i class="bi bi-file-earmark-check"></i></div>
-                                        <span>Download reclassify</span>
+                                        <span>Download reclassify (LU)</span>
                                     </a>
                                 </li>
                                 <li><hr class="dropdown-divider"></li>
