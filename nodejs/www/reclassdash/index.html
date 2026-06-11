@@ -134,37 +134,39 @@
 
                                 <!-- Comparison Area Cards -->
                                 <div class="row g-2 mb-3">
-                                    <div class="col-4">
-                                        <div class="area-comparison-card land">
-                                            <div class="card-label"><i class="bi bi-geo-alt-fill"></i> เนื้อที่โฉนด
+                                    <div class="col-6">
+                                        <div class="area-comparison-card land" style="padding-bottom: 5px;">
+                                            <div class="card-label"><i class="bi bi-geo-alt-fill"></i> ข้อมูลระดับโฉนด
                                             </div>
-                                            <div class="current-val"><span id="curr-land-area">0</span>
-                                                <small>m²</small>
+                                            <div class="d-flex justify-content-between align-items-end mt-1">
+                                                <span class="x-small fw-bold text-muted">เนื้อที่เป้าหมายโฉนด:</span>
+                                                <div class="current-val m-0"><span id="target-land-sqm"
+                                                        style="font-size: 1rem;">0</span> <small>m²</small></div>
                                             </div>
-                                            <div class="target-val"><i class="bi bi-bullseye me-1"></i>เป้าหมาย: <b
-                                                    id="target-land-area">0</b></div>
-                                            <div class="diff-val" id="diff-land-area">±0%</div>
+                                            <div class="d-flex justify-content-between align-items-end mt-1">
+                                                <span class="x-small fw-bold text-muted">เนื้อที่ขณะนี้:</span>
+                                                <div class="current-val m-0 text-primary"><span id="curr-land-sqm"
+                                                        style="font-size: 1rem;">0</span> <small>m²</small></div>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div class="col-4">
-                                        <div class="area-comparison-card rubber">
-                                            <div class="card-label"><i class="bi bi-tree-fill"></i> เนื้อที่ยางพารา
+                                    <div class="col-6">
+                                        <div class="area-comparison-card rubber" style="padding-bottom: 5px;">
+                                            <div class="card-label" id="rubber-card-label"><i
+                                                    class="bi bi-tree-fill"></i> ข้อมูลที่คลาส</div>
+                                            <div class="d-flex justify-content-between align-items-end mt-1"
+                                                id="rubber-target-row" style="display: none !important;">
+                                                <span class="x-small fw-bold text-muted"
+                                                    id="rubber-card-target-label">เนื้อที่เป้าหมายยางพารา:</span>
+                                                <div class="current-val m-0"><span id="target-rubber-sqm"
+                                                        style="font-size: 1rem;">0</span> <small>m²</small></div>
                                             </div>
-                                            <div class="current-val"><span id="curr-rubber-area">0</span>
-                                                <small>m²</small>
+                                            <div class="d-flex justify-content-between align-items-end mt-1"
+                                                id="rubber-current-row" style="display: none !important;">
+                                                <span class="x-small fw-bold text-muted">เนื้อที่ขณะนี้:</span>
+                                                <div class="current-val m-0 text-success"><span id="curr-area-sqm"
+                                                        style="font-size: 1rem;">0</span> <small>m²</small></div>
                                             </div>
-                                            <div class="target-val"><i class="bi bi-bullseye me-1"></i>เป้าหมาย: <b
-                                                    id="target-rubber-area">0</b></div>
-                                            <div class="diff-val" id="diff-rubber-area">±0%</div>
-                                        </div>
-                                    </div>
-                                    <div class="col-4">
-                                        <div class="area-comparison-card other">
-                                            <div class="card-label"><i class="bi bi-layers-half"></i> ประเภทอื่น</div>
-                                            <div class="current-val"><span id="curr-other-area">0</span>
-                                                <small>m²</small>
-                                            </div>
-                                            <div class="diff-val outline-muted" id="display-other-type">N/A</div>
                                         </div>
                                     </div>
                                 </div>
@@ -265,11 +267,11 @@
                 </div>
                 <div class="card mb-2 shadow-sm">
                     <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center cursor-pointer py-3"
-                        data-bs-toggle="collapse" data-bs-target="#chartsCollapse" aria-expanded="true">
+                        data-bs-toggle="collapse" data-bs-target="#chartsCollapse" aria-expanded="false">
                         <div class="section-title mb-0"><i class="bi bi-pie-chart-fill"></i> รายงานสถิติ</div>
                         <i class="bi bi-chevron-down toggle-icon"></i>
                     </div>
-                    <div class="collapse show" id="chartsCollapse">
+                    <div class="collapse" id="chartsCollapse">
                         <div class="card-body pt-0">
                             <div class="row">
                                 <div class="col-sm-12 mt-2">
@@ -298,6 +300,22 @@
         </div>
     </div>
 
+
+    <!-- Note Popup Modal -->
+    <div class="modal fade" id="notePopupModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-md">
+            <div class="modal-content">
+                <div class="modal-header py-2">
+                    <h6 class="modal-title" id="notePopupTitle">หมายเหตุ</h6>
+                    <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="notePopupBody" style="font-size: 0.9rem; word-break: break-word; overflow-wrap: break-word;"></div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">ปิด</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>

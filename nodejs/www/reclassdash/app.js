@@ -1,3 +1,24 @@
+// Format remark text for popup: detect "1.xxx\n2.xxx" pattern → <ol>
+function formatRemarkPopup(text) {
+    if (!text || !text.trim()) return '<span class="text-muted">ไม่มีข้อมูล</span>';
+    const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    // Multi-line numbered list: every line starts with "1." "2." etc.
+    if (lines.length >= 2 && lines.every(l => /^\d+\./.test(l))) {
+        const items = lines.map(l => `<li>${esc(l.replace(/^\d+\.\s*/, ''))}</li>`).join('');
+        return `<ol class="mb-0 ps-4">${items}</ol>`;
+    }
+    // Single line with embedded numbers: split on "N." boundaries
+    if (lines.length === 1 && /\d+\./.test(text)) {
+        const parts = text.split(/(?=\d+\.)/).map(s => s.trim()).filter(s => /^\d+\./.test(s));
+        if (parts.length >= 2) {
+            const items = parts.map(s => `<li>${esc(s.replace(/^\d+\.\s*/, ''))}</li>`).join('');
+            return `<ol class="mb-0 ps-4">${items}</ol>`;
+        }
+    }
+    return lines.map(l => esc(l)).join('<br>');
+}
+
 // Initialize map and feature group
 const map = L.map('map', { maxZoom: 22 }).setView([18.819620993471577, 100.8784385963758], 13);
 const featureGroup = L.featureGroup();
@@ -81,13 +102,39 @@ const ndvi = L.tileLayer.wms("https://engrids.soc.cmu.ac.th/geoserver/gwc/servic
     zIndex: 6
 });
 
-const rubber_parcel = L.tileLayer.wms("https://engrids.soc.cmu.ac.th/geoserver/rubber/wms?", {
-    layers: 'rubber:rubber_pacel',
-    format: 'image/png',
-    transparent: true,
-    maxZoom: 22,
-    zIndex: 7
-});
+// krabinew background layer — loaded from database, shown when checkbox is toggled
+const krabinewLayer = L.featureGroup();  // placeholder group — data loaded on first add
+let krabinewLoaded = false;
+
+async function loadKrabinewLayer() {
+    if (krabinewLoaded) return;
+    try {
+        const res = await fetch('/rub/api/krabinew');
+        const data = await res.json();
+        if (!data.success || !data.features || data.features.length === 0) {
+            console.warn('krabinew: ไม่พบข้อมูลหรือยังไม่มี table', data);
+            return;
+        }
+        L.geoJSON({ type: 'FeatureCollection', features: data.features }, {
+            interactive: false,
+            style: () => ({
+                color: '#e65100',
+                weight: 1.5,
+                opacity: 0.8,
+                fillColor: '#ff9800',
+                fillOpacity: 0.18,
+                dashArray: '4 3'
+            })
+        }).addTo(krabinewLayer);
+        krabinewLoaded = true;
+        console.log(`krabinew: โหลดสำเร็จ ${data.features.length} แปลง`);
+    } catch (err) {
+        console.error('krabinew load error:', err);
+    }
+}
+
+// Listen for layer add event to lazy-load data
+krabinewLayer.on('add', () => loadKrabinewLayer());
 
 const baseLayers = {
     "Google Road": gmap_road,
@@ -97,52 +144,14 @@ const baseLayers = {
     "Stadia Light": light
 };
 
-const ndviTile = L.featureGroup();
-const ndwiTile = L.featureGroup();
-const trueColorTile = L.featureGroup();
-
 const overlayMaps = {
     "แปลงยาง (reclass)": featureGroup.addTo(map),
     "แปลงยาง (reshape)": reshapeFeatureGroup,
-    "แปลงยาง(เดิม)": rubber_parcel,
-    "NDVI gee": ndviTile,
-    "NDWI gee": ndwiTile,
-    "S2 gee": trueColorTile,
+    "แปลงยาง (เดิม)": krabinewLayer,
     "Longdo Map": longdoLayer.addTo(map)
 };
 
 L.control.layers(baseLayers, overlayMaps).addTo(map);
-
-fetch('/rub/api/gee')
-    .then(res => res.json())
-    .then((data) => {
-
-        const truecolor = L.tileLayer(data.truecolor.urlFormat, {
-            attribution: 'Google Earth Engine',
-            maxZoom: 22,
-            maxNativeZoom: 18,
-            zIndex: 3
-        });
-
-        const ndwi = L.tileLayer(data.ndwi.urlFormat, {
-            attribution: 'Google Earth Engine',
-            maxZoom: 22,
-            maxNativeZoom: 18,
-            zIndex: 4
-        });
-
-        const ndvi = L.tileLayer(data.ndvi.urlFormat, {
-            attribution: 'Google Earth Engine',
-            maxZoom: 22,
-            maxNativeZoom: 18,
-            zIndex: 5
-        });
-
-        // Add layers to map
-        truecolor.addTo(trueColorTile);
-        ndvi.addTo(ndviTile);
-        ndwi.addTo(ndwiTile);
-    });
 
 // Helper to find layer on map
 const findLayerBySubId = (subId) => {
@@ -247,58 +256,31 @@ const showFeaturePanel = (feature, layer) => {
     $('#display-farmer-id').text(props.id_farmer || '-');
     $('#panel-sub-id').val(props.sub_id || '');
 
-    // Area land (Current vs Target)
-    const currLand = Number(props.shparea_sqm || 0);
-    const targetLand = Number(props.sqm_pacel || 0);
-    $('#curr-land-area').text(currLand.toLocaleString('th-TH', { maximumFractionDigits: 0 }));
-    $('#target-land-area').text(targetLand.toLocaleString('th-TH', { maximumFractionDigits: 0 }));
+    // Area land
+    const targetLandSqm = Number(props.deed_sqm || 0);
+    const currLandSqm = Number(props.current_sqm || 0); // Sqm_Deed (mapped in loadGeoData)
+    $('#target-land-sqm').text(targetLandSqm.toLocaleString('th-TH', { maximumFractionDigits: 0 }));
+    $('#curr-land-sqm').text(currLandSqm.toLocaleString('th-TH', { maximumFractionDigits: 0 }));
 
-    // Land Difference
-    if (targetLand > 0) {
-        const diffArea = Math.round(currLand - targetLand); // เนื้อที่ขณะนี้ ลบด้วยเป้าหมาย
-        const diffPct = (diffArea / targetLand) * 100;
-        const diffEl = $('#diff-land-area');
-        const sign = diffArea > 0 ? '+' : (diffArea < 0 ? '-' : '');
-        diffEl.text(`${sign}${Math.abs(diffArea).toLocaleString()} m² (${Math.round(Math.abs(diffPct))}%)`);
-        diffEl.removeClass('positive negative').addClass(Math.abs(diffPct) <= 5 ? 'positive' : 'negative');
-    }
-
-    // Area rubber (Current vs Target)
-    // Note: shpsplit_sqm is the area of the specific classification (e.g. rubber)
-    const currRubber = props.classtype === 'rubber' ? Number(props.shpsplit_sqm || 0) : 0;
-    const targetRubber = Number(props.sqm_yang || 0);
-    $('#curr-rubber-area').text(currRubber.toLocaleString('th-TH', { maximumFractionDigits: 0 }));
-    $('#target-rubber-area').text(targetRubber.toLocaleString('th-TH', { maximumFractionDigits: 0 }));
-
-    // Rubber Difference
-    if (targetRubber > 0 && props.classtype === 'rubber') {
-        const diffArea = Math.round(currRubber - targetRubber); // เนื้อที่ขณะนี้ ลบด้วยเป้าหมาย
-        const diffPct = (diffArea / targetRubber) * 100;
-        const diffEl = $('#diff-rubber-area');
-        const sign = diffArea > 0 ? '+' : (diffArea < 0 ? '-' : '');
-        diffEl.text(`${sign}${Math.abs(diffArea).toLocaleString()} m² (${Math.round(Math.abs(diffPct))}%)`);
-        diffEl.removeClass('positive negative').addClass(Math.abs(diffPct) <= 5 ? 'positive' : 'outline-muted');
-        if (Math.abs(diffPct) > 5) diffEl.addClass('negative');
-    } else {
-        $('#diff-rubber-area').text('N/A').removeClass('positive negative');
-    }
-
-    // Area Other (Non-rubber)
-    const currOther = props.classtype !== 'rubber' ? Number(props.shpsplit_sqm || 0) : 0;
-    $('#curr-other-area').text(currOther.toLocaleString('th-TH', { maximumFractionDigits: 0 }));
+    // Area rubber (Reclass)
+    const targetRubberSqm = Number(props.rubr_sqm || 0);
+    const currAreaSqm = Number(props.shpsplit_sqm || 0); // shpsplit_sqm
+    $('#curr-area-sqm').text(currAreaSqm.toLocaleString('th-TH', { maximumFractionDigits: 0 }));
 
     // Classtype Label & Color
     const labelMap = {
         'rubber': 'ยางพาราที่ลงทะเบียน', 'not-rubber': 'ยางพาราที่ไม่ได้ลงทะเบียน',
-        'Other': 'ไม่ใช่ยางพารา', 'ex-pond': 'พื้นที่กันออก (บ่อน้ำ)',
-        'ex-landcover': 'พื้นที่กันออก (สิ่งปกคลุมดินอื่นๆ)',
-        'ex-building': 'พื้นที่กันออก (สิ่งปลูกสร้าง)', 'ex-river': 'พื้นที่กันออก (ลำน้ำ)',
-        'ex-unreg-rubber': 'พื้นที่กันออก (ยางพาราไม่ลงทะเบียน)'
+        'Other': 'ไม่ใช่ยางพารา', 'ex_age_rubber': 'พื้นที่กันออก (ยางพาราต่างอายุ)',
+        'ex_building': 'พื้นที่กันออก (สิ่งปลูกสร้าง)', 'ex_pond': 'พื้นที่กันออก (บ่อน้ำ)',
+        'ex_cr_area': 'พื้นที่กันออก (ถนนคอนกรีต)',
+        'ex_ar_area': 'พื้นที่กันออก (ถนนลาดยาง)',
+        'ex_other': 'พื้นที่กันออก (เพิ่มเติม)'
     };
     const colorMap = {
         'rubber': '#006d2c', 'not-rubber': '#9900ff', 'Other': '#ff0004',
-        'ex-pond': '#00d9d0', 'ex-landcover': '#e6cc00', 'ex-building': '#ff00bf',
-        'ex-river': '#1100ff', 'ex-unreg-rubber': '#00cc0d'
+        'ex_age_rubber': '#00ff0d', 'ex_building': '#ff00d4', 'ex_pond': '#00fff2',
+        'ex_cr_area': '#aaaaaa', 'ex_ar_area': '#555555',
+        'ex_other': '#ff9800'
     };
     const label = labelMap[props.classtype] || 'อื่นๆ';
     const color = colorMap[props.classtype] || '#6c757d';
@@ -312,6 +294,25 @@ const showFeaturePanel = (feature, layer) => {
 
     // Classtype Badge
     $('#display-classtype').html(`<span class="classtype-badge w-100 text-center" style="background:${color}15; color:${color}; border:1px solid ${color}40;">${label}</span>`);
+
+    // Update Rubber Card Layout based on class
+    // Show the data rows that are hidden by default
+    $('#rubber-target-row, #rubber-current-row').attr('style', '');
+
+    const isRubber = (props.classtype === 'rubber');
+    if (isRubber) {
+        $('#rubber-card-label').html(`<i class="bi bi-tree-fill"></i> ข้อมูล${label}`);
+        $('#rubber-card-target-label').text('เนื้อที่เป้าหมายยางพารา:');
+        $('#target-rubber-sqm').text(targetRubberSqm.toLocaleString('th-TH', { maximumFractionDigits: 0 }))
+            .css({ 'font-family': '', 'font-weight': '', 'font-size': '1rem' });
+        $('#target-rubber-sqm').next('small').show();
+    } else {
+        $('#rubber-card-label').html(`<i class="bi bi-tag-fill"></i> ข้อมูล${label}`);
+        $('#rubber-card-target-label').text('ข้อมูล:');
+        $('#target-rubber-sqm').text(label)
+            .css({ 'font-family': '"Noto Sans Thai", sans-serif', 'font-weight': '600', 'font-size': '0.95rem' });
+        $('#target-rubber-sqm').next('small').hide();
+    }
 
     // Review Fields
     $('#panel-check-area').val(props.check_area || '');
@@ -361,17 +362,19 @@ const getFeatureStyle = (feature) => {
             ? '#ff0004ff'
             : feature.properties.classtype === 'not-rubber'
                 ? '#9900ffff'
-                : feature.properties.classtype === 'ex-pond'
-                    ? '#00fff2ff'
-                    : feature.properties.classtype === 'ex-landcover'
-                        ? '#ffe600ff'
-                        : feature.properties.classtype === 'ex-building'
-                            ? '#ff00bfff'
-                            : feature.properties.classtype === 'ex-river'
-                                ? '#1100ffff'
-                                : feature.properties.classtype === 'ex-unreg-rubber'
-                                    ? '#00ff0dff'
-                                    : '#fdae61';
+                : feature.properties.classtype === 'ex_age_rubber'
+                    ? '#00ff0dff'
+                    : feature.properties.classtype === 'ex_building'
+                        ? '#ff00d4ff'
+                        : feature.properties.classtype === 'ex_pond'
+                            ? '#00fff2ff'
+                            : feature.properties.classtype === 'ex_cr_area'
+                                ? '#aaaaaaff'
+                                : feature.properties.classtype === 'ex_ar_area'
+                                    ? '#555555ff'
+                                    : feature.properties.classtype === 'ex_other'
+                                        ? '#ff9800ff'
+                                        : '#fdae61';
     return {
         fillColor: color,
         weight: 2,
@@ -441,13 +444,20 @@ const loadGeoData = async () => {
             sub_id: item.sub_id,
             refinal: item.refinal,
             geom: JSON.parse(item.geom),
-            id_farmer: item.id_farmer || '',
+            id_farmer: item.farmer_id || '',
             farm_name: item.farm_name || '',
-            age: item.age || '',
-            sqm_pacel: item.sqm_pacel || 0,
-            sqm_yang: item.sqm_yang || 0,
-            shparea_sqm: item.shparea_sqm,
+            f_name: item['F_name'] || '',
+            l_name: item['L_name'] || '',
+            age: item['Para_Age'] || '',
+            deed_id: item['Deed_ID'] || '',
+            deed_sqm: item['Deed_Sqm'] || 0,
+            deed_total: item['Deed_Area'] || 0,
+            rubr_sqm: item['Rubr_Sqm'] || 0,
+            rubr_total: item['Rubr_Area'] || 0,
+            current_sqm: item['Sqm_Deed'] || item.shpsplit_sqm || 0,
+            current_rai: item['Sqm_Deed'] ? item['Sqm_Deed'] / 1600 : (item.shpsplit_sqm / 1600 || 0),
             shpsplit_sqm: item.shpsplit_sqm,
+            Rubr_Area: item.Rubr_Area,
             classtype: item.classtype,
             check_area: item.check_area || '',
             check_shape: item.check_shape || '',
@@ -474,7 +484,7 @@ const loadGeoData = async () => {
                         const id_to = urlParams.get('id_to');
                         const assignee = urlParams.get('assignee');
 
-                        let reclassUrl = `./../reclass/index.html?tb=${document.getElementById('tb').value}&id=${row.id}&sqm_yang=${row.sqm_yang}`;
+                        let reclassUrl = `./../reclass/index.html?tb=${document.getElementById('tb').value}&id=${row.id}&Rubr_Sqm=${row.rubr_sqm}`;
                         if (id_from && id_to && assignee) {
                             reclassUrl += `&id_from=${id_from}&id_to=${id_to}&assignee=${encodeURIComponent(assignee)}`;
                         }
@@ -500,25 +510,26 @@ const loadGeoData = async () => {
                     title: 'อายุ (ปี)',
                     render: (data) => data ? `<b>${Number(data).toFixed(0)}</b>` : '<span class="text-muted">-</span>'
                 },
+                { data: 'deed_id', title: 'เลขโฉนด' },
                 {
-                    data: 'sqm_pacel',
+                    data: 'deed_sqm',
                     title: 'เนื้อที่เป้าหมายโฉนด (m²)',
                     render: (data) => `<span class="area-num area-target">${Number(data).toLocaleString('th-TH', { maximumFractionDigits: 0 })}</span>`
                 },
                 {
-                    data: 'shparea_sqm',
-                    title: 'เนื้อที่โฉนดขณะนี้ (m²)',
+                    data: 'current_sqm',
+                    title: 'เนื้อที่ขณะนี้โฉนด (m²)',
                     render: (data) => `<span class="area-num">${Number(data).toLocaleString('th-TH', { maximumFractionDigits: 0 })}</span>`
                 },
                 {
-                    data: 'sqm_yang',
+                    data: 'rubr_sqm',
                     title: 'เนื้อที่เป้าหมายยางพารา (m²)',
                     render: (data) => `<span class="area-num area-yang">${Number(data).toLocaleString('th-TH', { maximumFractionDigits: 0 })}</span>`
                 },
                 {
                     data: 'shpsplit_sqm',
-                    title: 'เนื้อที่แยกประเภทขณะนี้ (m²)',
-                    render: (data) => `<span class="area-num">${Number(data).toLocaleString('th-TH', { maximumFractionDigits: 0 })}</span>`
+                    title: 'เนื้อที่ขณะนี้คลาส (m²)',
+                    render: (data) => `<span class="area-num">${Number(data || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 })}</span>`
                 },
                 {
                     data: 'classtype',
@@ -526,20 +537,17 @@ const loadGeoData = async () => {
                     render: (data) => {
                         const labelMap = {
                             'rubber': 'ยางพาราที่ลงทะเบียน', 'not-rubber': 'ยางพาราที่ไม่ได้ลงทะเบียน',
-                            'Other': 'ไม่ใช่ยางพารา', 'ex-pond': 'พื้นที่กันออก (บ่อน้ำ)',
-                            'ex-landcover': 'พื้นที่กันออก (สิ่งปกคลุมดินอื่นๆ)',
-                            'ex-building': 'พื้นที่กันออก (สิ่งปลูกสร้าง)', 'ex-river': 'พื้นที่กันออก (ลำน้ำ)',
-                            'ex-unreg-rubber': 'พื้นที่กันออก (ยางพาราไม่ลงทะเบียน)'
+                            'Other': 'ไม่ใช่ยางพารา', 'ex_age_rubber': 'พื้นที่กันออก (ยางพาราต่างอายุ)',
+                            'ex_building': 'พื้นที่กันออก (สิ่งปลูกสร้าง)', 'ex_pond': 'พื้นที่กันออก (บ่อน้ำ)',
+                            'ex_cr_area': 'พื้นที่กันออก (ถนนคอนกรีต)',
+                            'ex_ar_area': 'พื้นที่กันออก (ถนนลาดยาง)',
+                            'ex_other': 'พื้นที่กันออก (เพิ่มเติม)'
                         };
                         const colorMap = {
-                            'rubber': '#006d2c',
-                            'not-rubber': '#9900ff',
-                            'Other': '#ff0004',
-                            'ex-pond': '#00d9d0',
-                            'ex-landcover': '#e6cc00',
-                            'ex-building': '#ff00bf',
-                            'ex-river': '#1100ff',
-                            'ex-unreg-rubber': '#00cc0d'
+                            'rubber': '#006d2c', 'not-rubber': '#9900ff', 'Other': '#ff0004',
+                            'ex_age_rubber': '#00ff0d', 'ex_building': '#ff00d4', 'ex_pond': '#00fff2',
+                            'ex_cr_area': '#aaaaaa', 'ex_ar_area': '#555555',
+                            'ex_other': '#ff9800'
                         };
                         const label = labelMap[data] || 'อื่นๆ';
                         const c = colorMap[data] || '#90a4ae';
@@ -584,38 +592,56 @@ const loadGeoData = async () => {
                     data: 'remark',
                     title: 'หมายเหตุผู้เช็ค',
                     render: (data, type, row) => {
-                        return `<input type="text" class="form-control form-control-sm review-remark" 
-                                    data-subid="${row.sub_id}" 
-                                    value="${data || ''}" 
-                                    placeholder="พิมพ์หมายเหตุ...">`;
+                        if (type === 'sort' || type === 'filter' || type === 'type') return data || '';
+                        const hasData = !!(data && data.trim());
+                        const eyeBtn = hasData
+                            ? `<button class="btn btn-outline-secondary btn-note-popup" type="button"
+                                data-subid="${row.sub_id}" data-type="checker" title="ดูข้อมูลเต็ม">
+                                <i class="bi bi-eye"></i></button>`
+                            : '';
+                        return `<div class="input-group input-group-sm" style="min-width:180px;">
+                            <input type="text" class="form-control form-control-sm review-remark"
+                                data-subid="${row.sub_id}"
+                                value="${(data || '').replace(/"/g, '&quot;')}"
+                                placeholder="พิมพ์หมายเหตุ...">
+                            ${eyeBtn}
+                        </div>`;
                     }
                 },
                 {
                     data: 'user_remark',
                     title: 'หมายเหตุผู้ใช้',
-                    width: '250px',
+                    width: '260px',
                     render: (data, type, row) => {
+                        if (type === 'sort' || type === 'filter' || type === 'type') return data || '';
                         let dateStr = '';
                         if (row.user_remark_ts) {
                             const date = new Date(row.user_remark_ts);
                             const options = { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' };
                             dateStr = `<div class="text-muted mt-1 user-remark-time" style="font-size: 0.75rem;"><i class="bi bi-clock"></i> ${date.toLocaleDateString('th-TH', options)}น.</div>`;
                         }
-                        return `<div style="min-width: 250px;">
-                                    <div class="input-group input-group-sm">
-                                        <input type="text" class="form-control user-remark" 
-                                            data-subid="${row.sub_id}" 
-                                            value="${data || ''}" 
-                                            placeholder="แก้ไขแล้ว / รายละเอียด...">
-                                        <button class="btn btn-outline-primary btn-save-user-remark" type="button" data-subid="${row.sub_id}" title="บันทึกหมายเหตุผู้ใช้">
-                                            <i class="bi bi-floppy"></i>
-                                        </button>
-                                        <button class="btn btn-outline-danger btn-clear-user-remark" type="button" data-subid="${row.sub_id}" title="ลบหมายเหตุผู้ใช้" ${!data && !row.user_remark_ts ? 'style="display:none;"' : ''}>
-                                            <i class="bi bi-trash3-fill"></i>
-                                        </button>
-                                    </div>
-                                    ${dateStr}
-                                </div>`;
+                        const hasData = !!(data && data.trim());
+                        const eyeBtn = hasData
+                            ? `<button class="btn btn-outline-secondary btn-note-popup" type="button"
+                                data-subid="${row.sub_id}" data-type="user" title="ดูข้อมูลเต็ม">
+                                <i class="bi bi-eye"></i></button>`
+                            : '';
+                        return `<div style="min-width: 260px;">
+                            <div class="input-group input-group-sm">
+                                <input type="text" class="form-control user-remark"
+                                    data-subid="${row.sub_id}"
+                                    value="${(data || '').replace(/"/g, '&quot;')}"
+                                    placeholder="แก้ไขแล้ว / รายละเอียด...">
+                                <button class="btn btn-outline-primary btn-save-user-remark" type="button" data-subid="${row.sub_id}" title="บันทึกหมายเหตุผู้ใช้">
+                                    <i class="bi bi-floppy"></i>
+                                </button>
+                                ${eyeBtn}
+                                <button class="btn btn-outline-danger btn-clear-user-remark" type="button" data-subid="${row.sub_id}" title="ลบหมายเหตุผู้ใช้" ${!data && !row.user_remark_ts ? 'style="display:none;"' : ''}>
+                                    <i class="bi bi-trash3-fill"></i>
+                                </button>
+                            </div>
+                            ${dateStr}
+                        </div>`;
                     }
                 },
                 {
@@ -945,9 +971,6 @@ const loadGeoData = async () => {
                         sub_id: row.sub_id,
                         refinal: row.refinal,
                         id_farmer: row.id_farmer,
-                        sqm_pacel: row.sqm_pacel,
-                        shparea_sqm: row.shparea_sqm,
-                        sqm_yang: row.sqm_yang,
                         shpsplit_sqm: row.shpsplit_sqm,
                         classtype: row.classtype,
                         check_area: row.check_area,
@@ -992,6 +1015,21 @@ const loadGeoData = async () => {
         dataTable.rows().every(function () {
             const rowData = this.data();
             $(this.node()).attr('id', `row_${rowData.id}`);
+        });
+
+        // Note popup handler — show full remark text formatted in modal
+        $('#featureTable tbody').on('click', '.btn-note-popup', function () {
+            const subId = $(this).data('subid');
+            const type = $(this).data('type');
+            const dt = $('#featureTable').DataTable();
+            const rowData = dt.rows().data().toArray().find(r => String(r.sub_id) === String(subId));
+            if (!rowData) return;
+            const text = type === 'checker' ? rowData.remark : rowData.user_remark;
+            const title = type === 'checker' ? '<i class="bi bi-shield-check me-1"></i>หมายเหตุผู้เช็ค' : '<i class="bi bi-chat-dots-fill me-1"></i>หมายเหตุผู้ใช้';
+            $('#notePopupTitle').html(title);
+            $('#notePopupBody').html(formatRemarkPopup(text));
+            const modal = new bootstrap.Modal(document.getElementById('notePopupModal'));
+            modal.show();
         });
 
         // Save user remark handler
@@ -1249,16 +1287,17 @@ const legend = L.control({ position: 'bottomright' });
 
 legend.onAdd = function (map) {
     const div = L.DomUtil.create('div', 'legend'),
-        categories = ['rubber', 'not-rubber', 'Other', 'ex-pond', 'ex-landcover', 'ex-building', 'ex-river', 'ex-unreg-rubber'],
+        categories = ['rubber', 'not-rubber', 'Other', 'ex_age_rubber', 'ex_building', 'ex_pond', 'ex_cr_area', 'ex_ar_area', 'ex_other'],
         labels = [
             'ยางพาราที่ลงทะเบียน',
             'ยางพาราที่ไม่ได้ลงทะเบียน',
             'ไม่ใช่ยางพารา',
-            'พื้นที่กันออก (บ่อน้ำ)',
-            'พื้นที่กันออก (สิ่งปกคลุมดินอื่นๆ)',
+            'พื้นที่กันออก (ยางพาราต่างอายุ)',
             'พื้นที่กันออก (สิ่งปลูกสร้าง)',
-            'พื้นที่กันออก (ลำน้ำ)',
-            'พื้นที่กันออก (ยางพาราไม่ลงทะเบียน)',
+            'พื้นที่กันออก (บ่อน้ำ)',
+            'พื้นที่กันออก (ถนนคอนกรีต)',
+            'พื้นที่กันออก (ถนนลาดยาง)',
+            'พื้นที่กันออก (เพิ่มเติม)',
             'ขอบเขต Reshape'
         ];
 
@@ -1439,9 +1478,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                         geometry: geom,
                         properties: {
                             id: item.id,
-                            id_farmer: item.id_farmer,
-                            sqm_pacel: item.sqm_pacel || item.xls_sqm,
-                            shparea_sqm: item.shparea_sqm
+                            Farmer_ID: item['Farmer_ID'],
+                            deed_sqm: item['Deed_Sqm'] || 0,
+                            sqm_deed: item['Sqm_Deed'] || 0
                         }
                     };
                     L.geoJson(geojson, {
@@ -1454,7 +1493,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             fillOpacity: 0.12
                         }),
                         onEachFeature: (feature, layer) => {
-                            layer.bindPopup(`<b>Reshape</b><br>ID: ${feature.properties.id}<br>เลขลงทะเบียนเกษตรกร: ${feature.properties.id_farmer}`);
+                            layer.bindPopup(`<b>Reshape</b><br>ID: ${feature.properties.id}<br>เลขลงทะเบียนเกษตรกร: ${feature.properties['Farmer_ID']}`);
                         }
                     }).addTo(reshapeFeatureGroup);
                 });
@@ -1469,7 +1508,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const chartData = [
             { name: 'จำนวนทั้งหมด', y: parseInt(data.total), color: '#7cb5ec' },
             { name: 'ปรับแก้เนื้อที่แล้ว', y: parseInt(data.reshp), color: '#434348' },
-            { name: 'classified แล้ว', y: parseInt(data.reclass), color: '#90ed7d' }
+            { name: 'Classified แล้ว', y: parseInt(data.reclass), color: '#90ed7d' }
         ];
 
         Highcharts.chart('container', {
@@ -1504,11 +1543,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (r.classtype === 'rubber') cat = 'ยางพาราที่ลงทะเบียน';
             else if (r.classtype === 'not-rubber') cat = 'ยางพาราที่ไม่ได้ลงทะเบียน';
             else if (r.classtype === 'Other') cat = 'ไม่ใช่ยางพารา';
-            else if (r.classtype === 'ex-pond') cat = 'พื้นที่กันออก (บ่อน้ำ)';
-            else if (r.classtype === 'ex-landcover') cat = 'พื้นที่กันออก (สิ่งปกคลุมดินอื่นๆ)';
-            else if (r.classtype === 'ex-building') cat = 'พื้นที่กันออก (สิ่งปลูกสร้าง)';
-            else if (r.classtype === 'ex-river') cat = 'พื้นที่กันออก (ลำน้ำ)';
-            else if (r.classtype === 'ex-unreg-rubber') cat = 'พื้นที่กันออก (ยางพาราไม่ลงทะเบียน)';
+            else if (r.classtype === 'ex_age_rubber') cat = 'พื้นที่กันออก (ยางพาราต่างอายุ)';
+            else if (r.classtype === 'ex_building') cat = 'พื้นที่กันออก (สิ่งปลูกสร้าง)';
+            else if (r.classtype === 'ex_pond') cat = 'พื้นที่กันออก (บ่อน้ำ)';
+            else if (r.classtype === 'ex_cr_area') cat = 'พื้นที่กันออก (ถนนคอนกรีต)';
+            else if (r.classtype === 'ex_ar_area') cat = 'พื้นที่กันออก (ถนนลาดยาง)';
+            else if (r.classtype === 'ex_other') cat = 'พื้นที่กันออก (เพิ่มเติม)';
 
             groupedData[cat] = (groupedData[cat] || 0) + parseFloat(r.area_rai);
         });

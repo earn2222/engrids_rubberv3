@@ -86,19 +86,27 @@
                                 <strong>ID:</strong>
                                 <input class="form-control" id="id" disabled>
                                 <input type="hidden" id="tb">
-                                <input type="hidden" id="sqm_yang">
+                                <input type="hidden" id="Rubr_Sqm">
                             </div>
                             <div class="mb-2">
                                 <strong>เลขทะเบียนเกษตรกร:</strong>
                                 <input class="form-control" id="xls_id_farmer" disabled>
                             </div>
                             <div class="mb-2">
-                                <strong>เนื้อที่เป้าหมายโฉนด (m²):</strong>
-                                <input class="form-control" id="sqm_pacel" disabled>
+                                <strong id="lbl_deed_sqm">เนื้อที่เป้าหมายโฉนด (m²):</strong>
+                                <input class="form-control" id="deed_sqm" disabled>
+                            </div>
+                            <div class="mb-2 d-none">
+                                <strong id="lbl_deed_total">เนื้อที่เป้าหมายโฉนด (ไร่):</strong>
+                                <input class="form-control" id="deed_total" disabled>
                             </div>
                             <div class="mb-2">
                                 <strong>เนื้อที่ขณะนี้ (m²):</strong>
-                                <input class="form-control" id="shparea_sqm" disabled>
+                                <input class="form-control" id="current_sqm" disabled>
+                            </div>
+                            <div class="mb-2 d-none">
+                                <strong>เนื้อที่ขณะนี้ (ไร่):</strong>
+                                <input class="form-control" id="current_rai" disabled>
                             </div>
                             <p class="mt-2 text-danger" id="message" style="font-weight: 500;"></p>
                             <div class="mb-2">

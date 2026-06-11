@@ -12,6 +12,7 @@ services:
       - 5400:5432
     volumes:
       - ./postgis:/docker-entrypoint-initdb.d
+      - pgdata:/var/lib/postgresql/data
     networks:
       - rub-network
     healthcheck:
@@ -21,7 +22,7 @@ services:
       retries: 10
 
   nodejs:
-    image: node:latest
+    build: ./nodejs
     container_name: rub_nodejs
     restart: always
     working_dir: /usr/src/app
@@ -37,13 +38,16 @@ services:
       - .env
     depends_on:
       - postgis
-    volumes:
-      - ./nodejs:/usr/src/app
+    # volumes:
+    #   - ./nodejs:/usr/src/app
     ports:
       - "3400:3000"
     networks:
       - rub-network
-    command: sh -c "npm i && npm i -g nodemon && nodemon"
+    command: sh -c "npm i -g nodemon && nodemon server.js"
 networks:
   rub-network:
     driver: bridge
+
+volumes:
+  pgdata:

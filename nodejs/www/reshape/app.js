@@ -81,13 +81,39 @@ const ndvi = L.tileLayer.wms("https://engrids.soc.cmu.ac.th/geoserver/gwc/servic
     zIndex: 5
 });
 
-const rubber_parcel = L.tileLayer.wms("https://engrids.soc.cmu.ac.th/geoserver/rubber/wms?", {
-    layers: 'rubber:rubber_pacel',
-    format: 'image/png',
-    transparent: true,
-    maxZoom: 22,
-    zIndex: 6
-});
+// krabinew background layer — loaded from database, shown when checkbox is toggled
+const krabinewLayer = L.featureGroup();  // placeholder group — data loaded on first add
+let krabinewLoaded = false;
+
+async function loadKrabinewLayer() {
+    if (krabinewLoaded) return;
+    try {
+        const res = await fetch('/rub/api/krabinew');
+        const data = await res.json();
+        if (!data.success || !data.features || data.features.length === 0) {
+            console.warn('krabinew: ไม่พบข้อมูลหรือยังไม่มี table', data);
+            return;
+        }
+        L.geoJSON({ type: 'FeatureCollection', features: data.features }, {
+            interactive: false,
+            style: () => ({
+                color: '#e65100',
+                weight: 1.5,
+                opacity: 0.8,
+                fillColor: '#ff9800',
+                fillOpacity: 0.18,
+                dashArray: '4 3'
+            })
+        }).addTo(krabinewLayer);
+        krabinewLoaded = true;
+        console.log(`krabinew: โหลดสำเร็จ ${data.features.length} แปลง`);
+    } catch (err) {
+        console.error('krabinew load error:', err);
+    }
+}
+
+// Listen for layer add event to lazy-load data
+krabinewLayer.on('add', () => loadKrabinewLayer());
 
 
 const baseLayers = {
@@ -98,40 +124,13 @@ const baseLayers = {
     "Stadia Light": light
 };
 
-const ndviTile = L.featureGroup();
-const trueColorTile = L.featureGroup();
-
 const overlayMaps = {
     "แปลงยาง": featureGroup.addTo(map),
-    "แปลงยาง(เดิม)": rubber_parcel,
-    "NDVI gee": ndviTile,
-    "S2 gee": trueColorTile,
+    "แปลงยาง (เดิม)": krabinewLayer,
     "Longdo Map": longdoLayer.addTo(map),
 };
 
 L.control.layers(baseLayers, overlayMaps).addTo(map);
-
-fetch('/rub/api/gee')
-    .then(res => res.json())
-    .then((data) => {
-        const truecolor = L.tileLayer(data.truecolor.urlFormat, {
-            attribution: 'Google Earth Engine',
-            maxZoom: 22,
-            maxNativeZoom: 18,
-            zIndex: 3
-        });
-
-        const ndvi = L.tileLayer(data.ndvi.urlFormat, {
-            attribution: 'Google Earth Engine',
-            maxZoom: 22,
-            maxNativeZoom: 18,
-            zIndex: 4
-        });
-
-        // Add layers to map
-        truecolor.addTo(trueColorTile);
-        ndvi.addTo(ndviTile);
-    });
 
 
 map.on('click', (e) => {
@@ -275,13 +274,15 @@ const updateAreaLabel = async () => {
         }
 
         const { area } = await res.json();
-        const target_area = document.getElementById('sqm_pacel').value;
+        const target_area = Number(document.getElementById('deed_sqm').value.replace(/,/g, ''));
 
-        console.log(`Area result: ${area}, target: ${sqm_pacel}`);
-        document.getElementById('shparea_sqm').value = area.toFixed(0);
+        console.log(`Area result: ${area}, target: ${target_area}`);
+        document.getElementById('current_sqm').value = Math.round(area).toLocaleString();
+        document.getElementById('current_rai').value = (area / 1600).toLocaleString(undefined, { maximumFractionDigits: 2 });
+        
         const diff = Math.abs(area - target_area);
 
-        if (diff >= 100) {
+        if (diff > 100) {
             document.getElementById('message').innerHTML = '<h5><span class="badge bg-danger">เนื้อที่ยังไม่เท่ากัน</span></h5>';
         } else {
             document.getElementById('message').innerHTML = '<h5><span class="badge bg-success">เนื้อที่ใกล้เคียงกัน</span></h5>';
@@ -294,22 +295,47 @@ const updateAreaLabel = async () => {
 function showFeaturePanel(feature, layer) {
     const id = document.getElementById('id');
     const xls_id_farmer = document.getElementById('xls_id_farmer');
-    const sqm_pacel_el = document.getElementById('sqm_pacel');
+    const deed_sqm = document.getElementById('deed_sqm');
+    const deed_total = document.getElementById('deed_total');
+    const current_sqm = document.getElementById('current_sqm');
+    const current_rai = document.getElementById('current_rai');
     const refinal = document.getElementById('refinal');
 
     id.value = feature.properties.id;
     xls_id_farmer.value = feature.properties.id_farmer || '';
-    sqm_pacel_el.value = feature.properties.sqm_pacel || 0;
-    document.getElementById('sqm_yang').value = feature.properties.sqm_yang || 0;
-    document.getElementById('shparea_sqm').value = Number(feature.properties.shparea_sq || 0).toFixed(0);
+    document.getElementById('Rubr_Sqm').value = Number(feature.properties.rubr_sqm || 0);
+    const deed_sqm_val = Number(feature.properties.deed_sqm || 0);
+    const deed_total_val = Number(feature.properties.deed_total || 0);
+    const lbl_deed_sqm = document.getElementById('lbl_deed_sqm');
+    const lbl_deed_total = document.getElementById('lbl_deed_total');
+
+    let targetSqm = deed_sqm_val;
+
+    if (deed_sqm_val === 0) {
+        lbl_deed_sqm.innerText = 'เนื้อที่เป้าหมายยางพารา (m²):';
+        lbl_deed_total.innerText = 'เนื้อที่เป้าหมายยางพารา (ไร่):';
+        targetSqm = Number(feature.properties.rubr_sqm || 0);
+        deed_sqm.value = targetSqm.toLocaleString(undefined, { maximumFractionDigits: 2 });
+        deed_total.value = Number(feature.properties.rubr_total || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+    } else {
+        lbl_deed_sqm.innerText = 'เนื้อที่เป้าหมายโฉนด (m²):';
+        lbl_deed_total.innerText = 'เนื้อที่เป้าหมายโฉนด (ไร่):';
+        deed_sqm.value = targetSqm.toLocaleString(undefined, { maximumFractionDigits: 2 });
+        deed_total.value = deed_total_val.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    }
+
+    if (layer && layer instanceof L.Marker) {
+        current_sqm.value = '0';
+        current_rai.value = '0';
+    } else {
+        current_sqm.value = Math.round(Number(feature.properties.current_sqm || 0)).toLocaleString();
+        current_rai.value = Number(feature.properties.current_rai || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+    }
     refinal.value = feature.properties.refinal || '';
 
-    // Only update area label if explicitly editing or needed,
-    // but don't overwrite the initial database value shparea_sq immediately on click
-    // if the user wants to see the column value.
     const currentMsg = document.getElementById('message');
-    const target = Number(feature.properties.sqm_pacel || 0);
-    const current = Number(feature.properties.shparea_sq || 0);
+    const target = targetSqm;
+    const current = Number(feature.properties.current_sqm || 0);  // เปรียบเทียบ m² กับ m²
     const diff = Math.abs(target - current);
 
     if (diff <= 100) {
@@ -320,8 +346,11 @@ function showFeaturePanel(feature, layer) {
 }
 
 const getFeatureStyle = (feature) => {
-    const target = Number(feature.properties.sqm_pacel || 0);
-    const shp = Number(feature.properties.shparea_sq || 0);
+    let target = Number(feature.properties.deed_sqm || 0);
+    if (target === 0) {
+        target = Number(feature.properties.rubr_sqm || 0);
+    }
+    const shp = Number(feature.properties.current_sqm || 0);  // เปรียบเทียบ m² กับ m²
     const diff = target - shp;
     const isEqual = Math.abs(diff) <= 100;
 
@@ -388,7 +417,7 @@ const loadGeoData = async () => {
         const assignee = urlParams.get('assignee');
 
         const tb = document.getElementById('tb').value;
-        const response = await fetch(`/rub/api/getfeatures/${tb}`);
+        const response = await fetch(`/rub/api/getfeaturesv3/${tb}`);
         const { data } = await response.json();
 
         let filteredData = data;
@@ -426,15 +455,19 @@ const loadGeoData = async () => {
             return {
                 id: item.id,
                 refinal: item.refinal,
-                farm_name: `${item.f_name || ''} ${item.l_name || ''}`.trim(),
-                f_name: item.f_name,
-                l_name: item.l_name,
-                age: item.age,
+                farm_name: item['Full_nam'] || '',
+                f_name: item['F_name'] || '',
+                l_name: item['L_name'] || '',
+                age: item['Para_Age'] || '',
                 geom: geom,
-                id_farmer: item.id_farmer,
-                sqm_pacel: item.sqm_pacel,
-                sqm_yang: item.sqm_yang,
-                shparea_sq: item.shparea_sq,
+                id_farmer: item['Farmer_ID'] || '',
+                deed_id: item['Deed_ID'] || '',
+                deed_sqm: item['Deed_Sqm'] || 0,          // เนื้อที่เป้าหมายโฉนด (m²) = Deed_Sqm
+                deed_total: item['Deed_total'] || 0,        // เนื้อที่เป้าหมายโฉนด (ไร่) = Deed_total
+                rubr_sqm: item['Rubr_Sqm'] || 0,
+                rubr_total: item['Rubr_Area'] || 0,
+                current_sqm: item['Sqm_Deed'] || 0,         // เนื้อที่ขณะนี้ (m²) = Sqm_Deed
+                current_rai: item['Deed_Area'] || 0,        // เนื้อที่ขณะนี้ (ไร่) = Deed_Area
                 classified: item.classified,
             };
         }).filter(item => item.geom !== null);
@@ -459,28 +492,31 @@ const loadGeoData = async () => {
                 },
                 { data: 'id', title: 'ID' },
                 { data: 'farm_name', title: 'ชื่อเกษตรกร' },
-                { data: 'f_name', title: 'ชื่อ' },
-                { data: 'l_name', title: 'นามสกุล' },
                 { data: 'age', title: 'อายุ (ปี)' },
                 { data: 'id_farmer', title: 'เลขทะเบียนเกษตรกร' },
-                { data: 'sqm_pacel', title: 'เนื้อที่เป้าหมายโฉนด (m²)' },
-                {
-                    data: 'shparea_sq',
+                { data: 'deed_id', title: 'เลขโฉนด' },
+                { 
+                    data: 'deed_sqm', 
+                    title: 'เนื้อที่เป้าหมายโฉนด (m²)',
+                    render: (data, type, row) => Math.round(Number(data || 0)).toLocaleString()
+                },
+                { 
+                    data: 'current_sqm', 
                     title: 'เนื้อที่ขณะนี้ (m²)',
-                    render: (data, type, row) => Number(data || 0).toFixed(0)
+                    render: (data, type, row) => Math.round(Number(data || 0)).toLocaleString()
                 },
                 {
                     data: null,
                     title: 'ตรวจสอบ (m²)',
                     render: (data, type, row) => {
-                        const target = Number(row.sqm_pacel || 0);
-                        const current = Number(row.shparea_sq || 0);
-                        const diff = target - current;
+                        const target = Number(row.deed_sqm || 0);
+                        const current = Number(row.current_sqm || 0);  // เปรียบเทียบ m² กับ m²
+                        const diff = Math.round(target - current);
                         const color = Math.abs(diff) <= 100 ? 'green' : 'red';
                         const diffStyle = `color: ${color}; font-weight: bold;`;
                         return `<span style="${diffStyle}">
                                     ${Math.abs(diff) <= 100 ? "เนื้อที่ถูกต้อง" : "เนื้อที่ไม่ถูกต้อง"}
-                                    (${diff.toLocaleString(undefined, { maximumFractionDigits: 1 })})
+                                    (${diff.toLocaleString()})
                                 </span>`;
                     }
                 },
@@ -490,7 +526,7 @@ const loadGeoData = async () => {
                     render: (data, type, row) => {
                         const color = data ? 'green' : 'red';
                         const diffStyle = `color: ${color}; font-weight: bold;`;
-                        return `<span style="${diffStyle}">${data ? "classify แล้ว" : "ยังไม่ classify"}</span>`;
+                        return `<span style="${diffStyle}">${data ? "Classify แล้ว" : "ยังไม่ Classify"}</span>`;
                     }
                 },
                 {
@@ -522,9 +558,12 @@ const loadGeoData = async () => {
                         id: row.id,
                         refinal: row.refinal,
                         id_farmer: row.id_farmer,
-                        sqm_pacel: row.sqm_pacel,
-                        sqm_yang: row.sqm_yang,
-                        shparea_sq: row.shparea_sq
+                        deed_sqm: row.deed_sqm,
+                        deed_total: row.deed_total,
+                        rubr_sqm: row.rubr_sqm,
+                        rubr_total: row.rubr_total,
+                        current_sqm: row.current_sqm,
+                        current_rai: row.current_rai
                     }
                 }
 
@@ -618,9 +657,11 @@ const loadGeoData = async () => {
                         // Reset side panel
                         document.getElementById('id').value = '';
                         document.getElementById('xls_id_farmer').value = '';
-                        document.getElementById('sqm_pacel').value = '';
-                        document.getElementById('sqm_yang').value = '';
-                        document.getElementById('shparea_sqm').value = '';
+                        document.getElementById('Rubr_Sqm').value = '';
+                        document.getElementById('deed_sqm').value = '';
+                        document.getElementById('deed_total').value = '';
+                        document.getElementById('current_sqm').value = '';
+                        document.getElementById('current_rai').value = '';
                         document.getElementById('refinal').value = '';
                         document.getElementById('restoreId').value = '';
                         document.getElementById('message').innerHTML = '';
@@ -660,7 +701,7 @@ document.getElementById('save').addEventListener('click', async () => {
     const id = document.getElementById('id').value;
     const refinal = document.getElementById('refinal').value;
     const displayName = document.getElementById('displayName').value;
-    const currentShpareaSq = document.getElementById('shparea_sqm').value;
+    const currentShpareaSq = document.getElementById('current_sqm').value.replace(/,/g, '');
 
     const features = [];
     const geojson = selectedLayer.toGeoJSON();
@@ -741,13 +782,15 @@ document.getElementById('btnRestore').addEventListener("click", async () => {
         const result = await response.json();
 
         if (result.success) {
-            // อัปเดตค่า shparea_sq ใน sidebar จากข้อมูลที่ restore กลับมา
-            const restoredArea = Number(result.data?.shparea_sq || 0);
-            document.getElementById('shparea_sqm').value = restoredArea.toFixed(0);
+            // อัปเดตค่า current_sqm/current_rai ใน sidebar จากข้อมูลที่ restore กลับมา
+            const restoredDeedArea = Number(result.data?.['Deed_Area'] || 0);
+            const restoredSqmDeed  = Number(result.data?.['Sqm_Deed']  || 0);
+            document.getElementById('current_sqm').value = Math.round(restoredSqmDeed).toLocaleString();
+            document.getElementById('current_rai').value = restoredDeedArea.toLocaleString(undefined, { maximumFractionDigits: 2 });
 
             // เปรียบเทียบกับ target เพื่ออัปเดต message
-            const target = Number(document.getElementById('sqm_pacel').value || 0);
-            const diff = Math.abs(target - restoredArea);
+            const target = Number(document.getElementById('deed_sqm').value.replace(/,/g, '') || 0);
+            const diff = Math.abs(target - restoredSqmDeed);
             document.getElementById('message').innerHTML = diff <= 100
                 ? '<h5><span class="badge bg-success">เนื้อที่ใกล้เคียงกัน</span></h5>'
                 : '<h5><span class="badge bg-danger">เนื้อที่ยังไม่เท่ากัน</span></h5>';
@@ -790,7 +833,7 @@ document.getElementById('classify').addEventListener('click', () => {
     const id_to = urlParams.get('id_to');
     const assignee = urlParams.get('assignee');
 
-    let url = `/rub/reclass/index.html?tb=${tb}&id=${id}&sqm_yang=${document.getElementById('sqm_yang').value}`;
+    let url = `/rub/reclass/index.html?tb=${tb}&id=${id}&Rubr_Sqm=${document.getElementById('Rubr_Sqm').value}`;
     if (id_from && id_to && assignee) {
         url += `&id_from=${id_from}&id_to=${id_to}&assignee=${encodeURIComponent(assignee)}`;
     }

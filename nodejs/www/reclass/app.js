@@ -55,15 +55,6 @@ const rubberParcelWms = new ol.layer.Tile({
     zIndex: 6
 });
 
-const tcLayer = new ol.layer.Tile({
-    visible: false,
-    zIndex: 3
-});
-
-const ndviGeeLayer = new ol.layer.Tile({
-    visible: false,
-    zIndex: 4
-});
 
 // ── 3. Vector layers ──────────────────────────────────────
 const vectorSource = new ol.source.Vector();
@@ -132,7 +123,7 @@ const splitLineLayer = new ol.layer.Vector({
 const map = new ol.Map({
     target: 'map',
     layers: [gmapSatLayer, gmapRoadLayer, gmapHybrid, gmapTerrain, longdoLayer,
-        tcLayer, ndviGeeLayer, ndviWms, rubberParcelWms, vectorLayer, splitLineLayer],
+        ndviWms, rubberParcelWms, vectorLayer, splitLineLayer],
     view: new ol.View({
         center: ol.proj.fromLonLat([100.8784385963758, 18.819620993471577]),
         zoom: 13,
@@ -155,11 +146,12 @@ const CLASS_COLORS = {
     'rubber': '#006d2c',
     'Other': '#ff0004',
     'not-rubber': '#9900ff',
-    'ex-pond': '#00fff2',
-    'ex-landcover': '#ffe600',
-    'ex-building': '#ff00d4',
-    'ex-river': '#1100ff',
-    'ex-unreg-rubber': '#00ff0d',
+    'ex_age_rubber': '#00ff0d',
+    'ex_building': '#ff00d4',
+    'ex_pond': '#00fff2',
+    'ex_cr_area': '#aaaaaa',
+    'ex_ar_area': '#555555',
+    'ex_other': '#ff9900',
 };
 const DEFAULT_COLOR = '#fdae61';
 
@@ -173,26 +165,29 @@ function featureStyleFn(feature, _resolution) {
     const merge = feature.get('mergeSelected');
     const color = getColor(ct);
     
+    const isBaseSelected = sel && !editMode;
+    
     const styles = [];
     
     // Polygon base style
     styles.push(new ol.style.Style({
-        fill: new ol.style.Fill({ color: hexToRgba(color, merge ? 0.45 : sel ? 0.35 : 0.2) }),
+        fill: new ol.style.Fill({ color: hexToRgba(color, merge ? 0.45 : isBaseSelected ? 0.35 : 0.2) }),
         stroke: new ol.style.Stroke({
-            color: merge ? '#ffff00' : sel ? '#0ccbf0' : '#ffffff',
-            width: merge ? 4 : sel ? 5 : 2,
-            lineDash: (merge || sel) ? undefined : [4, 3]
+            color: merge ? '#ffff00' : (sel && editMode) ? '#ff7043' : sel ? '#0ccbf0' : '#ffffff',
+            width: merge ? 4 : (sel && editMode) ? 3 : sel ? 5 : 2,
+            lineDash: merge ? undefined : (sel && editMode) ? [6, 4] : sel ? undefined : [4, 3]
         })
     }));
 
     // Node (vertex) style
+    const showNodes = sel || merge || editMode;
     styles.push(new ol.style.Style({
         image: new ol.style.Circle({
-            radius: (sel || merge) ? 4 : 3,
-            fill: new ol.style.Fill({ color: (sel || merge) ? '#ffffff' : color }),
+            radius: showNodes ? 4 : 3,
+            fill: new ol.style.Fill({ color: showNodes ? '#ffffff' : color }),
             stroke: new ol.style.Stroke({ 
-                color: merge ? '#ffff00' : sel ? '#0ccbf0' : '#ffffff', 
-                width: (sel || merge) ? 2 : 1.5 
+                color: merge ? '#ffff00' : (sel && editMode) ? '#ff7043' : sel ? '#0ccbf0' : '#ffffff', 
+                width: showNodes ? 2 : 1.5 
             })
         }),
         geometry: function(f) {
@@ -215,7 +210,7 @@ function featureStyleFn(feature, _resolution) {
         styles.push(new ol.style.Style({
             image: new ol.style.Circle({
                 radius: 4,
-                fill: new ol.style.Fill({ color: 'rgba(12, 203, 240, 0.25)' }),
+                fill: new ol.style.Fill({ color: 'rgba(255, 112, 67, 0.25)' }),
                 stroke: new ol.style.Stroke({ color: 'rgba(255, 255, 255, 0.6)', width: 1.5 })
             }),
             geometry: function(f) {
@@ -284,16 +279,17 @@ async function updateAreaDisplay(feature) {
         const geomGeoJSON = featureToGeoJSON(feature);
         const area = await calculateArea(geomGeoJSON.geometry);
         const round = Math.round(area);
-        document.getElementById('shpsplit_sqm').value = round;
+        document.getElementById('current_sqm').value = round.toLocaleString('th-TH');
 
-        const sqmYang = parseFloat(document.getElementById('sqm_yang').value);
+        const sqmYang = parseFloat(document.getElementById('rubr_sqm').value.replace(/,/g, '')) || 0;
         const el = document.getElementById('checkarea');
-        if (Math.abs(sqmYang - area) <= 800) {
+        if (Math.abs(sqmYang - area) <= 100) {
             el.innerHTML = '<span style="color:green">* พื้นที่ตรงกับข้อมูลเป้าหมาย</span>';
         } else {
             el.innerHTML = '<span style="color:red">* พื้นที่ไม่ตรงกับข้อมูลเป้าหมาย</span>';
         }
         feature.set('shpsplit_sqm', area);
+        feature.set('Rubr_Area', Number((area / 1600).toFixed(2)));
     } catch (err) {
         console.error('Area calc error:', err);
     }
@@ -351,9 +347,12 @@ const loadGeoData = async (id, shouldFit = true) => {
             feat.setProperties({
                 id: item.id,
                 sub_id: item.sub_id,
-                id_farmer: item.id_farmer,
-                sqm_yang: item.sqm_yang,
+                Farmer_ID: item['Farmer_ID'],
+                Rubr_Sqm: item['Rubr_Sqm'],
+                Rubr_total: item['Rubr_total'],
+                Deed_Sqm: item['Deed_Sqm'],
                 shpsplit_sqm: item.shpsplit_sqm,
+                Rubr_Area: item['Rubr_Area'],
                 classtype: item.classtype,
                 selected: false,
                 mergeSelected: false
@@ -382,11 +381,12 @@ const classtypeColorMap = {
     'rubber': 'ct-rubber',
     'not-rubber': 'ct-not-rubber',
     'Other': 'ct-Other',
-    'ex-pond': 'ct-ex-pond',
-    'ex-landcover': 'ct-ex-landcover',
-    'ex-building': 'ct-ex-building',
-    'ex-river': 'ct-ex-river',
-    'ex-unreg-rubber': 'ct-ex-unreg-rubber',
+    'ex_age_rubber': 'ct-ex_age_rubber',
+    'ex_building': 'ct-ex_building',
+    'ex_pond': 'ct-ex_pond',
+    'ex_cr_area': 'ct-ex_cr_area',
+    'ex_ar_area': 'ct-ex_ar_area',
+    'ex_other': 'ct-ex_other',
 };
 
 function updateClasstypeColor(value) {
@@ -397,9 +397,13 @@ function updateClasstypeColor(value) {
 
 function showFeaturePanel(feature) {
     document.getElementById('sub_id').value = feature.get('sub_id') || '';
-    document.getElementById('xls_id_farmer').value = feature.get('id_farmer') || '';
-    document.getElementById('sqm_yang').value = feature.get('sqm_yang') || 0;
-    document.getElementById('shpsplit_sqm').value = Number(feature.get('shpsplit_sqm')).toFixed(0);
+    document.getElementById('xls_id_farmer').value = feature.get('Farmer_ID') || '';
+    document.getElementById('rubr_sqm').value = Number(feature.get('Rubr_Sqm') || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+    document.getElementById('rubr_total').value = Number(feature.get('Rubr_total') || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+    
+    // Also set current_sqm
+    const currentArea = feature.get('shpsplit_sqm');
+    document.getElementById('current_sqm').value = currentArea ? Math.round(currentArea).toLocaleString('th-TH') : '';
     const ct = feature.get('classtype');
     document.getElementById('classtype').value = ct ? ct : '';
     updateClasstypeColor(ct);
@@ -849,12 +853,138 @@ document.getElementById('clear').addEventListener('click', () => {
     if (tbSplit) tbSplit.classList.remove('map-tool-active');
     document.getElementById('sub_id').value = '';
     document.getElementById('xls_id_farmer').value = '';
-    document.getElementById('sqm_yang').value = '';
-    document.getElementById('shpsplit_sqm').value = '';
+
+    document.getElementById('current_sqm').value = '';
     document.getElementById('classtype').value = '';
 });
 
 // ── 13b. Edit polygon mode ────────────────────────────────
+let preModifyTotalArea = 0;
+let preModifyGeoms = new Map();
+
+// helper: square distance between two points
+function dist2(v, w) {
+    return Math.pow(v[0] - w[0], 2) + Math.pow(v[1] - w[1], 2);
+}
+
+// helper: distance from point p to segment v-w
+function pointToSegmentDistance(p, v, w) {
+    const l2 = dist2(v, w);
+    if (l2 === 0) return Math.sqrt(dist2(p, v));
+    let t = ((p[0] - v[0]) * (w[0] - v[0]) + (p[1] - v[1]) * (w[1] - v[1])) / l2;
+    t = Math.max(0, Math.min(1, t));
+    return Math.sqrt(dist2(p, [ v[0] + t * (w[0] - v[0]), v[1] + t * (w[1] - v[1]) ]));
+}
+
+// helper: get all segments from a geometry
+function getSegments(geom) {
+    if (!geom) return [];
+    const type = geom.getType();
+    let polys = [];
+    if (type === 'Polygon') {
+        polys = [geom.getCoordinates()[0]];
+    } else if (type === 'MultiPolygon') {
+        polys = geom.getCoordinates().map(p => p[0]);
+    }
+    const segs = [];
+    polys.forEach(coords => {
+        for (let i = 0; i < coords.length - 1; i++) {
+            segs.push([coords[i], coords[i+1]]);
+        }
+    });
+    return segs;
+}
+
+// ── Outer Boundary Protection ─────────────────────────────
+// Helper to extract outer segments of a single geometry against other geometries
+function getOuterSegments(geom, otherGeoms) {
+    const segs = getSegments(geom);
+    const otherSegs = [];
+    if (otherGeoms) {
+        otherGeoms.forEach(g => otherSegs.push(...getSegments(g)));
+    }
+    
+    const outerSegs = [];
+    segs.forEach(seg => {
+        let isOuter = true;
+        if (otherSegs.length > 0) {
+            const m = [(seg[0][0] + seg[1][0])/2, (seg[0][1] + seg[1][1])/2];
+            let minDistance = Infinity;
+            for (const oSeg of otherSegs) {
+                const d = pointToSegmentDistance(m, oSeg[0], oSeg[1]);
+                if (d < minDistance) minDistance = d;
+            }
+            if (minDistance <= 1.0) isOuter = false;
+        }
+        if (isOuter) {
+            outerSegs.push(seg);
+        }
+    });
+    return outerSegs;
+}
+
+// Helper to compare two sets of segments accurately
+function areSegmentsEqual(segs1, segs2) {
+    if (segs1.length !== segs2.length) return false;
+    const fmt = (p) => Math.round(p[0]*1000) + ',' + Math.round(p[1]*1000);
+    const set1 = new Set(segs1.map(s => [fmt(s[0]), fmt(s[1])].sort().join('|')));
+    for (const s of segs2) {
+        const key = [fmt(s[0]), fmt(s[1])].sort().join('|');
+        if (!set1.has(key)) return false;
+    }
+    return true;
+}
+
+// helper: extract segments for outer boundary validation using geometric distance
+function extractOuterSegments(geom, otherGeoms, segSet) {
+    if (!geom) return;
+    const segs = getSegments(geom);
+    const otherSegs = [];
+    if (otherGeoms) {
+        otherGeoms.forEach(g => otherSegs.push(...getSegments(g)));
+    }
+    
+    segs.forEach(seg => {
+        let isOuter = true;
+        if (otherSegs.length > 0) {
+            const m = [(seg[0][0] + seg[1][0])/2, (seg[0][1] + seg[1][1])/2];
+            let minDistance = Infinity;
+            for (const oSeg of otherSegs) {
+                const d = pointToSegmentDistance(m, oSeg[0], oSeg[1]);
+                if (d < minDistance) minDistance = d;
+            }
+            if (minDistance <= 1.0) isOuter = false; // < 1 meter = inner segment
+        }
+        
+        if (isOuter) {
+            const p1 = Math.round(seg[0][0]*10) + ',' + Math.round(seg[0][1]*10);
+            const p2 = Math.round(seg[1][0]*10) + ',' + Math.round(seg[1][1]*10);
+            segSet.add(p1 + '|' + p2);
+        }
+    });
+}
+
+let preModifyOrigGeom = null;
+let preModifyOuterSegs = null;
+let preModifyOuterVertKeys = new Set();
+let preModifyOtherGeoms = [];
+let isReverting = false;
+let lastOuterBoundaryToastTime = 0;
+let geomChangeListeners = [];
+
+// Collect all vertex coordinate keys of a geometry for O(1) lookup
+function getAllVertexKeys(geom) {
+    const fmt = c => `${Math.round(c[0] * 1000)},${Math.round(c[1] * 1000)}`;
+    const keys = new Set();
+    const type = geom.getType();
+    if (type === 'Polygon') {
+        geom.getCoordinates().forEach(ring => ring.forEach(c => keys.add(fmt(c))));
+    } else if (type === 'MultiPolygon') {
+        geom.getCoordinates().forEach(poly => poly.forEach(ring => ring.forEach(c => keys.add(fmt(c)))));
+    }
+    return keys;
+}
+
 function startEditMode() {
     if (!selectedFeature) return;
     if (editMode) { stopEditMode(); return; }
@@ -870,50 +1000,109 @@ function startEditMode() {
     document.getElementById('editHint').style.display = 'flex';
     map.getViewport().style.cursor = 'grab';
 
-    // Build a temp collection with just the selected feature for Modify
-    editSource.clear();
-    editSource.addFeature(selectedFeature);
-
     modifyInteraction = new ol.interaction.Modify({
-        source: editSource,
+        features: new ol.Collection([selectedFeature]),
         style: new ol.style.Style({
             image: new ol.style.Circle({
                 radius: 7,
                 fill: new ol.style.Fill({ color: '#ff7043' }),
                 stroke: new ol.style.Stroke({ color: '#fff', width: 2 })
-            }),
-            stroke: new ol.style.Stroke({ color: '#ff7043', width: 2, lineDash: [4, 4] })
+            })
         })
     });
 
-    let geomChangeListener;
     modifyInteraction.on('modifystart', (evt) => {
-        const feature = evt.features.getArray()[0];
-        if (feature) {
-            geomChangeListener = () => {
-                const geom = feature.getGeometry();
-                const area = ol.sphere.getArea(geom, { projection: 'EPSG:3857' });
-                document.getElementById('shpsplit_sqm').value = Math.round(area);
-                
-                const sqmYang = parseFloat(document.getElementById('sqm_yang').value) || 0;
-                const el = document.getElementById('checkarea');
-                if (Math.abs(sqmYang - area) <= 800) {
-                    el.innerHTML = '<span style="color:green">* พื้นที่ตรงกับข้อมูลเป้าหมาย</span>';
-                } else {
-                    el.innerHTML = '<span style="color:red">* พื้นที่ไม่ตรงกับข้อมูลเป้าหมาย</span>';
-                }
-            };
-            feature.getGeometry().on('change', geomChangeListener);
+        geomChangeListeners.forEach(l => ol.Observable.unByKey(l));
+        geomChangeListeners = [];
+        preModifyGeoms.clear();
+
+        preModifyOtherGeoms = [];
+        vectorSource.getFeatures().forEach(f => {
+            const geom = f.getGeometry();
+            preModifyGeoms.set(f, geom.clone());
+            if (f !== selectedFeature) {
+                preModifyOtherGeoms.push(geom.clone());
+            }
+        });
+
+        preModifyOrigGeom = selectedFeature.getGeometry().clone();
+        preModifyOuterSegs = getOuterSegments(preModifyOrigGeom, preModifyOtherGeoms);
+
+        // Build outer boundary vertex key set — only when there are neighbouring features.
+        // When a plot has only one sub-polygon (no neighbours), all edits are allowed.
+        preModifyOuterVertKeys = new Set();
+        if (preModifyOtherGeoms.length > 0) {
+            const _fmt = c => `${Math.round(c[0] * 1000)},${Math.round(c[1] * 1000)}`;
+            preModifyOuterSegs.forEach(seg => {
+                preModifyOuterVertKeys.add(_fmt(seg[0]));
+                preModifyOuterVertKeys.add(_fmt(seg[1]));
+            });
         }
+
+        vectorSource.getFeatures().forEach(f => {
+            const geom = f.getGeometry();
+
+            if (f === selectedFeature) {
+                const listener = geom.on('change', () => {
+                    if (isReverting) return;
+
+                    // Protect outer boundary vertices in real-time.
+                    // Uses vertex-key comparison so inner-vertex drags are always allowed.
+                    if (preModifyOuterVertKeys.size > 0) {
+                        const currentKeys = getAllVertexKeys(geom);
+                        let outerMoved = false;
+                        for (const key of preModifyOuterVertKeys) {
+                            if (!currentKeys.has(key)) { outerMoved = true; break; }
+                        }
+                        if (outerMoved) {
+                            isReverting = true;
+                            geom.setCoordinates(preModifyOrigGeom.getCoordinates());
+                            isReverting = false;
+                            const now = Date.now();
+                            if (now - lastOuterBoundaryToastTime > 1000) {
+                                showToast('ไม่อนุญาตให้แก้ไขขอบเขตด้านนอก', 'warning');
+                                lastOuterBoundaryToastTime = now;
+                            }
+                            return;
+                        }
+                    }
+
+                    const area = ol.sphere.getArea(geom, { projection: 'EPSG:3857' });
+                    document.getElementById('current_sqm').value = Math.round(area).toLocaleString('th-TH');
+
+                    const sqmYang = parseFloat(document.getElementById('rubr_sqm').value.replace(/,/g, '')) || 0;
+                    const el = document.getElementById('checkarea');
+                    if (Math.abs(sqmYang - area) <= 100) {
+                        el.innerHTML = '<span style="color:green">* พื้นที่ตรงกับข้อมูลเป้าหมาย</span>';
+                    } else {
+                        el.innerHTML = '<span style="color:red">* พื้นที่ไม่ตรงกับข้อมูลเป้าหมาย</span>';
+                    }
+                });
+                geomChangeListeners.push(listener);
+            }
+        });
     });
 
     modifyInteraction.on('modifyend', async (evt) => {
-        const feature = evt.features.getArray()[0];
-        if (feature && geomChangeListener) {
-            feature.getGeometry().un('change', geomChangeListener);
-            geomChangeListener = null;
+        geomChangeListeners.forEach(l => ol.Observable.unByKey(l));
+        geomChangeListeners = [];
+
+        // Final outer boundary vertex check (safety net for the change-listener check)
+        if (preModifyOuterVertKeys.size > 0) {
+            const finalKeys = getAllVertexKeys(selectedFeature.getGeometry());
+            let outerMoved = false;
+            for (const key of preModifyOuterVertKeys) {
+                if (!finalKeys.has(key)) { outerMoved = true; break; }
+            }
+            if (outerMoved) {
+                selectedFeature.setGeometry(preModifyOrigGeom);
+                showToast('ไม่อนุญาตให้แก้ไขขอบเขตด้านนอก', 'warning');
+                return;
+            }
         }
-        await updateAreaDisplay(selectedFeature);
+
+        updateAreaDisplay(selectedFeature);
+        showFeaturePanel(selectedFeature);
     });
 
     map.addInteraction(modifyInteraction);
@@ -972,48 +1161,88 @@ map.getViewport().addEventListener('contextmenu', (evt) => {
         const geom = selectedFeature.getGeometry();
         const geomType = geom.getType();
 
+        const otherGeoms = [];
+        vectorSource.getFeatures().forEach(f => {
+            if (f !== selectedFeature) otherGeoms.push(f.getGeometry());
+        });
+
+        // Build outer boundary vertex keys at time of right-click
+        const _fmtDel = c => `${Math.round(c[0] * 1000)},${Math.round(c[1] * 1000)}`;
+        const origOuterVertKeys = new Set();
+        if (otherGeoms.length > 0) {
+            getOuterSegments(geom, otherGeoms).forEach(seg => {
+                origOuterVertKeys.add(_fmtDel(seg[0]));
+                origOuterVertKeys.add(_fmtDel(seg[1]));
+            });
+        }
+
+        const originalCoords = JSON.parse(JSON.stringify(geom.getCoordinates()));
+        let deleted = false;
+
+        // Suspend change listener so deletion is not auto-reverted before we validate
+        isReverting = true;
+
         if (geomType === 'Polygon') {
             const rings = geom.getCoordinates();
             const outerRing = rings[0];
-            // polygon ring is closed (first == last), ignore last duplicate
             const open = outerRing.slice(0, outerRing.length - 1);
             const idx = findNearestVertexIndex(open, coord, TOLERANCE);
-            if (idx === -1) return;
-            if (open.length <= 3) {
-                showToast('ไม่สามารถลบได้ — polygon ต้องมีอย่างน้อย 3 จุด', 'error');
-                return;
-            }
-            open.splice(idx, 1);
-            open.push([...open[0]]); // re-close
-            rings[0] = open;
-            geom.setCoordinates(rings);
-            selectedFeature.changed();
-            updateAreaDisplay(selectedFeature);
-            showToast('ลบจุดแล้ว', 'info');
-
-        } else if (geomType === 'MultiPolygon') {
-            const mpCoords = geom.getCoordinates();
-            let deleted = false;
-            for (let pi = 0; pi < mpCoords.length && !deleted; pi++) {
-                const outerRing = mpCoords[pi][0];
-                const open = outerRing.slice(0, outerRing.length - 1);
-                const idx = findNearestVertexIndex(open, coord, TOLERANCE);
-                if (idx === -1) continue;
+            if (idx !== -1) {
                 if (open.length <= 3) {
+                    isReverting = false;
                     showToast('ไม่สามารถลบได้ — polygon ต้องมีอย่างน้อย 3 จุด', 'error');
                     return;
                 }
                 open.splice(idx, 1);
                 open.push([...open[0]]);
-                mpCoords[pi][0] = open;
+                rings[0] = open;
+                geom.setCoordinates(rings);
                 deleted = true;
             }
-            if (!deleted) return;
-            geom.setCoordinates(mpCoords);
-            selectedFeature.changed();
-            updateAreaDisplay(selectedFeature);
-            showToast('ลบจุดแล้ว', 'info');
+        } else if (geomType === 'MultiPolygon') {
+            const mpCoords = geom.getCoordinates();
+            for (let pi = 0; pi < mpCoords.length && !deleted; pi++) {
+                const outerRing = mpCoords[pi][0];
+                const open = outerRing.slice(0, outerRing.length - 1);
+                const idx = findNearestVertexIndex(open, coord, TOLERANCE);
+                if (idx !== -1) {
+                    if (open.length <= 3) {
+                        isReverting = false;
+                        showToast('ไม่สามารถลบได้ — polygon ต้องมีอย่างน้อย 3 จุด', 'error');
+                        return;
+                    }
+                    open.splice(idx, 1);
+                    open.push([...open[0]]);
+                    mpCoords[pi][0] = open;
+                    geom.setCoordinates(mpCoords);
+                    deleted = true;
+                }
+            }
         }
+
+        isReverting = false;
+
+        if (!deleted) return;
+
+        // Verify outer boundary vertices preserved (vertex-based — consistent with drag check)
+        if (origOuterVertKeys.size > 0) {
+            const newVertKeys = getAllVertexKeys(geom);
+            let outerRemoved = false;
+            for (const key of origOuterVertKeys) {
+                if (!newVertKeys.has(key)) { outerRemoved = true; break; }
+            }
+            if (outerRemoved) {
+                isReverting = true;
+                geom.setCoordinates(originalCoords);
+                isReverting = false;
+                showToast('ไม่อนุญาตให้ลบจุดบนขอบเขตด้านนอก', 'warning');
+                return;
+            }
+        }
+
+        selectedFeature.changed();
+        updateAreaDisplay(selectedFeature);
+        showToast('ลบจุดแล้ว', 'info');
         return;
     }
 
@@ -1087,6 +1316,15 @@ document.getElementById('save').addEventListener('click', async () => {
 document.getElementById('classtype').addEventListener('change', async (e) => {
     const selectedValue = e.target.value;
     updateClasstypeColor(selectedValue);
+    
+    const sub_id = document.getElementById('sub_id').value;
+    if (!sub_id) {
+        alert('กรุณาเลือกแปลงที่ต้องการจำแนก (Classify) บนแผนที่ก่อน');
+        e.target.value = '';
+        updateClasstypeColor('');
+        return;
+    }
+    
     const id = document.getElementById('id').value;
     const tb = document.getElementById('tb').value;
     const displayName = document.getElementById('displayName').value;
@@ -1251,11 +1489,12 @@ function buildLegend() {
         { ct: 'rubber', label: 'ยางพาราที่ลงทะเบียน' },
         { ct: 'not-rubber', label: 'ยางพาราที่ไม่ได้ลงทะเบียน' },
         { ct: 'Other', label: 'ไม่ใช่ยางพารา' },
-        { ct: 'ex-pond', label: 'พื้นที่กันออก (บ่อน้ำ)' },
-        { ct: 'ex-landcover', label: 'พื้นที่กันออก (สิ่งปกคลุมดินอื่นๆ)' },
-        { ct: 'ex-building', label: 'พื้นที่กันออก (สิ่งปลูกสร้าง)' },
-        { ct: 'ex-river', label: 'พื้นที่กันออก (ลำน้ำ)' },
-        { ct: 'ex-unreg-rubber', label: 'พื้นที่กันออก (ยางพาราไม่ลงทะเบียน)' },
+        { ct: 'ex_age_rubber', label: 'พื้นที่กันออก (ยางพาราต่างอายุ)' },
+        { ct: 'ex_building', label: 'พื้นที่กันออก (สิ่งปลูกสร้าง)' },
+        { ct: 'ex_pond', label: 'พื้นที่กันออก (บ่อน้ำ)' },
+        { ct: 'ex_cr_area', label: 'พื้นที่กันออก (ถนนคอนกรีต)' },
+        { ct: 'ex_ar_area', label: 'พื้นที่กันออก (ถนนลาดยาง)' },
+        { ct: 'ex_other', label: 'พื้นที่กันออก (เพิ่มเติม)' },
     ];
     const div = document.createElement('div');
     div.className = 'legend ol-unselectable';
@@ -1267,7 +1506,7 @@ function buildLegend() {
 
 // ── 19. Layer switcher (base=radio, overlay=checkbox) ────
 const BASE_LAYERS = [gmapSatLayer, gmapRoadLayer, gmapHybrid, gmapTerrain, longdoLayer];
-const OVERLAY_LAYERS = [ndviWms, rubberParcelWms, tcLayer, ndviGeeLayer];
+const OVERLAY_LAYERS = [ndviWms, rubberParcelWms];
 
 function buildLayerSwitcher() {
     const ctrl = document.createElement('div');
@@ -1325,8 +1564,6 @@ function buildLayerSwitcher() {
 
     // ── Overlay layers (checkbox, multiple) ───────────────
     const overlayItems = [
-        { layer: ndviGeeLayer, label: 'NDVI GEE' },
-        { layer: tcLayer, label: 'S2 GEE' },
         { layer: rubberParcelWms, label: 'แปลง (เดิม)' },
     ];
 
@@ -1355,18 +1592,6 @@ function buildLayerSwitcher() {
     document.getElementById('map').appendChild(ctrl);
 }
 
-// ── 20. GEE layers (async load) ──────────────────────────
-fetch('/rub/api/gee')
-    .then(r => r.json())
-    .then(data => {
-        if (data.truecolor) {
-            tcLayer.setSource(new ol.source.XYZ({ url: data.truecolor.urlFormat, maxZoom: 18 }));
-        }
-        if (data.ndvi) {
-            ndviGeeLayer.setSource(new ol.source.XYZ({ url: data.ndvi.urlFormat, maxZoom: 18 }));
-        }
-    })
-    .catch(() => { });
 
 // ── 21. Toast helper ─────────────────────────────────────
 function showToast(msg, type = 'info') {
@@ -1383,7 +1608,7 @@ const initApp = async () => {
     const urlParams = new URLSearchParams(window.location.search);
     const id = urlParams.get('id');
     const tb = urlParams.get('tb');
-    const sqm_yang_param = urlParams.get('sqm_yang');
+    const rubr_sqm_param = urlParams.get('Rubr_Sqm');
 
     if (!tb || tb === 'undefined') {
         alert('พื้นที่ไม่ถูกต้อง');
@@ -1391,7 +1616,9 @@ const initApp = async () => {
         return;
     }
 
-    document.getElementById('sqm_yang').value = sqm_yang_param;
+    if (rubr_sqm_param) {
+        document.getElementById('rubr_sqm').value = Number(rubr_sqm_param).toLocaleString(undefined, { maximumFractionDigits: 2 });
+    }
     document.getElementById('id').value = id;
     document.getElementById('tb').value = tb;
 

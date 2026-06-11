@@ -44,7 +44,7 @@ const showChart = async (tb, div) => {
         const chartData = [
             { name: 'จำนวนทั้งหมด', y: parseInt(data.total), color: '#7cb5ec' },
             { name: 'ปรับแก้เนื้อที่แล้ว', y: parseInt(data.reshp), color: '#434348' },
-            { name: 'classified แล้ว', y: parseInt(data.reclass), color: '#90ed7d' }
+            { name: 'Classified แล้ว', y: parseInt(data.reclass), color: '#90ed7d' }
         ];
 
         Highcharts.chart('chart_' + div, {
@@ -62,11 +62,15 @@ const showChart = async (tb, div) => {
     }
 };
 
+const existingLayerNames = new Set();
+
 /* ── Render the layer list ── */
 const initApp = async () => {
     try {
         const response = await fetch('/rub/api/layerlist');
         const result = await response.json();
+        existingLayerNames.clear();
+        result.forEach(item => existingLayerNames.add(item.tb_name.toLowerCase()));
 
         const layerList = document.getElementById('layerList');
         layerList.innerHTML = '';
@@ -76,7 +80,7 @@ const initApp = async () => {
             const wrapper = document.createElement('div');
             wrapper.innerHTML = `
                 <div class="alert alert-dismissible alert-info mb-3">
-                    <strong>${index + 1}. Layer: ${tb_name}</strong>
+                    <strong>${index + 1}. Layer: ${tb_name.toUpperCase()}</strong>
                     <div class="layer-actions mt-2">
                         <button class="btn btn-add-data layer-btn addDataBtn" data-tb="${tb_name}">
                             <i class="bi bi-upload me-1"></i>เพิ่มข้อมูล
@@ -124,7 +128,7 @@ const initApp = async () => {
                                 <li>
                                     <a class="dropdown-item classify_download_all_rubber" href="javascript:void(0);" data-tb="${tb_name}">
                                         <div class="icon-wrapper" style="color: #6a1b9a !important; background: #f3e5f5 !important;"><i class="bi bi-cloud-download"></i></div>
-                                        <span>Download Reclassify (ยางลงทะเบียน+ยางไม่ลงทะเบียน)</span>
+                                        <span>Download Reclassify (ยางลงทะเบียน+พื้นที่กันออกทั้งหมด)</span>
                                     </a>
                                 </li>
                             </ul>
@@ -190,7 +194,7 @@ const initApp = async () => {
                 downloadFile(`/rub/api/download/reshape/${tb}`, `pacel_yang_${tb}.geojson`);
                 downloadFile(`/rub/api/download/reshape/v_reclass_${tb}`, `v_reclass_LU_${tb}.geojson`);
                 downloadFile(`/rub/api/download/reshape/v_reclass_${tb}?type=rubber`, `v_reclass_rubber_${tb}.geojson`);
-                downloadFile(`/rub/api/download/reshape/v_reclass_${tb}?type=all_rubber`, `v_reclass_all_rubber_${tb}.geojson`);
+                downloadFile(`/rub/api/download/reshape/v_reclass_${tb}?type=rubber_and_ex`, `v_reclass_rubber_ex_${tb}.geojson`);
             });
         });
 
@@ -221,12 +225,12 @@ const initApp = async () => {
             });
         });
 
-        /* ── Download reclassify (ลงทะเบียน+ไม่ลงทะเบียน) ── */
+        /* ── Download reclassify (ลงทะเบียน+พื้นที่กันออกทั้งหมด) ── */
         document.querySelectorAll('.classify_download_all_rubber').forEach(btn => {
             btn.addEventListener('click', function (e) {
                 e.preventDefault();
                 const tb = this.getAttribute('data-tb');
-                downloadFile(`/rub/api/download/reshape/v_reclass_${tb}?type=all_rubber`, `v_reclass_all_rubber_${tb}.geojson`);
+                downloadFile(`/rub/api/download/reshape/v_reclass_${tb}?type=rubber_and_ex`, `v_reclass_rubber_ex_${tb}.geojson`);
             });
         });
 
@@ -297,10 +301,12 @@ document.getElementById('createProjectBtn').addEventListener('click', () => {
     const cpProv = document.getElementById('cp_province');
     const cpPers = document.getElementById('cp_person');
     const cpRem = document.getElementById('cp_remark');
-    if (cpProv) cpProv.value = '';
+    if (cpProv) { cpProv.value = ''; cpProv.classList.remove('is-invalid'); }
     if (cpPers) cpPers.value = '';
     if (cpRem) cpRem.value = '';
     document.getElementById('tableNamePreview').style.display = 'none';
+    const errEl = document.getElementById('cp_name_error');
+    if (errEl) errEl.style.display = 'none';
     createProjectModal.show();
 });
 
@@ -316,16 +322,31 @@ function updateTableNamePreview() {
     const provEl = document.getElementById('cp_province');
     const persEl = document.getElementById('cp_person');
 
-    const province = provEl ? provEl.value.trim().toLowerCase().replace(/\s+/g, '_') : '';
-    const person = persEl ? persEl.value.trim().toLowerCase().replace(/\s+/g, '_') : '';
+    const province = provEl ? provEl.value.trim().replace(/\s+/g, '_') : '';
+    const person = persEl ? persEl.value.trim().replace(/\s+/g, '_') : '';
     const preview = document.getElementById('tableNamePreview');
     const nameEl = document.getElementById('previewTableName');
+    const errorEl = document.getElementById('cp_name_error');
 
     if (province) {
-        nameEl.textContent = person ? `${province}_${person}` : `${province}`;
+        const tb_name = person ? `${province}_${person}` : `${province}`;
+        nameEl.textContent = tb_name;
         preview.style.display = 'block';
+
+        if (errorEl) {
+            if (existingLayerNames.has(tb_name.toLowerCase())) {
+                errorEl.textContent = `ชื่อ "${tb_name.toUpperCase()}" มีอยู่แล้ว กรุณาใช้ชื่ออื่น`;
+                errorEl.style.display = 'block';
+                document.getElementById('cp_province').classList.add('is-invalid');
+            } else {
+                errorEl.style.display = 'none';
+                document.getElementById('cp_province').classList.remove('is-invalid');
+            }
+        }
     } else {
         preview.style.display = 'none';
+        if (errorEl) errorEl.style.display = 'none';
+        document.getElementById('cp_province').classList.remove('is-invalid');
     }
 }
 
@@ -334,13 +355,26 @@ document.getElementById('btnCreateProject').addEventListener('click', async () =
     const persEl = document.getElementById('cp_person');
     const remEl = document.getElementById('cp_remark');
 
-    const province = provEl ? provEl.value.trim().toLowerCase().replace(/\s+/g, '_') : '';
-    const person = persEl ? persEl.value.trim().toLowerCase().replace(/\s+/g, '_') : '';
+    const province = provEl ? provEl.value.trim().replace(/\s+/g, '_') : '';
+    const person = persEl ? persEl.value.trim().replace(/\s+/g, '_') : '';
     const remark = remEl ? remEl.value.trim() : '';
 
-    if (!province) { alert('กรุณากรอกชื่อจังหวัด'); return; }
+    const errorEl = document.getElementById('cp_name_error');
+    const cpInput = document.getElementById('cp_province');
+
+    if (!province) {
+        if (errorEl) { errorEl.textContent = 'กรุณากรอกชื่อ table'; errorEl.style.display = 'block'; }
+        cpInput.classList.add('is-invalid');
+        return;
+    }
 
     const tb_name = person ? `${province}_${person}` : `${province}`;
+
+    if (existingLayerNames.has(tb_name.toLowerCase())) {
+        if (errorEl) { errorEl.textContent = `ชื่อ "${tb_name.toUpperCase()}" มีอยู่แล้ว กรุณาใช้ชื่ออื่น`; errorEl.style.display = 'block'; }
+        cpInput.classList.add('is-invalid');
+        return;
+    }
 
     const btn = document.getElementById('btnCreateProject');
     btn.disabled = true;
@@ -355,14 +389,15 @@ document.getElementById('btnCreateProject').addEventListener('click', async () =
         const data = await res.json();
 
         if (data.success) {
-            alert(`สร้าง Project "${tb_name}" เรียบร้อย`);
             createProjectModal.hide();
             initApp();
         } else {
-            alert(`เกิดข้อผิดพลาด: ${data.error || 'Unknown error'}`);
+            if (errorEl) { errorEl.textContent = data.error || 'เกิดข้อผิดพลาด'; errorEl.style.display = 'block'; }
+            cpInput.classList.add('is-invalid');
         }
     } catch (err) {
-        alert(`เกิดข้อผิดพลาด: ${err.message}`);
+        if (errorEl) { errorEl.textContent = err.message; errorEl.style.display = 'block'; }
+        cpInput.classList.add('is-invalid');
     } finally {
         btn.disabled = false;
         btn.innerHTML = '<i class="bi bi-check-circle me-1"></i>สร้าง Project';

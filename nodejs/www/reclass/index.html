@@ -108,12 +108,20 @@
                             </div>
                             <div>
                                 <strong>เนื้อที่เป้าหมายยางพารา (m²):</strong>
-                                <input class="form-control" id="sqm_yang" disabled>
+                                <input class="form-control" id="rubr_sqm" disabled>
+                            </div>
+                            <div class="d-none">
+                                <strong>เนื้อที่เป้าหมายยางพารา (ไร่):</strong>
+                                <input class="form-control" id="rubr_total" disabled>
                             </div>
                             <div>
                                 <strong>เนื้อที่ขณะนี้ (m²):</strong>
-                                <input class="form-control" id="shpsplit_sqm" disabled>
+                                <input class="form-control" id="current_sqm" disabled>
                                 <span id="checkarea" class="text-muted">* หากมีการแบ่งพื้นที่แล้ว</span>
+                            </div>
+                            <div class="d-none">
+                                <strong>เนื้อที่ขณะนี้ (ไร่):</strong>
+                                <input class="form-control" id="current_rai" disabled>
                             </div>
                             <div>
                                 <strong>ประเภท:</strong>
@@ -122,11 +130,12 @@
                                     <option value="rubber">ยางพาราที่ลงทะเบียน</option>
 
                                     <optgroup label="พื้นที่กันออก">
-                                        <option value="ex-pond">พื้นที่กันออก (บ่อน้ำ)</option>
-                                        <option value="ex-landcover">พื้นที่กันออก (สิ่งปกคลุมดินอื่นๆ)</option>
-                                        <option value="ex-building">พื้นที่กันออก (สิ่งปลูกสร้าง)</option>
-                                        <option value="ex-river">พื้นที่กันออก (ลำน้ำ)</option>
-                                        <option value="ex-unreg-rubber">พื้นที่กันออก (ยางพาราไม่ลงทะเบียน)</option>
+                                        <option value="ex_age_rubber">พื้นที่กันออก (ยางพาราต่างอายุ)</option>
+                                        <option value="ex_building">พื้นที่กันออก (สิ่งปลูกสร้าง)</option>
+                                        <option value="ex_pond">พื้นที่กันออก (บ่อน้ำ)</option>
+                                        <option value="ex_cr_area">พื้นที่กันออก (ถนนคอนกรีต)</option>
+                                        <option value="ex_ar_area">พื้นที่กันออก (ถนนลาดยาง)</option>
+                                        <option value="ex_other">พื้นที่กันออก (เพิ่มเติม)</option>
                                     </optgroup>
 
                                     <option value="not-rubber">ยางพาราที่ไม่ได้ลงทะเบียน</option>
@@ -151,10 +160,9 @@
                         </div>
                         <div class="instruction-text">
                             <i class="bi bi-1-circle"></i> คลิกเลือกแปลงบนแผนที่
-                            <br><i class="bi bi-2-circle"></i> ใช้ไอคอนเครื่องมือบนแผนที่ (ด้านขวา) เพื่อแก้ไข /
-                            วาดเส้นตัด
-                            <br><i class="bi bi-3-circle"></i> สามารถเลื่อนจุดเส้นตัดได้และกดยืนยันเพื่อตัดแปลง, กด Save
-                            เมื่อแก้ไขเสร็จ
+                            <br><i class="bi bi-2-circle"></i> ใช้ไอคอนเครื่องมือบนแผนที่ (ด้านขวา) เพื่อแก้ไขเส้นแบ่ง / วาดเส้นตัดแปลง
+                            <br><i class="bi bi-3-circle"></i> สามารถลากจุดเพื่อปรับรูปแปลงได้ (เฉพาะเส้นแบ่งด้านใน)
+                            <br><i class="bi bi-4-circle"></i> เลื่อนจุดเส้นตัดได้และกดยืนยันเพื่อตัดแปลง, กด Save เมื่อแก้ไขเสร็จ
                         </div>
 
                         <div class="card mb-2 mt-2">

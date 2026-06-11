@@ -194,6 +194,8 @@ body {
     opacity: 0.85;
 }
 
+
+
 #featurePanel>div {
     margin-bottom: 0.4rem;
 }
@@ -335,29 +337,34 @@ body {
     background: #fff0f0 !important;
 }
 
-#classtype.ct-ex-pond {
-    border-left-color: #00d9d0 !important;
-    background: #f0fffe !important;
+#classtype.ct-ex_age_rubber {
+    border-left-color: #00ff0d !important;
+    background: #f0fff1 !important;
 }
 
-#classtype.ct-ex-landcover {
-    border-left-color: #e6cc00 !important;
-    background: #fffef0 !important;
-}
-
-#classtype.ct-ex-building {
+#classtype.ct-ex_building {
     border-left-color: #ff00d4 !important;
     background: #fff0fd !important;
 }
 
-#classtype.ct-ex-river {
-    border-left-color: #1100ff !important;
-    background: #f0f0ff !important;
+#classtype.ct-ex_pond {
+    border-left-color: #00fff2 !important;
+    background: #f0fffe !important;
 }
 
-#classtype.ct-ex-unreg-rubber {
-    border-left-color: #00cc0d !important;
-    background: #f0fff1 !important;
+#classtype.ct-ex_cr_area {
+    border-left-color: #aaaaaa !important;
+    background: #f9f9f9 !important;
+}
+
+#classtype.ct-ex_ar_area {
+    border-left-color: #555555 !important;
+    background: #eeeeee !important;
+}
+
+#classtype.ct-ex_other {
+    border-left-color: #ff9900 !important;
+    background: #fff5e6 !important;
 }
 
 /* ===== Legend ===== */
@@ -714,6 +721,16 @@ hr {
 
 .map-toast-success {
     background: rgba(46, 125, 50, 0.9);
+    color: #fff;
+}
+
+.map-toast-error {
+    background: rgba(211, 47, 47, 0.9);
+    color: #fff;
+}
+
+.map-toast-warning {
+    background: rgba(237, 108, 2, 0.9);
     color: #fff;
 }
 

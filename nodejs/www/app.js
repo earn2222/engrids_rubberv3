@@ -289,7 +289,7 @@ const initApp = async () => {
                                 <li>
                                     <a class="dropdown-item classify_download_all_rubber" href="javascript:void(0);" data-tb="${tb_name}">
                                         <div class="icon-wrapper" style="color: #6a1b9a !important; background: #f3e5f5 !important;"><i class="bi bi-cloud-download"></i></div>
-                                        <span>Download Reclassify (ยางลงทะเบียน+ยางไม่ลงทะเบียน)</span>
+                                        <span>Download Reclassify (ยางลงทะเบียน+พื้นที่กันออกทั้งหมด)</span>
                                     </a>
                                 </li>
                             </ul>
@@ -357,7 +357,7 @@ const initApp = async () => {
             classify_download_all_rubber[i].addEventListener('click', function (e) {
                 e.preventDefault();
                 const tb = this.getAttribute('data-tb');
-                downloadFile(`/rub/api/download/reshape/v_reclass_${tb}?type=all_rubber`, `v_reclass_all_rubber_${tb}.geojson`);
+                downloadFile(`/rub/api/download/reshape/v_reclass_${tb}?type=rubber_and_ex`, `v_reclass_rubber_ex_${tb}.geojson`);
             });
         }
 
@@ -369,7 +369,7 @@ const initApp = async () => {
                 downloadFile(`/rub/api/download/reshape/${tb}`, `pacel_yang_${tb}.geojson`);
                 downloadFile(`/rub/api/download/reshape/v_reclass_${tb}`, `v_reclass_LU_${tb}.geojson`);
                 downloadFile(`/rub/api/download/reshape/v_reclass_${tb}?type=rubber`, `v_reclass_rubber_${tb}.geojson`);
-                downloadFile(`/rub/api/download/reshape/v_reclass_${tb}?type=all_rubber`, `v_reclass_all_rubber_${tb}.geojson`);
+                downloadFile(`/rub/api/download/reshape/v_reclass_${tb}?type=rubber_and_ex`, `v_reclass_rubber_ex_${tb}.geojson`);
             });
         }
 
