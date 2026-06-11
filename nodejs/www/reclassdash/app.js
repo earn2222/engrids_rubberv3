@@ -821,47 +821,7 @@ const loadGeoData = async () => {
             }
         });
 
-        // Panel Clear Checker Button Handler
-        $('#panel-btn-clear-checker').on('click', async function () {
-            const subId = $('#panel-sub-id').val();
-            const tb = $('#tb').val();
-            if (!subId) { alert('กรุณาเลือกข้อมูลก่อน'); return; }
-            if (!confirm('ยืนยันล้างข้อมูลผู้ตรวจสอบของแปลงนี้ใช่หรือไม่?')) return;
 
-            const btn = $(this);
-            btn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i>');
-
-            try {
-                const res = await fetch(`/rub/api/clear_review/${tb}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ sub_id: subId })
-                });
-
-                const data = await res.json();
-                if (data.success) {
-                    const dataTable = $('#featureTable').DataTable();
-                    const tableRow = dataTable.row((idx, d) => d.sub_id == subId);
-                    if (tableRow.any()) {
-                        const rowData = tableRow.data();
-                        rowData.check_area = '';
-                        rowData.check_shape = '';
-                        rowData.remark = '';
-                        rowData.reviewer = '';
-                        rowData.review_ts = '';
-                        tableRow.data(rowData).draw(false);
-                        showFeaturePanel({ properties: rowData });
-                    }
-                } else {
-                    alert('ลบไม่สำเร็จ: ' + (data.error || 'Unknown error'));
-                }
-            } catch (err) {
-                console.error('Clear Checker Error:', err);
-                alert('เกิดข้อผิดพลาด');
-            } finally {
-                btn.prop('disabled', false).html('<i class="bi bi-trash3-fill"></i> ลบ');
-            }
-        });
 
         // Panel Clear User Remark Button Handler
         $('#panel-btn-clear-user').on('click', function () {
