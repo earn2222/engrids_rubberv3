@@ -160,8 +160,8 @@ const CLASS_COLORS = {
     'ex_age_rubber': '#00ff0d',
     'ex_building': '#ff00d4',
     'ex_pond': '#00fff2',
-    'ex_cr_area': '#aaaaaa',
-    'ex_ar_area': '#555555',
+    'ex_cr_area': '#ffff00',
+    'ex_ar_area': '#00008b',
     'ex_other': '#ff9900',
 };
 const DEFAULT_COLOR = '#fdae61';

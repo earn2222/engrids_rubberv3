@@ -279,7 +279,7 @@ const showFeaturePanel = (feature, layer) => {
     const colorMap = {
         'rubber': '#006d2c', 'not-rubber': '#9900ff', 'Other': '#ff0004',
         'ex_age_rubber': '#00ff0d', 'ex_building': '#ff00d4', 'ex_pond': '#00fff2',
-        'ex_cr_area': '#aaaaaa', 'ex_ar_area': '#555555',
+        'ex_cr_area': '#ffff00', 'ex_ar_area': '#00008b',
         'ex_other': '#ff9800'
     };
     const label = labelMap[props.classtype] || 'อื่นๆ';
@@ -369,9 +369,9 @@ const getFeatureStyle = (feature) => {
                         : feature.properties.classtype === 'ex_pond'
                             ? '#00fff2ff'
                             : feature.properties.classtype === 'ex_cr_area'
-                                ? '#aaaaaaff'
+                                ? '#ffff00ff'
                                 : feature.properties.classtype === 'ex_ar_area'
-                                    ? '#555555ff'
+                                    ? '#00008bff'
                                     : feature.properties.classtype === 'ex_other'
                                         ? '#ff9800ff'
                                         : '#fdae61';
@@ -546,7 +546,7 @@ const loadGeoData = async () => {
                         const colorMap = {
                             'rubber': '#006d2c', 'not-rubber': '#9900ff', 'Other': '#ff0004',
                             'ex_age_rubber': '#00ff0d', 'ex_building': '#ff00d4', 'ex_pond': '#00fff2',
-                            'ex_cr_area': '#aaaaaa', 'ex_ar_area': '#555555',
+                            'ex_cr_area': '#ffff00', 'ex_ar_area': '#00008b',
                             'ex_other': '#ff9800'
                         };
                         const label = labelMap[data] || 'อื่นๆ';

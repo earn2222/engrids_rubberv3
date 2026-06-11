@@ -353,13 +353,13 @@ body {
 }
 
 #classtype.ct-ex_cr_area {
-    border-left-color: #aaaaaa !important;
-    background: #f9f9f9 !important;
+    border-left-color: #ffff00 !important;
+    background: #ffffe0 !important;
 }
 
 #classtype.ct-ex_ar_area {
-    border-left-color: #555555 !important;
-    background: #eeeeee !important;
+    border-left-color: #00008b !important;
+    background: #e8eaf6 !important;
 }
 
 #classtype.ct-ex_other {
