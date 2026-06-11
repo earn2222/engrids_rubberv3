@@ -109,7 +109,9 @@ let shpallLoaded = false;
 async function loadShpallLayer() {
     if (shpallLoaded) return;
     try {
-        const res = await fetch('/rub/api/shpall');
+        const tb = document.getElementById('tb').value || new URLSearchParams(window.location.search).get('tb');
+        if (!tb) return console.warn('shpall: ไม่พบชื่อตาราง (tb)');
+        const res = await fetch(`/rub/api/shpall/${tb}`);
         const data = await res.json();
         if (!data.success || !data.features || data.features.length === 0) {
             console.warn('shpall: ไม่พบข้อมูลหรือยังไม่มี table', data);

@@ -46,7 +46,10 @@ const ndviWms = new ol.layer.Tile({
 
 const shpallSource = new ol.source.Vector({
     format: new ol.format.GeoJSON(),
-    url: '/rub/api/shpall'
+    url: function() {
+        const tb = document.getElementById('tb') ? document.getElementById('tb').value : new URLSearchParams(window.location.search).get('tb');
+        return `/rub/api/shpall/${tb}`;
+    }
 });
 
 const shpallLayer = new ol.layer.Vector({

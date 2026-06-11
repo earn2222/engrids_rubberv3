@@ -777,33 +777,36 @@ app.delete('/api/delete_reclass_feature/:tb/:sub_id', async (req, res) => {
 });
 
 // GET shpall background polygons (table in rub2 database)
-app.get('/api/shpall', async (req, res) => {
+app.get('/api/shpall/:tb', async (req, res) => {
     try {
+        const tb = 'shpall';
+        
         // Check table exists first
         const checkSql = `SELECT EXISTS (
             SELECT 1 FROM information_schema.tables
-            WHERE table_schema = 'public' AND table_name = 'shpall'
+            WHERE table_schema = 'public' AND table_name = $1
         )`;
-        const checkResult = await pool.query(checkSql);
+        const checkResult = await pool.query(checkSql, [tb]);
         if (!checkResult.rows[0].exists) {
-            return res.status(404).json({ success: false, error: 'Table shpall not found in database' });
+            return res.status(404).json({ success: false, error: `Table ${tb} not found in database` });
         }
 
         // Get column list to build select
         const colsResult = await pool.query(
-            "SELECT column_name FROM information_schema.columns WHERE table_name = 'shpall' ORDER BY ordinal_position"
+            "SELECT column_name FROM information_schema.columns WHERE table_name = $1 ORDER BY ordinal_position",
+            [tb]
         );
         const columns = colsResult.rows.map(r => r.column_name);
         const geomCol = columns.find(c => c === 'geom' || c === 'geometry' || c === 'wkb_geometry' || c === 'the_geom');
         if (!geomCol) {
-            return res.status(400).json({ success: false, error: 'No geometry column found in shpall' });
+            return res.status(400).json({ success: false, error: `No geometry column found in ${tb}` });
         }
 
-        // Select non-geometry columns + geometry as GeoJSON
+        // Select non-geometry columns + geometry as GeoJSON (transform to WGS84 for Leaflet)
         const otherCols = columns.filter(c => c !== geomCol).map(c => `"${c}"`).join(', ');
         const selectCols = otherCols ? `${otherCols}, ST_AsGeoJSON(ST_Transform("${geomCol}", 4326)) AS geom` : `ST_AsGeoJSON(ST_Transform("${geomCol}", 4326)) AS geom`;
 
-        const sql = `SELECT ${selectCols} FROM shpall WHERE "${geomCol}" IS NOT NULL`;
+        const sql = `SELECT ${selectCols} FROM ${tb} WHERE "${geomCol}" IS NOT NULL`;
         const result = await pool.query(sql);
 
         // Build GeoJSON FeatureCollection

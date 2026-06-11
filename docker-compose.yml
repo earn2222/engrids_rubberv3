@@ -38,8 +38,8 @@ services:
       - .env
     depends_on:
       - postgis
-    # volumes:
-    #   - ./nodejs:/usr/src/app
+    volumes:
+      - ./nodejs:/usr/src/app
     ports:
       - "3400:3000"
     networks:
