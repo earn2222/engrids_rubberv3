@@ -293,7 +293,7 @@ const showFeaturePanel = (feature, layer) => {
     }
 
     // Classtype Badge
-    $('#display-classtype').html(`<span class="classtype-badge w-100 text-center" style="background:${color}15; color:${color}; border:1px solid ${color}40;">${label}</span>`);
+    $('#display-classtype').html(`<span class="classtype-badge w-100 text-center" style="background:${color}15; color:#000; border:1px solid ${color}40; font-weight: 500;">${label}</span>`);
 
     // Update Rubber Card Layout based on class
     // Show the data rows that are hidden by default
@@ -551,7 +551,7 @@ const loadGeoData = async () => {
                         };
                         const label = labelMap[data] || 'อื่นๆ';
                         const c = colorMap[data] || '#90a4ae';
-                        return `<span class="classtype-badge" style="background:${c}15;color:${c};border:1px solid ${c}40;">${label}</span>`;
+                        return `<span class="classtype-badge" style="background:${c}15;color:#000;border:1px solid ${c}40; font-weight: 500;">${label}</span>`;
                     }
                 },
                 {
@@ -669,9 +669,6 @@ const loadGeoData = async () => {
                                     placeholder="ชื่อผู้ตรวจ...">
                                 ${dateStr}
                             </div>
-                            <button class="btn btn-sm btn-link text-danger p-0 ms-2 btn-clear-review" data-subid="${row.sub_id}" title="ลบข้อมูลการตรวจแถวนี้">
-                                <i class="bi bi-x-circle-fill"></i>
-                            </button>
                         </div>`;
                     }
                 },
@@ -1230,52 +1227,6 @@ const loadGeoData = async () => {
             }
         });
 
-        // Clear review handler
-        $('#featureTable tbody').on('click', '.btn-clear-review', async function () {
-            const btn = $(this);
-            const subId = btn.data('subid');
-            const row = btn.closest('tr');
-            const tb = document.getElementById('tb').value;
-
-            if (!confirm('ยืนยันลบข้อมูลผู้ตรวจสอบแถวนี้ใช่หรือไม่?')) return;
-
-            btn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i>');
-
-            try {
-                const res = await fetch(`/rub/api/clear_review/${tb}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ sub_id: subId })
-                });
-
-                const data = await res.json();
-                if (data.success) {
-                    const dataTable = $('#featureTable').DataTable();
-                    const rowData = dataTable.row(row).data();
-
-                    rowData.check_area = '';
-                    rowData.check_shape = '';
-                    rowData.remark = '';
-                    rowData.reviewer = '';
-                    rowData.review_ts = '';
-                    dataTable.row(row).data(rowData);
-
-                    row.find('.review-check-area').val('');
-                    row.find('.review-check-shape').val('');
-                    row.find('.review-remark').val('');
-
-                    row.find('.review-reviewer').val('');
-                    row.find('.reviewer-time').remove();
-                } else {
-                    alert('ลบไม่สำเร็จ: ' + (data.error || 'Unknown error'));
-                    btn.html('<i class="bi bi-x-circle-fill"></i>').prop('disabled', false);
-                }
-            } catch (err) {
-                console.error('Clear review error:', err);
-                alert('เกิดข้อผิดพลาด: ' + err.message);
-                btn.html('<i class="bi bi-x-circle-fill"></i>').prop('disabled', false);
-            }
-        });
 
     } catch (error) {
         console.error('Error loading data:', error);

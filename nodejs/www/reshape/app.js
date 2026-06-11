@@ -31,6 +31,34 @@ const rubberTreeIcon = L.icon({
     popupAnchor: [0, -35]
 });
 
+// Custom Highlighted Rubber Tree Icon
+const rubberTreeIconHighlight = L.icon({
+    iconUrl: 'data:image/svg+xml;base64,' + btoa(`
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 640">
+            <defs>
+                <filter id="p-shadow-hi" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur in="SourceAlpha" stdDeviation="12" />
+                    <feOffset dx="0" dy="10" result="offsetblur" />
+                    <feComponentTransfer><feFuncA type="linear" slope="0.3" /></feComponentTransfer>
+                    <feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge>
+                </filter>
+                <linearGradient id="p-grad-hi" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" style="stop-color:#84ffff" />
+                    <stop offset="100%" style="stop-color:#00bcd4" />
+                </linearGradient>
+            </defs>
+            <path fill="url(#p-grad-hi)" filter="url(#p-shadow-hi)" d="M256 640c-15 0-30-5-40-15C160 560 32 420 32 256 32 120 144 0 256 0s224 120 224 256c0 164-128 304-184 369-10 10-25 15-40 15z"/>
+            <circle cx="256" cy="245" r="170" fill="white"/>
+            <path fill="#00bcd4" d="M256 120c-40 0-80 35-80 110 0 60 80 110 80 110s80-50 80-110c0-75-40-110-80-110z"/>
+            <path fill="#00838f" d="M256 150c-30 0-60 25-60 80 0 50 60 90 60 90s60-40 60-90c0-55-30-80-60-80z" opacity="0.6"/>
+            <path fill="#5d4037" d="M236 320h40v40h-40z"/>
+        </svg>
+    `),
+    iconSize: [40, 50],
+    iconAnchor: [20, 50],
+    popupAnchor: [0, -50]
+});
+
 // Configure base layer
 const gmap_road = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
     maxZoom: 22,
@@ -160,6 +188,52 @@ map.getContainer().addEventListener('contextmenu', (e) => e.preventDefault());
 // Set global Geoman option: right-click removes vertex
 map.pm.setGlobalOptions({ removeVertexOn: 'contextmenu' });
 
+const getFeatureStyle = (feature) => {
+    let target = Number(feature.properties.deed_sqm || 0);
+    if (target === 0) {
+        target = Number(feature.properties.rubr_sqm || 0);
+    }
+    const shp = Number(feature.properties.current_sqm || 0);  // เปรียบเทียบ m² กับ m²
+    const diff = target - shp;
+    const isEqual = Math.abs(diff) <= 100;
+
+    return {
+        color: isEqual ? '#00cc00' : '#FF7601',
+        weight: 2,
+        opacity: 0.9,
+        fillColor: isEqual ? '#90ee90' : '#FFBF78',
+        fillOpacity: 0.1
+    };
+};
+
+const highlightSelectedLayer = (layerToHighlight) => {
+    featureGroup.eachLayer(l => {
+        if (l instanceof L.Path && l.feature) {
+            l.setStyle(getFeatureStyle(l.feature));
+        } else if (l instanceof L.Marker) {
+            l.setIcon(rubberTreeIcon);
+            l.closePopup();
+        }
+    });
+
+    if (layerToHighlight) {
+        if (layerToHighlight instanceof L.Path) {
+            layerToHighlight.setStyle({
+                color: '#00FFFF',
+                weight: 4,
+                opacity: 1,
+                fillColor: '#00FFFF',
+                fillOpacity: 0.4
+            });
+            layerToHighlight.bringToFront();
+            layerToHighlight.openPopup();
+        } else if (layerToHighlight instanceof L.Marker) {
+            layerToHighlight.setIcon(rubberTreeIconHighlight);
+            layerToHighlight.openPopup();
+        }
+    }
+};
+
 map.on('pm:create', (e) => {
     const layer = e.layer;
     featureGroup.addLayer(layer);
@@ -181,6 +255,7 @@ map.on('pm:create', (e) => {
             showFeaturePanel(layer.feature, layer);
             featureGroup.eachLayer(l => l.pm.disable());
             layer.pm.enable({ removeVertexOn: 'contextmenu' });
+            highlightSelectedLayer(layer);
             layerEdited = false;
             selectedLayer = layer;
         });
@@ -191,11 +266,13 @@ map.on('pm:create', (e) => {
         });
 
         updateAreaLabel();
+        highlightSelectedLayer(layer);
     } else {
         // If nothing was selected or a polygon was selected, just set as selected
         selectedLayer = layer;
         layerEdited = true;
         updateAreaLabel();
+        highlightSelectedLayer(layer);
     }
 });
 
@@ -334,24 +411,6 @@ function showFeaturePanel(feature, layer) {
     }
 }
 
-const getFeatureStyle = (feature) => {
-    let target = Number(feature.properties.deed_sqm || 0);
-    if (target === 0) {
-        target = Number(feature.properties.rubr_sqm || 0);
-    }
-    const shp = Number(feature.properties.current_sqm || 0);  // เปรียบเทียบ m² กับ m²
-    const diff = target - shp;
-    const isEqual = Math.abs(diff) <= 100;
-
-    return {
-        color: isEqual ? '#00cc00' : '#FF7601',
-        weight: 2,
-        opacity: 0.9,
-        fillColor: isEqual ? '#90ee90' : '#FFBF78',
-        fillOpacity: 0.1
-    };
-};
-
 // Track whether the user has actually edited the selected polygon
 let layerEdited = false;
 
@@ -370,6 +429,7 @@ const onEachFeature = (feature, layer) => {
         showFeaturePanel(feature, layer);
         featureGroup.eachLayer(l => l.pm.disable());
         layer.pm.enable({ removeVertexOn: 'contextmenu' });
+        highlightSelectedLayer(layer);
         layerEdited = false; // reset on new selection
         selectedLayer = layer;
     });
@@ -569,6 +629,7 @@ const loadGeoData = async () => {
                         if (isDrawing) return;
                         showFeaturePanel(geoJsonData, marker);
                         selectedLayer = marker;
+                        highlightSelectedLayer(marker);
                     });
                 } else {
                     // For Polygon/MultiPolygon, add as GeoJSON layer
@@ -608,11 +669,14 @@ const loadGeoData = async () => {
                         if (layer.options.properties.id === refid) {
                             selectedLayer = layer;
                             showFeaturePanel({ properties: layer.options.properties }, layer);
+                            highlightSelectedLayer(layer);
                         }
                     } else if (layer instanceof L.Path) {
                         if (layer.feature.properties.id === refid) {
                             selectedLayer = layer;
                             showFeaturePanel(layer.feature, layer);
+                            layer.pm.enable({ removeVertexOn: 'contextmenu' });
+                            highlightSelectedLayer(layer);
                         }
                     }
                 });
@@ -677,7 +741,10 @@ const loadGeoData = async () => {
     }
 };
 
-map.on('click', (e) => featureGroup.eachLayer(l => l.pm.disable()));
+map.on('click', (e) => {
+    featureGroup.eachLayer(l => l.pm.disable());
+    highlightSelectedLayer(null);
+});
 
 document.getElementById('save').addEventListener('click', async () => {
     if (!selectedLayer) {
@@ -730,6 +797,7 @@ document.getElementById('save').addEventListener('click', async () => {
                     selectedLayer = layer;
                     showFeaturePanel(layer.feature, layer);
                     layer.pm.enable({ removeVertexOn: 'contextmenu' });
+                    highlightSelectedLayer(layer);
                 }
             });
 

@@ -311,7 +311,14 @@ app.put('/api/restorefeatures/:tb/:id', async (req, res) => {
                             UPDATE reclass_${tb}
                             SET shpsplit_sqm = $1, "Rubr_Area" = ROUND(($1::numeric / 1600.0), 2),
                                 geom        = NULL,
-                                geom_point  = b.geom_point
+                                geom_point  = b.geom_point,
+                                check_area = NULL,
+                                check_shape = NULL,
+                                reviewer = NULL,
+                                review_ts = NULL,
+                                user_remark = NULL,
+                                user_name = NULL,
+                                user_remark_ts = NULL
                             FROM backup_${tb} AS b
                             WHERE reclass_${tb}.id = $2
                               AND b.id = $2
@@ -321,7 +328,14 @@ app.put('/api/restorefeatures/:tb/:id', async (req, res) => {
                         // Polygon: sync shpsplit_sqm เท่านั้น
                         await pool.query(`
                             UPDATE reclass_${tb}
-                            SET shpsplit_sqm = $1, "Rubr_Area" = ROUND(($1::numeric / 1600.0), 2)
+                            SET shpsplit_sqm = $1, "Rubr_Area" = ROUND(($1::numeric / 1600.0), 2),
+                                check_area = NULL,
+                                check_shape = NULL,
+                                reviewer = NULL,
+                                review_ts = NULL,
+                                user_remark = NULL,
+                                user_name = NULL,
+                                user_remark_ts = NULL
                             WHERE id = $2 AND (sub_id = $3 OR sub_id = $2::text)
                         `, [bk['Sqm_Deed'], featureId, featureId.toString()]);
                     }
@@ -529,6 +543,25 @@ app.post('/api/updatefeatures/:tb', async (req, res) => {
                     displayName,
                     areaRai
                 ]);
+
+                // Reset review data in reclass table if it exists
+                const reclassCheck = await client.query(
+                    `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=$1)`,
+                    [`reclass_${tb}`]
+                );
+                if (reclassCheck.rows[0].exists) {
+                    await client.query(`
+                        UPDATE reclass_${tb}
+                        SET check_area = NULL,
+                            check_shape = NULL,
+                            reviewer = NULL,
+                            review_ts = NULL,
+                            user_remark = NULL,
+                            user_name = NULL,
+                            user_remark_ts = NULL
+                        WHERE id = $1
+                    `, [id]);
+                }
 
                 areas.push({
                     id: feature.properties?.id || id,
@@ -1252,7 +1285,14 @@ app.put('/api/update_landuse/:tb', async (req, res) => {
         const updateReclass = `
             UPDATE reclass_${tb}
             SET classtype = $1, 
-                editor = $2
+                editor = $2,
+                check_area = NULL,
+                check_shape = NULL,
+                reviewer = NULL,
+                review_ts = NULL,
+                user_remark = NULL,
+                user_name = NULL,
+                user_remark_ts = NULL
             WHERE sub_id = $3
             RETURNING *`;
 
@@ -1312,7 +1352,14 @@ app.put('/api/update_geometry/:tb', async (req, res) => {
                     ELSE geom_point
                 END,
                 shpsplit_sqm = ST_Area(ST_Transform(g.geom_wgs, 32647)),
-                editor = g.editor
+                editor = g.editor,
+                check_area = NULL,
+                check_shape = NULL,
+                reviewer = NULL,
+                review_ts = NULL,
+                user_remark = NULL,
+                user_name = NULL,
+                user_remark_ts = NULL
             FROM geom_input g
             WHERE reclass_${tb}.sub_id = g.sub_id
             RETURNING *;
