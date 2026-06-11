@@ -737,8 +737,16 @@ hr {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
+/* Override DataTables default blue box-shadow for selected rows */
+table.dataTable tbody tr.selected > * {
+    box-shadow: none !important;
+    color: inherit !important;
+}
+
 #featureTable tr.selected {
-    background-color: rgba(76, 175, 80, 0.12) !important;
+    background-color: transparent !important;
+    outline: 2px solid #ff0000 !important;
+    outline-offset: -2px;
 }
 
 #featureTable tr {

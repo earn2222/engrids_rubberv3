@@ -311,14 +311,7 @@ app.put('/api/restorefeatures/:tb/:id', async (req, res) => {
                             UPDATE reclass_${tb}
                             SET shpsplit_sqm = $1, "Rubr_Area" = ROUND(($1::numeric / 1600.0), 2),
                                 geom        = NULL,
-                                geom_point  = b.geom_point,
-                                check_area = NULL,
-                                check_shape = NULL,
-                                reviewer = NULL,
-                                review_ts = NULL,
-                                user_remark = NULL,
-                                user_name = NULL,
-                                user_remark_ts = NULL
+                                geom_point  = b.geom_point
                             FROM backup_${tb} AS b
                             WHERE reclass_${tb}.id = $2
                               AND b.id = $2
@@ -328,17 +321,19 @@ app.put('/api/restorefeatures/:tb/:id', async (req, res) => {
                         // Polygon: sync shpsplit_sqm เท่านั้น
                         await pool.query(`
                             UPDATE reclass_${tb}
-                            SET shpsplit_sqm = $1, "Rubr_Area" = ROUND(($1::numeric / 1600.0), 2),
-                                check_area = NULL,
-                                check_shape = NULL,
-                                reviewer = NULL,
-                                review_ts = NULL,
-                                user_remark = NULL,
-                                user_name = NULL,
-                                user_remark_ts = NULL
+                            SET shpsplit_sqm = $1, "Rubr_Area" = ROUND(($1::numeric / 1600.0), 2)
                             WHERE id = $2 AND (sub_id = $3 OR sub_id = $2::text)
                         `, [bk['Sqm_Deed'], featureId, featureId.toString()]);
                     }
+
+                    // Safely reset check fields if they exist
+                    await pool.query(`
+                        DO $$ BEGIN
+                            UPDATE reclass_${tb}
+                            SET check_area = NULL, check_shape = NULL, reviewer = NULL, review_ts = NULL
+                            WHERE id = ${featureId} AND (sub_id = '${featureId.toString()}' OR sub_id = ${featureId}::text);
+                        EXCEPTION WHEN undefined_column THEN NULL; END $$;
+                    `);
                 }
 
                 return res.status(200).json({
@@ -551,16 +546,15 @@ app.post('/api/updatefeatures/:tb', async (req, res) => {
                 );
                 if (reclassCheck.rows[0].exists) {
                     await client.query(`
-                        UPDATE reclass_${tb}
-                        SET check_area = NULL,
-                            check_shape = NULL,
-                            reviewer = NULL,
-                            review_ts = NULL,
-                            user_remark = NULL,
-                            user_name = NULL,
-                            user_remark_ts = NULL
-                        WHERE id = $1
-                    `, [id]);
+                        DO $$ BEGIN
+                            UPDATE reclass_${tb}
+                            SET check_area = NULL,
+                                check_shape = NULL,
+                                reviewer = NULL,
+                                review_ts = NULL
+                            WHERE id = ${parseInt(id, 10)};
+                        EXCEPTION WHEN undefined_column THEN NULL; END $$;
+                    `);
                 }
 
                 areas.push({
@@ -1285,19 +1279,20 @@ app.put('/api/update_landuse/:tb', async (req, res) => {
         const updateReclass = `
             UPDATE reclass_${tb}
             SET classtype = $1, 
-                editor = $2,
-                check_area = NULL,
-                check_shape = NULL,
-                reviewer = NULL,
-                review_ts = NULL,
-                user_remark = NULL,
-                user_name = NULL,
-                user_remark_ts = NULL
+                editor = $2
             WHERE sub_id = $3
             RETURNING *`;
 
         const values = [classtype, displayName, sub_id];
         const result = await pool.query(updateReclass, values);
+
+        await pool.query(`
+            DO $$ BEGIN
+                UPDATE reclass_${tb}
+                SET check_area = NULL, check_shape = NULL, reviewer = NULL, review_ts = NULL
+                WHERE sub_id = '${sub_id.replace(/'/g, "''")}';
+            EXCEPTION WHEN undefined_column THEN NULL; END $$;
+        `);
 
         const updateReshape = `
             UPDATE ${tb}
@@ -1352,14 +1347,7 @@ app.put('/api/update_geometry/:tb', async (req, res) => {
                     ELSE geom_point
                 END,
                 shpsplit_sqm = ST_Area(ST_Transform(g.geom_wgs, 32647)),
-                editor = g.editor,
-                check_area = NULL,
-                check_shape = NULL,
-                reviewer = NULL,
-                review_ts = NULL,
-                user_remark = NULL,
-                user_name = NULL,
-                user_remark_ts = NULL
+                editor = g.editor
             FROM geom_input g
             WHERE reclass_${tb}.sub_id = g.sub_id
             RETURNING *;
@@ -1367,6 +1355,14 @@ app.put('/api/update_geometry/:tb', async (req, res) => {
 
         const values = [JSON.stringify(geometry), displayName, sub_id];
         const result = await pool.query(query, values);
+
+        await pool.query(`
+            DO $$ BEGIN
+                UPDATE reclass_${tb}
+                SET check_area = NULL, check_shape = NULL, reviewer = NULL, review_ts = NULL
+                WHERE sub_id = '${sub_id.replace(/'/g, "''")}';
+            EXCEPTION WHEN undefined_column THEN NULL; END $$;
+        `);
 
         if (result.rowCount === 0) {
             return res.status(404).json({ error: 'ไม่พบข้อมูล sub_id นี้' });
