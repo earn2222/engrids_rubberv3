@@ -80,7 +80,10 @@ const initApp = async () => {
             const wrapper = document.createElement('div');
             wrapper.innerHTML = `
                 <div class="alert alert-dismissible alert-info mb-3">
-                    <strong>${index + 1}. Layer: ${tb_name.toUpperCase()}</strong>
+                    <strong id="layerTitle_${tb_name.toLowerCase()}" style="font-size: 1.1rem;">${index + 1}. Layer: ${tb_name}</strong>
+                    <button class="btn btn-link btn-sm p-0 ms-2 renameBtn" data-tb="${tb_name}" title="แก้ไขชื่อโปรเจค" style="color:#555;">
+                        <i class="bi bi-pencil-square"></i>
+                    </button>
                     <div class="layer-actions mt-2">
                         <button class="btn btn-add-data layer-btn addDataBtn" data-tb="${tb_name}">
                             <i class="bi bi-upload me-1"></i>เพิ่มข้อมูล
@@ -147,6 +150,38 @@ const initApp = async () => {
         });
 
         await Promise.all(promises);
+
+        /* ── rename display name ── */
+        document.querySelectorAll('.renameBtn').forEach(btn => {
+            btn.addEventListener('click', async function () {
+                const currentName = this.getAttribute('data-tb');
+                const newName = prompt(`แก้ไขชื่อโปรเจค "${currentName}"\n(พิมพ์ตัวพิมพ์ใหญ่/เล็กได้ตามต้องการ เช่น PLK หรือ Plk)`, currentName);
+                if (!newName || newName === currentName) return;
+                if (newName.toLowerCase() !== currentName.toLowerCase()) {
+                    alert('ไม่สามารถเปลี่ยนชื่อตัวอักษรได้ เปลี่ยนได้เฉพาะตัวพิมพ์ใหญ่/เล็กเท่านั้น');
+                    return;
+                }
+                try {
+                    const res = await fetch(`/rub/api/layerlist/${currentName}/displayname`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ display_name: newName })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        const titleEl = document.getElementById(`layerTitle_${currentName.toLowerCase()}`);
+                        if (titleEl) titleEl.textContent = titleEl.textContent.replace(currentName, newName);
+                        this.setAttribute('data-tb', newName);
+                        alert(`เปลี่ยนชื่อเป็น "${newName}" สำเร็จ`);
+                        await initApp();
+                    } else {
+                        alert('เกิดข้อผิดพลาด: ' + (data.error || 'unknown'));
+                    }
+                } catch (err) {
+                    alert('เกิดข้อผิดพลาด: ' + err.message);
+                }
+            });
+        });
 
         /* ── เพิ่มข้อมูล per-row button ── */
         document.querySelectorAll('.addDataBtn').forEach(btn => {

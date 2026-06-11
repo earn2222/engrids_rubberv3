@@ -81,39 +81,39 @@ const ndvi = L.tileLayer.wms("https://engrids.soc.cmu.ac.th/geoserver/gwc/servic
     zIndex: 5
 });
 
-// krabinew background layer — loaded from database, shown when checkbox is toggled
-const krabinewLayer = L.featureGroup();  // placeholder group — data loaded on first add
-let krabinewLoaded = false;
+// shpall background layer — loaded from database, shown when checkbox is toggled
+const shpallLayer = L.featureGroup();  // placeholder group — data loaded on first add
+let shpallLoaded = false;
 
-async function loadKrabinewLayer() {
-    if (krabinewLoaded) return;
+async function loadShpallLayer() {
+    if (shpallLoaded) return;
     try {
-        const res = await fetch('/rub/api/krabinew');
+        const res = await fetch('/rub/api/shpall');
         const data = await res.json();
         if (!data.success || !data.features || data.features.length === 0) {
-            console.warn('krabinew: ไม่พบข้อมูลหรือยังไม่มี table', data);
+            console.warn('shpall: ไม่พบข้อมูลหรือยังไม่มี table', data);
             return;
         }
         L.geoJSON({ type: 'FeatureCollection', features: data.features }, {
             interactive: false,
             style: () => ({
-                color: '#e65100',
-                weight: 1.5,
-                opacity: 0.8,
-                fillColor: '#ff9800',
-                fillOpacity: 0.18,
-                dashArray: '4 3'
+                color: '#0055ff',
+                weight: 2.5,
+                opacity: 0.9,
+                fillColor: '#0055ff',
+                fillOpacity: 0.15,
+                dashArray: '4 4'
             })
-        }).addTo(krabinewLayer);
-        krabinewLoaded = true;
-        console.log(`krabinew: โหลดสำเร็จ ${data.features.length} แปลง`);
+        }).addTo(shpallLayer);
+        shpallLoaded = true;
+        console.log(`shpall: โหลดสำเร็จ ${data.features.length} แปลง`);
     } catch (err) {
-        console.error('krabinew load error:', err);
+        console.error('shpall load error:', err);
     }
 }
 
 // Listen for layer add event to lazy-load data
-krabinewLayer.on('add', () => loadKrabinewLayer());
+shpallLayer.on('add', () => loadShpallLayer());
 
 
 const baseLayers = {
@@ -126,7 +126,7 @@ const baseLayers = {
 
 const overlayMaps = {
     "แปลงยาง": featureGroup.addTo(map),
-    "แปลงยาง (เดิม)": krabinewLayer,
+    "แปลงยาง (เดิม)": shpallLayer,
     "Longdo Map": longdoLayer.addTo(map),
 };
 

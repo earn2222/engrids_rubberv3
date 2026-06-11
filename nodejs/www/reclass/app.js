@@ -44,15 +44,26 @@ const ndviWms = new ol.layer.Tile({
     zIndex: 5
 });
 
-const rubberParcelWms = new ol.layer.Tile({
-    source: new ol.source.TileWMS({
-        url: 'https://engrids.soc.cmu.ac.th/geoserver/rubber/wms?',
-        params: { LAYERS: 'rubber:rubber_pacel', FORMAT: 'image/png', TRANSPARENT: true },
-        serverType: 'geoserver'
-    }),
+const shpallSource = new ol.source.Vector({
+    format: new ol.format.GeoJSON(),
+    url: '/rub/api/shpall'
+});
+
+const shpallLayer = new ol.layer.Vector({
+    source: shpallSource,
     title: 'แปลงยาง (เดิม)',
     visible: false,
-    zIndex: 6
+    zIndex: 6,
+    style: new ol.style.Style({
+        stroke: new ol.style.Stroke({
+            color: '#0055ff',
+            width: 2.5,
+            lineDash: [4, 4]
+        }),
+        fill: new ol.style.Fill({
+            color: 'rgba(0, 85, 255, 0.15)'
+        })
+    })
 });
 
 
@@ -123,7 +134,7 @@ const splitLineLayer = new ol.layer.Vector({
 const map = new ol.Map({
     target: 'map',
     layers: [gmapSatLayer, gmapRoadLayer, gmapHybrid, gmapTerrain, longdoLayer,
-        ndviWms, rubberParcelWms, vectorLayer, splitLineLayer],
+        ndviWms, shpallLayer, vectorLayer, splitLineLayer],
     view: new ol.View({
         center: ol.proj.fromLonLat([100.8784385963758, 18.819620993471577]),
         zoom: 13,
@@ -1026,81 +1037,27 @@ function startEditMode() {
         });
 
         preModifyOrigGeom = selectedFeature.getGeometry().clone();
-        preModifyOuterSegs = getOuterSegments(preModifyOrigGeom, preModifyOtherGeoms);
 
-        // Build outer boundary vertex key set — only when there are neighbouring features.
-        // When a plot has only one sub-polygon (no neighbours), all edits are allowed.
-        preModifyOuterVertKeys = new Set();
-        if (preModifyOtherGeoms.length > 0) {
-            const _fmt = c => `${Math.round(c[0] * 1000)},${Math.round(c[1] * 1000)}`;
-            preModifyOuterSegs.forEach(seg => {
-                preModifyOuterVertKeys.add(_fmt(seg[0]));
-                preModifyOuterVertKeys.add(_fmt(seg[1]));
-            });
-        }
+        const geomSel = selectedFeature.getGeometry();
+        const listener = geomSel.on('change', () => {
+            if (isReverting) return;
+            const area = ol.sphere.getArea(geomSel, { projection: 'EPSG:3857' });
+            document.getElementById('current_sqm').value = Math.round(area).toLocaleString('th-TH');
 
-        vectorSource.getFeatures().forEach(f => {
-            const geom = f.getGeometry();
-
-            if (f === selectedFeature) {
-                const listener = geom.on('change', () => {
-                    if (isReverting) return;
-
-                    // Protect outer boundary vertices in real-time.
-                    // Uses vertex-key comparison so inner-vertex drags are always allowed.
-                    if (preModifyOuterVertKeys.size > 0) {
-                        const currentKeys = getAllVertexKeys(geom);
-                        let outerMoved = false;
-                        for (const key of preModifyOuterVertKeys) {
-                            if (!currentKeys.has(key)) { outerMoved = true; break; }
-                        }
-                        if (outerMoved) {
-                            isReverting = true;
-                            geom.setCoordinates(preModifyOrigGeom.getCoordinates());
-                            isReverting = false;
-                            const now = Date.now();
-                            if (now - lastOuterBoundaryToastTime > 1000) {
-                                showToast('ไม่อนุญาตให้แก้ไขขอบเขตด้านนอก', 'warning');
-                                lastOuterBoundaryToastTime = now;
-                            }
-                            return;
-                        }
-                    }
-
-                    const area = ol.sphere.getArea(geom, { projection: 'EPSG:3857' });
-                    document.getElementById('current_sqm').value = Math.round(area).toLocaleString('th-TH');
-
-                    const sqmYang = parseFloat(document.getElementById('rubr_sqm').value.replace(/,/g, '')) || 0;
-                    const el = document.getElementById('checkarea');
-                    if (Math.abs(sqmYang - area) <= 100) {
-                        el.innerHTML = '<span style="color:green">* พื้นที่ตรงกับข้อมูลเป้าหมาย</span>';
-                    } else {
-                        el.innerHTML = '<span style="color:red">* พื้นที่ไม่ตรงกับข้อมูลเป้าหมาย</span>';
-                    }
-                });
-                geomChangeListeners.push(listener);
+            const sqmYang = parseFloat(document.getElementById('rubr_sqm').value.replace(/,/g, '')) || 0;
+            const el = document.getElementById('checkarea');
+            if (Math.abs(sqmYang - area) <= 100) {
+                el.innerHTML = '<span style="color:green">* พื้นที่ตรงกับข้อมูลเป้าหมาย</span>';
+            } else {
+                el.innerHTML = '<span style="color:red">* พื้นที่ไม่ตรงกับข้อมูลเป้าหมาย</span>';
             }
         });
+        geomChangeListeners.push(listener);
     });
 
     modifyInteraction.on('modifyend', async (evt) => {
         geomChangeListeners.forEach(l => ol.Observable.unByKey(l));
         geomChangeListeners = [];
-
-        // Final outer boundary vertex check (safety net for the change-listener check)
-        if (preModifyOuterVertKeys.size > 0) {
-            const finalKeys = getAllVertexKeys(selectedFeature.getGeometry());
-            let outerMoved = false;
-            for (const key of preModifyOuterVertKeys) {
-                if (!finalKeys.has(key)) { outerMoved = true; break; }
-            }
-            if (outerMoved) {
-                selectedFeature.setGeometry(preModifyOrigGeom);
-                showToast('ไม่อนุญาตให้แก้ไขขอบเขตด้านนอก', 'warning');
-                return;
-            }
-        }
-
         updateAreaDisplay(selectedFeature);
         showFeaturePanel(selectedFeature);
     });
@@ -1161,21 +1118,6 @@ map.getViewport().addEventListener('contextmenu', (evt) => {
         const geom = selectedFeature.getGeometry();
         const geomType = geom.getType();
 
-        const otherGeoms = [];
-        vectorSource.getFeatures().forEach(f => {
-            if (f !== selectedFeature) otherGeoms.push(f.getGeometry());
-        });
-
-        // Build outer boundary vertex keys at time of right-click
-        const _fmtDel = c => `${Math.round(c[0] * 1000)},${Math.round(c[1] * 1000)}`;
-        const origOuterVertKeys = new Set();
-        if (otherGeoms.length > 0) {
-            getOuterSegments(geom, otherGeoms).forEach(seg => {
-                origOuterVertKeys.add(_fmtDel(seg[0]));
-                origOuterVertKeys.add(_fmtDel(seg[1]));
-            });
-        }
-
         const originalCoords = JSON.parse(JSON.stringify(geom.getCoordinates()));
         let deleted = false;
 
@@ -1223,22 +1165,6 @@ map.getViewport().addEventListener('contextmenu', (evt) => {
         isReverting = false;
 
         if (!deleted) return;
-
-        // Verify outer boundary vertices preserved (vertex-based — consistent with drag check)
-        if (origOuterVertKeys.size > 0) {
-            const newVertKeys = getAllVertexKeys(geom);
-            let outerRemoved = false;
-            for (const key of origOuterVertKeys) {
-                if (!newVertKeys.has(key)) { outerRemoved = true; break; }
-            }
-            if (outerRemoved) {
-                isReverting = true;
-                geom.setCoordinates(originalCoords);
-                isReverting = false;
-                showToast('ไม่อนุญาตให้ลบจุดบนขอบเขตด้านนอก', 'warning');
-                return;
-            }
-        }
 
         selectedFeature.changed();
         updateAreaDisplay(selectedFeature);
@@ -1506,7 +1432,7 @@ function buildLegend() {
 
 // ── 19. Layer switcher (base=radio, overlay=checkbox) ────
 const BASE_LAYERS = [gmapSatLayer, gmapRoadLayer, gmapHybrid, gmapTerrain, longdoLayer];
-const OVERLAY_LAYERS = [ndviWms, rubberParcelWms];
+const OVERLAY_LAYERS = [ndviWms, shpallLayer];
 
 function buildLayerSwitcher() {
     const ctrl = document.createElement('div');
@@ -1564,7 +1490,7 @@ function buildLayerSwitcher() {
 
     // ── Overlay layers (checkbox, multiple) ───────────────
     const overlayItems = [
-        { layer: rubberParcelWms, label: 'แปลง (เดิม)' },
+        { layer: shpallLayer, label: 'แปลง (เดิม)' },
     ];
 
     const sep = document.createElement('div');

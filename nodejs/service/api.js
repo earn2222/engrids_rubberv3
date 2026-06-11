@@ -25,7 +25,7 @@ const pool = new Pool({
 // get all users
 app.get('/api/getfeatures/:tb', async (req, res) => {
     try {
-        const tb = req.params.tb;
+        const tb = req.params.tb.toLowerCase();
         if (!tb) {
             return res.status(400).json({ error: 'Table name is required' });
         }
@@ -61,7 +61,7 @@ app.get('/api/getfeatures/:tb', async (req, res) => {
 
 app.get('/api/getfeatures/:tb/:fid', async (req, res) => {
     try {
-        const tb = req.params.tb;
+        const tb = req.params.tb.toLowerCase();
         if (!tb) {
             return res.status(400).json({ error: 'Table name is required' });
         }
@@ -134,7 +134,7 @@ app.get('/api/getfeatures/:tb/:fid', async (req, res) => {
 // v3
 app.get('/api/getfeaturesv3/:tb', async (req, res) => {
     try {
-        const tb = req.params.tb;
+        const tb = req.params.tb.toLowerCase();
         if (!tb) {
             return res.status(400).json({ error: 'Table name is required' });
         }
@@ -180,7 +180,8 @@ app.get('/api/getfeaturesv3/:tb', async (req, res) => {
 
 app.delete('/api/deletefeature/:tb/:id', async (req, res) => {
     try {
-        const { tb, id } = req.params;
+        let { tb, id } = req.params;
+        tb = tb.toLowerCase();
 
         if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tb)) {
             return res.status(400).json({ error: 'Invalid table name' });
@@ -220,6 +221,7 @@ app.delete('/api/deletefeature/:tb/:id', async (req, res) => {
 app.put('/api/restorefeatures/:tb/:id', async (req, res) => {
     try {
         let { tb, id } = req.params;
+        tb = tb.toLowerCase();
 
         if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tb)) {
             return res.status(400).json({ error: 'Invalid table name' });
@@ -410,7 +412,7 @@ app.put('/api/restorefeatures/:tb/:id', async (req, res) => {
 
 app.post('/api/updatefeatures/:tb', async (req, res) => {
     try {
-        const tb = req.params.tb;
+        const tb = req.params.tb.toLowerCase();
         if (!tb) {
             return res.status(400).json({ error: 'Table name is required' });
         }
@@ -559,7 +561,7 @@ app.post('/api/updatefeatures/:tb', async (req, res) => {
 
 app.get('/api/getreclassfeatures/:tb', async (req, res) => {
     try {
-        const tb = req.params.tb;
+        const tb = req.params.tb.toLowerCase();
         if (!tb) {
             return res.status(400).json({ error: 'Table name is required' });
         }
@@ -629,7 +631,7 @@ app.get('/api/getreclassfeatures/:tb', async (req, res) => {
 // Review/recheck endpoint
 app.put('/api/update_review/:tb', async (req, res) => {
     try {
-        const tb = req.params.tb;
+        const tb = req.params.tb.toLowerCase();
         if (!tb) {
             return res.status(400).json({ error: 'Table name is required' });
         }
@@ -665,7 +667,7 @@ app.put('/api/update_review/:tb', async (req, res) => {
 // Clear review endpoint
 app.put('/api/clear_review/:tb', async (req, res) => {
     try {
-        const tb = req.params.tb;
+        const tb = req.params.tb.toLowerCase();
         const { sub_id } = req.body;
         if (!tb || !sub_id) {
             return res.status(400).json({ error: 'Table name and sub_id are required' });
@@ -696,7 +698,7 @@ app.put('/api/clear_review/:tb', async (req, res) => {
 // User remark endpoint
 app.put('/api/update_user_remark/:tb', async (req, res) => {
     try {
-        const tb = req.params.tb;
+        const tb = req.params.tb.toLowerCase();
         if (!tb) {
             return res.status(400).json({ error: 'Table name is required' });
         }
@@ -730,7 +732,8 @@ app.put('/api/update_user_remark/:tb', async (req, res) => {
 // DELETE a single reclass feature by sub_id
 app.delete('/api/delete_reclass_feature/:tb/:sub_id', async (req, res) => {
     try {
-        const { tb, sub_id } = req.params;
+        let { tb, sub_id } = req.params;
+        tb = tb.toLowerCase();
         if (!tb || !sub_id) {
             return res.status(400).json({ error: 'Table name and sub_id are required' });
         }
@@ -746,34 +749,34 @@ app.delete('/api/delete_reclass_feature/:tb/:sub_id', async (req, res) => {
     }
 });
 
-// GET krabinew background polygons (table in rub2 database)
-app.get('/api/krabinew', async (req, res) => {
+// GET shpall background polygons (table in rub2 database)
+app.get('/api/shpall', async (req, res) => {
     try {
         // Check table exists first
         const checkSql = `SELECT EXISTS (
             SELECT 1 FROM information_schema.tables
-            WHERE table_schema = 'public' AND table_name = 'krabinew'
+            WHERE table_schema = 'public' AND table_name = 'shpall'
         )`;
         const checkResult = await pool.query(checkSql);
         if (!checkResult.rows[0].exists) {
-            return res.status(404).json({ success: false, error: 'Table krabinew not found in database' });
+            return res.status(404).json({ success: false, error: 'Table shpall not found in database' });
         }
 
         // Get column list to build select
         const colsResult = await pool.query(
-            "SELECT column_name FROM information_schema.columns WHERE table_name = 'krabinew' ORDER BY ordinal_position"
+            "SELECT column_name FROM information_schema.columns WHERE table_name = 'shpall' ORDER BY ordinal_position"
         );
         const columns = colsResult.rows.map(r => r.column_name);
         const geomCol = columns.find(c => c === 'geom' || c === 'geometry' || c === 'wkb_geometry' || c === 'the_geom');
         if (!geomCol) {
-            return res.status(400).json({ success: false, error: 'No geometry column found in krabinew' });
+            return res.status(400).json({ success: false, error: 'No geometry column found in shpall' });
         }
 
         // Select non-geometry columns + geometry as GeoJSON
-        const otherCols = columns.filter(c => c !== geomCol).join(', ');
-        const selectCols = otherCols ? `${otherCols}, ST_AsGeoJSON(ST_Transform(${geomCol}, 4326)) AS geom` : `ST_AsGeoJSON(ST_Transform(${geomCol}, 4326)) AS geom`;
+        const otherCols = columns.filter(c => c !== geomCol).map(c => `"${c}"`).join(', ');
+        const selectCols = otherCols ? `${otherCols}, ST_AsGeoJSON(ST_Transform("${geomCol}", 4326)) AS geom` : `ST_AsGeoJSON(ST_Transform("${geomCol}", 4326)) AS geom`;
 
-        const sql = `SELECT ${selectCols} FROM krabinew WHERE ${geomCol} IS NOT NULL`;
+        const sql = `SELECT ${selectCols} FROM shpall WHERE "${geomCol}" IS NOT NULL`;
         const result = await pool.query(sql);
 
         // Build GeoJSON FeatureCollection
@@ -792,7 +795,7 @@ app.get('/api/krabinew', async (req, res) => {
             features
         });
     } catch (err) {
-        console.error('Error in /api/krabinew:', err);
+        console.error('Error in /api/shpall:', err);
         res.status(500).json({ success: false, error: err.message });
     }
 });
@@ -800,7 +803,7 @@ app.get('/api/krabinew', async (req, res) => {
 // GET reshape polygon data for reclassdash map overlay
 app.get('/api/getreshapefeatures/:tb', async (req, res) => {
     try {
-        const tb = req.params.tb;
+        const tb = req.params.tb.toLowerCase();
         if (!tb) {
             return res.status(400).json({ error: 'Table name is required' });
         }
@@ -823,7 +826,7 @@ app.get('/api/getreshapefeatures/:tb', async (req, res) => {
 
 app.get('/api/countsfeatures/:tb', async (req, res) => {
     try {
-        const tb = req.params.tb;
+        const tb = req.params.tb.toLowerCase();
         if (!tb) {
             return res.status(400).json({ error: 'Table name is required' });
         }
@@ -853,7 +856,7 @@ app.get('/api/countsfeatures/:tb', async (req, res) => {
 
 app.get('/api/countsrai/:tb', async (req, res) => {
     try {
-        const tb = req.params.tb;
+        const tb = req.params.tb.toLowerCase();
         if (!tb) {
             return res.status(400).json({ error: 'Table name is required' });
         }
@@ -873,7 +876,7 @@ app.get('/api/countsrai/:tb', async (req, res) => {
 
 app.post('/api/create_reclass_feature/:tb', async (req, res) => {
     try {
-        const tb = req.params.tb;
+        const tb = req.params.tb.toLowerCase();
         if (!tb) {
             return res.status(400).json({ error: 'Table name is required' });
         }
@@ -1024,7 +1027,7 @@ app.post('/api/create_reclass_layer', async (req, res) => {
 
 app.post('/api/splitfeature/:tb', async (req, res) => {
     try {
-        const tb = req.params.tb;
+        const tb = req.params.tb.toLowerCase();
         if (!tb) {
             return res.status(400).json({ error: 'Table name is required' });
         }
@@ -1176,7 +1179,7 @@ app.post('/api/splitfeature/:tb', async (req, res) => {
 // ── Unsplit: คืนแปลงเดิม (ลบแถว split ทั้งหมด แล้ว re-insert ต้นฉบับ) ──
 app.post('/api/unsplit_feature/:tb', async (req, res) => {
     try {
-        const tb = req.params.tb;
+        const tb = req.params.tb.toLowerCase();
         if (!tb || !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tb)) {
             return res.status(400).json({ error: 'Invalid table name' });
         }
@@ -1237,7 +1240,7 @@ app.post('/api/unsplit_feature/:tb', async (req, res) => {
 
 app.put('/api/update_landuse/:tb', async (req, res) => {
     try {
-        const tb = req.params.tb;
+        const tb = req.params.tb.toLowerCase();
         if (!tb) {
             return res.status(400).json({ error: 'Table name is required' });
         }
@@ -1280,7 +1283,7 @@ app.put('/api/update_landuse/:tb', async (req, res) => {
 // //reclassify   
 app.put('/api/update_geometry/:tb', async (req, res) => {
     try {
-        const tb = req.params.tb;
+        const tb = req.params.tb.toLowerCase();
         const { sub_id, geometry, displayName } = req.body;
 
         if (!geometry || !sub_id) {
@@ -1335,7 +1338,7 @@ app.put('/api/update_geometry/:tb', async (req, res) => {
 
 app.get('/api/download/reshape/:tb', async (req, res) => {
     try {
-        const tb = req.params.tb;
+        const tb = req.params.tb.toLowerCase();
         const typeFilter = req.query.type; // 'rubber' or 'all_rubber'
         if (!tb) return res.status(400).json({ error: 'Table name is required' });
 
@@ -1549,9 +1552,43 @@ app.post('/api/layerlist', async (req, res) => {
     }
 });
 
+/* PUT /api/layerlist/:tb/displayname
+   อัปเดต display name ใน layerlist โดยไม่เปลี่ยน table จริงใน PostgreSQL
+   body: { display_name: "PLK" }  ← ชื่อที่ต้องการแสดง (case ตามที่พิมพ์)
+*/
+app.put('/api/layerlist/:tb/displayname', async (req, res) => {
+    try {
+        const tb = req.params.tb.toLowerCase();
+        const { display_name } = req.body;
+
+        if (!tb || !display_name) {
+            return res.status(400).json({ error: 'tb and display_name are required' });
+        }
+        if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(display_name)) {
+            return res.status(400).json({ error: 'display_name must start with a letter and contain only letters, numbers and underscores' });
+        }
+        if (display_name.toLowerCase() !== tb) {
+            return res.status(400).json({ error: 'display_name must refer to the same table (same letters, different case only)' });
+        }
+
+        const result = await pool.query(
+            `UPDATE layerlist SET tb_name = $1, updated_at = NOW() WHERE LOWER(tb_name) = $2 RETURNING *`,
+            [display_name, tb]
+        );
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: `Project "${tb}" not found` });
+        }
+        return res.status(200).json({ success: true, data: result.rows[0] });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: error.message });
+    }
+});
+
 app.delete('/api/layerlist/:tb', async (req, res) => {
     try {
-        const tb = req.params.tb;
+        const tb = req.params.tb.toLowerCase();
         if (!tb) {
             return res.status(400).json({ error: 'Table name is required' });
         }
@@ -1560,7 +1597,7 @@ app.delete('/api/layerlist/:tb', async (req, res) => {
         const sql0 = `DROP VIEW IF EXISTS v_reclass_${tb}`;
         await pool.query(sql0);
 
-        const sql1 = `DELETE FROM layerlist WHERE tb_name = $1 RETURNING *`;
+        const sql1 = `DELETE FROM layerlist WHERE LOWER(tb_name) = $1 RETURNING *`;
         const result = await pool.query(sql1, [tb]);
 
         // delete reclass table
@@ -1575,7 +1612,7 @@ app.delete('/api/layerlist/:tb', async (req, res) => {
         await pool.query(sql4);
 
         try {
-            await pool.query('DELETE FROM task_assignments WHERE tb_name = $1', [tb]);
+            await pool.query('DELETE FROM task_assignments WHERE LOWER(tb_name) = $1', [tb]);
         } catch (e) {
             console.log('task_assignments table might not exist yet');
         }
@@ -2062,14 +2099,15 @@ app.post('/api/create-project', async (req, res) => {
         return res.status(400).json({ error: 'Table name must start with a letter and contain only letters, numbers and underscores' });
     }
 
-    // PostgreSQL folds unquoted identifiers to lowercase
+    // Use lowercase only for PostgreSQL table/index/view identifiers (PG folds unquoted identifiers)
+    // Original tb_name is preserved for display in layerlist
     const safe_name = tb_name.toLowerCase();
 
     try {
-        // Check for duplicate project name
-        const dupCheck = await pool.query('SELECT tb_name FROM layerlist WHERE tb_name = $1', [safe_name]);
+        // Check for duplicate project name (case-insensitive)
+        const dupCheck = await pool.query('SELECT tb_name FROM layerlist WHERE LOWER(tb_name) = $1', [safe_name]);
         if (dupCheck.rows.length > 0) {
-            return res.status(409).json({ error: `ชื่อ Project "${safe_name.toUpperCase()}" มีอยู่แล้ว กรุณาใช้ชื่ออื่น` });
+            return res.status(409).json({ error: `ชื่อ Project "${dupCheck.rows[0].tb_name}" มีอยู่แล้ว กรุณาใช้ชื่ออื่น` });
         }
 
         // Drop existing objects first (idempotent re-create)
@@ -2078,7 +2116,7 @@ app.post('/api/create-project', async (req, res) => {
         await pool.query(`DROP TABLE IF EXISTS ${safe_name}`);
         await pool.query(`DROP TABLE IF EXISTS backup_${safe_name}`);
         try {
-            await pool.query(`DELETE FROM task_assignments WHERE tb_name = $1`, [safe_name]);
+            await pool.query(`DELETE FROM task_assignments WHERE LOWER(tb_name) = $1`, [safe_name]);
         } catch (e) { }
 
         // Create main rubber table with full template schema
@@ -2169,15 +2207,15 @@ app.post('/api/create-project', async (req, res) => {
         `;
         await pool.query(createView);
 
-        // Register in layerlist (idempotent – skip if already exists)
+        // Register in layerlist with original case (idempotent – skip if already exists)
         await pool.query(
             `INSERT INTO layerlist (tb_name, remark)
              VALUES ($1, $2)
              ON CONFLICT (tb_name) DO UPDATE SET remark = EXCLUDED.remark, updated_at = NOW()`,
-            [safe_name, remark || '']
+            [tb_name, remark || '']
         );
 
-        res.json({ success: true, tb_name: safe_name });
+        res.json({ success: true, tb_name });
     } catch (err) {
         console.error('create-project error:', err);
         res.status(500).json({ error: err.message });
@@ -2203,13 +2241,16 @@ app.post('/api/upload-shapefile-to-table', upload.single('shpFile'), async (req,
         return res.status(400).json({ error: 'geom_type must be polygon or point' });
     }
 
+    // PostgreSQL table names are always lowercase (PG folds unquoted identifiers)
+    const safe_name = tb_name.toLowerCase();
+
     const extractDir = path.join('uploads', `extract_${Date.now()}`);
 
     try {
-        // Check table exists
+        // Check table exists (use lowercase for PostgreSQL catalog lookup)
         const tableCheck = await pool.query(
             `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=$1)`,
-            [tb_name]
+            [safe_name]
         );
         if (!tableCheck.rows[0].exists) {
             return res.status(404).json({ error: `Table "${tb_name}" not found. Please create the project first.` });
@@ -2218,7 +2259,7 @@ app.post('/api/upload-shapefile-to-table', upload.single('shpFile'), async (req,
         // Ensure reclass table has Rubr_Area before uploading
         await pool.query(`
             DO $$ BEGIN
-                ALTER TABLE reclass_${tb_name} ADD COLUMN "Rubr_Area" numeric;
+                ALTER TABLE reclass_${safe_name} ADD COLUMN "Rubr_Area" numeric;
             EXCEPTION
                 WHEN duplicate_column THEN NULL;
                 WHEN undefined_table THEN NULL;
@@ -2305,7 +2346,7 @@ app.post('/api/upload-shapefile-to-table', upload.single('shpFile'), async (req,
 
                 const insertSql = `
                     WITH main_ins AS (
-                        INSERT INTO ${tb_name} (
+                        INSERT INTO ${safe_name} (
                             "Farmer_ID", "Regis_No", "No_Plot", "Title_name", "F_name", "L_name", "Full_nam",
                             "Address", "Sub_Dis", "District", "Province", "F_Status", "Deed_ID", "Deed_Type",
                             "Rubr_Rai", "Rubr_Ngan", "Rubr_sqwa", "Rubr_total",
@@ -2325,7 +2366,7 @@ app.post('/api/upload-shapefile-to-table', upload.single('shpFile'), async (req,
                         )
                         RETURNING id, "Farmer_ID" AS farmer_id, "Sqm_Deed" AS shpsplit_sqm, geom, geom_point
                     )
-                    INSERT INTO reclass_${tb_name} (id, sub_id, farmer_id, shpsplit_sqm, "Rubr_Area", geom, geom_point, classtype)
+                    INSERT INTO reclass_${safe_name} (id, sub_id, farmer_id, shpsplit_sqm, "Rubr_Area", geom, geom_point, classtype)
                     SELECT id, id::text, farmer_id, shpsplit_sqm, ROUND((shpsplit_sqm::numeric / 1600.0), 2), geom, geom_point, '${geom_type}' FROM main_ins;
                 `;
                 const params = [
@@ -2344,29 +2385,29 @@ app.post('/api/upload-shapefile-to-table', upload.single('shpFile'), async (req,
 
             await client.query('COMMIT');
 
-            // ── AUTO BACKUP: upsert new rows into backup_{tb_name} ───────────────
+            // ── AUTO BACKUP: upsert new rows into backup_{safe_name} ────────────
             try {
                 // ตรวจสอบว่า backup table มีแล้วหรือยัง
                 const bkCheck = await pool.query(
                     `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=$1)`,
-                    [`backup_${tb_name}`]
+                    [`backup_${safe_name}`]
                 );
                 if (!bkCheck.rows[0].exists) {
                     // สร้าง backup table ใหม่จาก structure ของ main table + คอลัมน์ backup_at
-                    await pool.query(`CREATE TABLE backup_${tb_name} AS SELECT * FROM ${tb_name} WHERE FALSE`);
-                    await pool.query(`ALTER TABLE backup_${tb_name} ADD COLUMN backup_at TIMESTAMPTZ DEFAULT NOW()`);
+                    await pool.query(`CREATE TABLE backup_${safe_name} AS SELECT * FROM ${safe_name} WHERE FALSE`);
+                    await pool.query(`ALTER TABLE backup_${safe_name} ADD COLUMN backup_at TIMESTAMPTZ DEFAULT NOW()`);
                 }
 
                 // เพิ่มข้อมูลที่ upload ใหม่ล่าสุดเข้า backup (rows ที่ไม่มีใน backup)
                 const backupInsertResult = await pool.query(`
-                    INSERT INTO backup_${tb_name}
+                    INSERT INTO backup_${safe_name}
                     SELECT m.*, NOW() AS backup_at
-                    FROM ${tb_name} m
+                    FROM ${safe_name} m
                     WHERE NOT EXISTS (
-                        SELECT 1 FROM backup_${tb_name} b WHERE b.id = m.id
+                        SELECT 1 FROM backup_${safe_name} b WHERE b.id = m.id
                     )
                 `);
-                console.log(`[BACKUP] Appended ${backupInsertResult.rowCount} new rows to backup_${tb_name}`);
+                console.log(`[BACKUP] Appended ${backupInsertResult.rowCount} new rows to backup_${safe_name}`);
             } catch (backupErr) {
                 console.error('[BACKUP] Warning: backup append failed:', backupErr.message);
                 // ไม่ throw error เพื่อไม่ให้กระทบ response หลัก
@@ -2404,7 +2445,8 @@ app.post('/api/upload-shapefile-to-table', upload.single('shpFile'), async (req,
  * ดูข้อมูลทั้งหมดใน backup table ของ tb
  */
 app.get('/api/backup/:tb', async (req, res) => {
-    const { tb } = req.params;
+    let { tb } = req.params;
+    tb = tb.toLowerCase();
     if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tb)) {
         return res.status(400).json({ error: 'Invalid table name' });
     }
@@ -2439,7 +2481,8 @@ app.get('/api/backup/:tb', async (req, res) => {
  * Query param: ?mode=reset  → บังคับ reset ค่าแม้ id ยังอยู่
  */
 app.post('/api/restore-from-backup/:tb/:id', async (req, res) => {
-    const { tb, id } = req.params;
+    let { tb, id } = req.params;
+    tb = tb.toLowerCase();
     const mode = req.query.mode || 'auto'; // 'auto' | 'reset'
 
     if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tb)) {
@@ -2596,7 +2639,8 @@ app.post('/api/restore-from-backup/:tb/:id', async (req, res) => {
  * ช่วยให้รู้ว่า id ไหนบ้างที่หาย
  */
 app.get('/api/backup-diff/:tb', async (req, res) => {
-    const { tb } = req.params;
+    let { tb } = req.params;
+    tb = tb.toLowerCase();
     if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tb)) {
         return res.status(400).json({ error: 'Invalid table name' });
     }
@@ -2655,9 +2699,9 @@ async function ensureTaskAssignmentsTable() {
 app.get('/api/task-assignments/:tb', async (req, res) => {
     try {
         await ensureTaskAssignmentsTable();
-        const { tb } = req.params;
+        const tb = req.params.tb.toLowerCase();
         const result = await pool.query(
-            `SELECT * FROM task_assignments WHERE tb_name = $1 ORDER BY id_from`,
+            `SELECT * FROM task_assignments WHERE LOWER(tb_name) = $1 ORDER BY id_from`,
             [tb]
         );
         res.json({ success: true, data: result.rows });
@@ -2755,7 +2799,7 @@ app.delete('/api/task-assignments/:id', async (req, res) => {
 app.get('/api/task-progress/:tb', async (req, res) => {
     try {
         await ensureTaskAssignmentsTable();
-        const { tb } = req.params;
+        const tb = req.params.tb.toLowerCase();
         if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tb)) {
             return res.status(400).json({ error: 'Invalid table name' });
         }
@@ -2763,7 +2807,7 @@ app.get('/api/task-progress/:tb', async (req, res) => {
         // ดึง assignments ของ table นี้
         const assignRes = await pool.query(
             `SELECT id, assignee_name, assignee_photo, id_from, id_to, note
-             FROM task_assignments WHERE tb_name = $1 ORDER BY id_from`,
+             FROM task_assignments WHERE LOWER(tb_name) = $1 ORDER BY id_from`,
             [tb]
         );
         if (assignRes.rowCount === 0) {

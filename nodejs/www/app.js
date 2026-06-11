@@ -244,7 +244,7 @@ const initApp = async () => {
                 <div class="alert alert-dismissible alert-info shadow-sm mb-3 border-0 project-card-premium">
                     <div class="d-flex justify-content-between align-items-center mb-3">
 
-                        <strong style="color: #2e7d32; font-size: 1.4rem; text-transform: uppercase;"><i class="bi bi-folder-fill text-warning me-2"></i>${index + 1}. โครงการ: ${tb_name}</strong>
+                        <strong style="color: #2e7d32; font-size: 1.4rem;"><i class="bi bi-folder-fill text-warning me-2"></i>${index + 1}. โครงการ: ${tb_name}</strong>
                     </div>
                     
                     <div class="d-flex flex-wrap gap-2 mb-3">
