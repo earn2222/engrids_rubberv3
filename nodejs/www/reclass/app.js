@@ -410,7 +410,6 @@ function showFeaturePanel(feature) {
     document.getElementById('sub_id').value = feature.get('sub_id') || '';
     document.getElementById('xls_id_farmer').value = feature.get('Farmer_ID') || '';
     document.getElementById('rubr_sqm').value = Number(feature.get('Rubr_Sqm') || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
-    document.getElementById('rubr_total').value = Number(feature.get('Rubr_total') || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
     
     // Also set current_sqm
     const currentArea = feature.get('shpsplit_sqm');

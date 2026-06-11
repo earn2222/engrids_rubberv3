@@ -278,7 +278,6 @@ const updateAreaLabel = async () => {
 
         console.log(`Area result: ${area}, target: ${target_area}`);
         document.getElementById('current_sqm').value = Math.round(area).toLocaleString();
-        document.getElementById('current_rai').value = (area / 1600).toLocaleString(undefined, { maximumFractionDigits: 2 });
         
         const diff = Math.abs(area - target_area);
 
@@ -296,40 +295,30 @@ function showFeaturePanel(feature, layer) {
     const id = document.getElementById('id');
     const xls_id_farmer = document.getElementById('xls_id_farmer');
     const deed_sqm = document.getElementById('deed_sqm');
-    const deed_total = document.getElementById('deed_total');
     const current_sqm = document.getElementById('current_sqm');
-    const current_rai = document.getElementById('current_rai');
     const refinal = document.getElementById('refinal');
 
     id.value = feature.properties.id;
     xls_id_farmer.value = feature.properties.id_farmer || '';
     document.getElementById('Rubr_Sqm').value = Number(feature.properties.rubr_sqm || 0);
     const deed_sqm_val = Number(feature.properties.deed_sqm || 0);
-    const deed_total_val = Number(feature.properties.deed_total || 0);
     const lbl_deed_sqm = document.getElementById('lbl_deed_sqm');
-    const lbl_deed_total = document.getElementById('lbl_deed_total');
 
     let targetSqm = deed_sqm_val;
 
     if (deed_sqm_val === 0) {
         lbl_deed_sqm.innerText = 'เนื้อที่เป้าหมายยางพารา (m²):';
-        lbl_deed_total.innerText = 'เนื้อที่เป้าหมายยางพารา (ไร่):';
         targetSqm = Number(feature.properties.rubr_sqm || 0);
         deed_sqm.value = targetSqm.toLocaleString(undefined, { maximumFractionDigits: 2 });
-        deed_total.value = Number(feature.properties.rubr_total || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
     } else {
         lbl_deed_sqm.innerText = 'เนื้อที่เป้าหมายโฉนด (m²):';
-        lbl_deed_total.innerText = 'เนื้อที่เป้าหมายโฉนด (ไร่):';
         deed_sqm.value = targetSqm.toLocaleString(undefined, { maximumFractionDigits: 2 });
-        deed_total.value = deed_total_val.toLocaleString(undefined, { maximumFractionDigits: 2 });
     }
 
     if (layer && layer instanceof L.Marker) {
         current_sqm.value = '0';
-        current_rai.value = '0';
     } else {
         current_sqm.value = Math.round(Number(feature.properties.current_sqm || 0)).toLocaleString();
-        current_rai.value = Number(feature.properties.current_rai || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
     }
     refinal.value = feature.properties.refinal || '';
 
@@ -659,9 +648,7 @@ const loadGeoData = async () => {
                         document.getElementById('xls_id_farmer').value = '';
                         document.getElementById('Rubr_Sqm').value = '';
                         document.getElementById('deed_sqm').value = '';
-                        document.getElementById('deed_total').value = '';
                         document.getElementById('current_sqm').value = '';
-                        document.getElementById('current_rai').value = '';
                         document.getElementById('refinal').value = '';
                         document.getElementById('restoreId').value = '';
                         document.getElementById('message').innerHTML = '';
@@ -782,11 +769,9 @@ document.getElementById('btnRestore').addEventListener("click", async () => {
         const result = await response.json();
 
         if (result.success) {
-            // อัปเดตค่า current_sqm/current_rai ใน sidebar จากข้อมูลที่ restore กลับมา
-            const restoredDeedArea = Number(result.data?.['Deed_Area'] || 0);
+            // อัปเดตค่า current_sqm ใน sidebar จากข้อมูลที่ restore กลับมา
             const restoredSqmDeed  = Number(result.data?.['Sqm_Deed']  || 0);
             document.getElementById('current_sqm').value = Math.round(restoredSqmDeed).toLocaleString();
-            document.getElementById('current_rai').value = restoredDeedArea.toLocaleString(undefined, { maximumFractionDigits: 2 });
 
             // เปรียบเทียบกับ target เพื่ออัปเดต message
             const target = Number(document.getElementById('deed_sqm').value.replace(/,/g, '') || 0);
