@@ -137,3 +137,5 @@ dist
 
 gee-key.json
 *.sql
+
+backups/
