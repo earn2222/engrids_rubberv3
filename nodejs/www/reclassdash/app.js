@@ -110,7 +110,7 @@ let _shpallTimer = null;
 function _shpallStyle() {
     return {
         color: '#0055ff', weight: 2.5, opacity: 0.9,
-        fillColor: '#0055ff', fillOpacity: 0.15, dashArray: '4 4'
+        fillColor: '#0055ff', fillOpacity: 0.15
     };
 }
 

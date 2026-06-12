@@ -66,8 +66,7 @@ const shpallLayer = new ol.layer.Vector({
     style: new ol.style.Style({
         stroke: new ol.style.Stroke({
             color: '#0055ff',
-            width: 2.5,
-            lineDash: [4, 4]
+            width: 2.5
         }),
         fill: new ol.style.Fill({
             color: 'rgba(0, 85, 255, 0.15)'
