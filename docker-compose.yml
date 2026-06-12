@@ -40,11 +40,12 @@ services:
       - postgis
     volumes:
       - ./nodejs:/usr/src/app
+      - /usr/src/app/node_modules
     ports:
       - "3400:3000"
     networks:
       - rub-network
-    command: sh -c "npm i -g nodemon && nodemon server.js"
+    command: sh -c "npm i -g nodemon && npm install && nodemon server.js"
 
   backup:
     build: ./backup
