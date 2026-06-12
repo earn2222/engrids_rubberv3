@@ -5,7 +5,7 @@ from pathlib import Path
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
-from fastapi import FastAPI, HTTPException
+from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.responses import FileResponse
 
 # ── config ────────────────────────────────────────────────────────────────────
@@ -23,7 +23,12 @@ app = FastAPI(
     title="DB Backup Service",
     description="Scheduled PostgreSQL backups for rub2",
     version="1.0.0",
+    docs_url="/rub/api/docs",
+    redoc_url="/rub/api/redoc",
+    openapi_url="/rub/api/openapi.json",
 )
+
+router = APIRouter(prefix="/rub/api")
 
 scheduler = AsyncIOScheduler()
 
@@ -117,12 +122,12 @@ async def shutdown() -> None:
 
 # ── endpoints ─────────────────────────────────────────────────────────────────
 
-@app.get("/health", tags=["system"])
+@router.get("/health", tags=["system"])
 def health():
     return {"status": "ok"}
 
 
-@app.get("/status", tags=["backup"])
+@router.get("/status", tags=["backup"])
 def status():
     job = scheduler.get_job("auto_backup")
     return {
@@ -133,7 +138,7 @@ def status():
     }
 
 
-@app.post("/backup", tags=["backup"])
+@router.post("/backup", tags=["backup"])
 def trigger_backup():
     try:
         out = _do_backup()
@@ -150,7 +155,7 @@ def trigger_backup():
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@app.get("/backups", tags=["backup"])
+@router.get("/backups", tags=["backup"])
 def list_backups():
     files = sorted(BACKUP_DIR.glob(f"{PG_DB}_*.sql"), reverse=True)
     return [
@@ -163,18 +168,17 @@ def list_backups():
     ]
 
 
-@app.get("/backups/{filename}", tags=["backup"])
+@router.get("/backups/{filename}", tags=["backup"])
 def download_backup(filename: str):
     path = BACKUP_DIR / filename
     if not path.exists() or not path.is_file():
         raise HTTPException(status_code=404, detail="File not found")
-    # prevent path traversal
     if path.parent.resolve() != BACKUP_DIR.resolve():
         raise HTTPException(status_code=400, detail="Invalid path")
     return FileResponse(path, media_type="text/plain", filename=filename)
 
 
-@app.delete("/backups/{filename}", tags=["backup"])
+@router.delete("/backups/{filename}", tags=["backup"])
 def delete_backup(filename: str):
     path = BACKUP_DIR / filename
     if not path.exists():
@@ -183,3 +187,6 @@ def delete_backup(filename: str):
         raise HTTPException(status_code=400, detail="Invalid path")
     path.unlink()
     return {"deleted": filename}
+
+
+app.include_router(router)
