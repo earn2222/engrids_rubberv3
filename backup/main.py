@@ -23,12 +23,12 @@ app = FastAPI(
     title="DB Backup Service",
     description="Scheduled PostgreSQL backups for rub2",
     version="1.0.0",
-    docs_url="/rub/api/docs",
-    redoc_url="/rub/api/redoc",
-    openapi_url="/rub/api/openapi.json",
+    docs_url="/rub/backup/docs",
+    redoc_url="/rub/backup/redoc",
+    openapi_url="/rub/backup/openapi.json",
 )
 
-router = APIRouter(prefix="/rub/api")
+router = APIRouter(prefix="/rub/backup")
 
 scheduler = AsyncIOScheduler()
 
