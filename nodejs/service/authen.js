@@ -6,6 +6,10 @@ const GoogleStrategy = require('passport-google-oauth20').Strategy;
 
 const app = express();
 require('dotenv').config();
+
+// trust nginx reverse proxy so cookies and protocol detection work correctly over HTTPS
+app.set('trust proxy', 1);
+
 const pool = new Pool({
     user: process.env.DB_USER,
     host: process.env.DB_HOST,
@@ -17,7 +21,12 @@ const pool = new Pool({
 app.use(session({
     secret: process.env.SESSION_SECRET || 'keyboard cat',
     resave: false,
-    saveUninitialized: false
+    saveUninitialized: false,
+    proxy: true,
+    cookie: {
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+    }
 }));
 
 app.use(passport.initialize());
@@ -38,15 +47,10 @@ passport.deserializeUser(async (id, done) => {
     }
 });
 
-console.log(process.env);
-
-
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-
-    callbackURL: '/rub/auth/callback',
-    // callbackURL: 'https://engrids.soc.cmu.ac.th/rub/auth/callback'
+    callbackURL: process.env.GOOGLE_CALLBACK_URL || '/rub/auth/callback',
 },
     async (accessToken, refreshToken, profile, done) => {
         const googleId = profile.id;
@@ -89,7 +93,7 @@ app.get('/auth/google',
 );
 
 app.get('/auth/callback',
-    passport.authenticate('google', { failureRedirect: '/login' }),
+    passport.authenticate('google', { failureRedirect: '/rub/index.html' }),
     (req, res) => {
         const { id, displayName, email, photo } = req.user;
         req.session.user = { id, displayName, email, photo };

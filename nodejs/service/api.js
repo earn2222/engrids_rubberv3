@@ -2098,7 +2098,7 @@ app.post('/api/upload-shapefile', upload.single('shpFile'), async (req, res) => 
 app.get('/api/export-sql', async (req, res) => {
     try {
         const { exec } = require('child_process');
-        const fileName = 'rub2.sql';
+        const fileName = `${process.env.DB_NAME || 'rub2'}.sql`;
         const filePath = path.join(__dirname, '..', 'uploads', fileName);
         if (!fs.existsSync(path.join(__dirname, '..', 'uploads'))) fs.mkdirSync(path.join(__dirname, '..', 'uploads'));
         process.env.PGPASSWORD = process.env.DB_PASSWORD;

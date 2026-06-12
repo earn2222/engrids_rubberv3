@@ -5,18 +5,18 @@ services:
     container_name: rub_postgis
     restart: always
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=rub1234
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
       - POSTGRES_DB=postgres
     ports:
-      - 5400:5432
+      - "${DB_PORT}:5432"
     volumes:
       - ./postgis:/docker-entrypoint-initdb.d
       - pgdata:/var/lib/postgresql/data
     networks:
       - rub-network
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres -d postgres" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER} -d postgres" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -26,16 +26,13 @@ services:
     container_name: rub_nodejs
     restart: always
     working_dir: /usr/src/app
+    env_file:
+      - .env
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=production
       - PORT=3000
       - DB_HOST=postgis
       - DB_PORT=5432
-      - DB_USER=postgres
-      - DB_PASSWORD=rub1234
-      - DB_NAME=rub2
-    env_file:
-      - .env
     depends_on:
       - postgis
     volumes:
@@ -51,12 +48,14 @@ services:
     build: ./backup
     container_name: rub_backup
     restart: always
+    env_file:
+      - .env
     environment:
       - POSTGRES_HOST=postgis
       - POSTGRES_PORT=5432
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=rub1234
-      - POSTGRES_DB=rub2
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
       - BACKUP_INTERVAL_HOURS=24
       - BACKUP_KEEP_DAYS=7
       - BACKUP_DIR=/backups
