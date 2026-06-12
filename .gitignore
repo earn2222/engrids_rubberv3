@@ -136,3 +136,4 @@ dist
 .pnp.*
 
 gee-key.json
+*.sql

@@ -46,9 +46,15 @@ const ndviWms = new ol.layer.Tile({
 
 const shpallSource = new ol.source.Vector({
     format: new ol.format.GeoJSON(),
-    url: function() {
-        const tb = document.getElementById('tb') ? document.getElementById('tb').value : new URLSearchParams(window.location.search).get('tb');
-        return `/rub/api/shpall/${tb}`;
+    strategy: ol.loadingstrategy.bbox,
+    url: function(extent) {
+        const tb = (document.getElementById('tb') && document.getElementById('tb').value)
+            || new URLSearchParams(window.location.search).get('tb') || 'shpall';
+        // extent is [minX,minY,maxX,maxY] in EPSG:3857; convert to WGS84 bbox
+        const ll = ol.proj.toLonLat([extent[0], extent[1]]);
+        const ur = ol.proj.toLonLat([extent[2], extent[3]]);
+        const bbox = `${ll[0]},${ll[1]},${ur[0]},${ur[1]}`;
+        return `/rub/api/shpall/${tb}?bbox=${bbox}`;
     }
 });
 
@@ -1563,7 +1569,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (user) {
             document.getElementById('google-login-link').style.display = 'none';
             document.getElementById('profile-section').style.display = 'flex';
-            document.getElementById('profile-image').src = user.photo;
+            const profileImg = document.getElementById('profile-image');
+            profileImg.referrerPolicy = "no-referrer";
+            profileImg.src = user.photo;
+            profileImg.onerror = function() {
+                this.onerror = null;
+                this.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName)}&background=E9F5EC&color=2e7d32&rounded=true`;
+            };
             document.getElementById('display-name').textContent = user.displayName;
             document.getElementById('displayName').value = user.displayName;
 

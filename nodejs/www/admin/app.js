@@ -18,7 +18,12 @@ const initUser = async () => {
             const img = document.createElement('img');
             img.className = 'rounded-circle me-2';
             img.style = 'width: 32px; height: 32px; object-fit: cover';
-            img.src = item.photo;
+            img.referrerPolicy = "no-referrer";
+            img.src = item.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.display_name)}&background=E9F5EC&color=2e7d32&rounded=true`;
+            img.onerror = function() {
+                this.onerror = null;
+                this.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(item.display_name)}&background=E9F5EC&color=2e7d32&rounded=true`;
+            };
 
             const panel = document.createElement('div');
             panel.className = 'alert alert-dismissible alert-success';
@@ -681,7 +686,7 @@ function renderAssigneePicker(selectedName) {
         chip.dataset.name = u.display_name;
         chip.dataset.photo = u.photo || '';
         chip.innerHTML = `
-            <img src="${u.photo || ''}" onerror="this.style.display='none'">
+            <img src="${u.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.display_name)}&background=E9F5EC&color=2e7d32&rounded=true`}" referrerpolicy="no-referrer" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(u.display_name)}&background=E9F5EC&color=2e7d32&rounded=true'">
             <span>${u.display_name}</span>
         `;
         chip.addEventListener('click', () => {
@@ -808,8 +813,8 @@ async function renderAssignmentList(tb_name) {
                 <div class="assign-row-color" style="background:${color};"></div>
                 <div class="assign-row-avatar">
                     ${d.assignee_photo
-                    ? `<img src="${d.assignee_photo}" class="assign-avatar" onerror="this.style.display='none'">`
-                    : `<div class="assign-avatar-placeholder" style="background:${color};">${d.assignee_name.charAt(0).toUpperCase()}</div>`
+                    ? `<img src="${d.assignee_photo}" referrerpolicy="no-referrer" class="assign-avatar" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(d.assignee_name)}&background=E9F5EC&color=2e7d32&rounded=true'">`
+                    : `<img src="https://ui-avatars.com/api/?name=${encodeURIComponent(d.assignee_name)}&background=E9F5EC&color=2e7d32&rounded=true" class="assign-avatar">`
                 }
                 </div>
                 <div class="assign-row-info">
@@ -1013,7 +1018,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (user) {
             document.getElementById('google-login-link').style.display = 'none';
             document.getElementById('profile-section').style.display = 'flex';
-            document.getElementById('profile-image').src = user.photo;
+            const profileImg = document.getElementById('profile-image');
+            profileImg.referrerPolicy = "no-referrer";
+            profileImg.src = user.photo;
+            profileImg.onerror = function() {
+                this.onerror = null;
+                this.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName)}&background=E9F5EC&color=2e7d32&rounded=true`;
+            };
             document.getElementById('display-name').textContent = user.displayName;
 
             document.getElementById('logout-link').addEventListener('click', async (e) => {

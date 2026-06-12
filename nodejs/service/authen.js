@@ -29,7 +29,7 @@ passport.serializeUser((user, done) => {
 passport.deserializeUser(async (id, done) => {
     try {
         const { rows } = await pool.query(
-            'SELECT id, google_id, display_name, email FROM users WHERE id = $1',
+            'SELECT id, google_id, display_name, email, photo FROM users WHERE id = $1',
             [id]
         );
         done(null, rows[0] || null);
@@ -63,6 +63,10 @@ passport.use(new GoogleStrategy({
             let userId;
             if (rows.length) {
                 userId = rows[0].id;
+                await pool.query(
+                    'UPDATE users SET display_name = $1, email = $2, photo = $3 WHERE id = $4',
+                    [displayName, email, photo, userId]
+                );
             } else {
                 ({ rows } = await pool.query(
                     `INSERT INTO users (google_id, display_name, email, photo)

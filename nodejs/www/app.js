@@ -15,13 +15,15 @@ const initUser = async () => {
                 const img = document.createElement('img');
                 img.className = 'rounded-circle me-2';
                 img.style = 'width: 32px; height: 32px; object-fit: cover; border: 1px solid #ddd;';
+                img.referrerPolicy = "no-referrer";
                 img.src = item.photo;
                 img.onerror = function () {
-                    this.outerHTML = '<div class="rounded-circle bg-light d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px; border: 1px solid #ddd;"><i class="bi bi-person-fill text-secondary"></i></div>';
+                    this.onerror = null;
+                    this.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(item.display_name)}&background=E9F5EC&color=2e7d32&rounded=true`;
                 };
                 avatarDiv.appendChild(img);
             } else {
-                avatarDiv.innerHTML = '<div class="rounded-circle bg-light d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px; border: 1px solid #ddd;"><i class="bi bi-person-fill text-secondary"></i></div>';
+                avatarDiv.innerHTML = `<img src="https://ui-avatars.com/api/?name=${encodeURIComponent(item.display_name)}&background=E9F5EC&color=2e7d32&rounded=true" class="rounded-circle me-2" style="width: 32px; height: 32px; object-fit: cover; border: 1px solid #ddd;">`;
             }
 
             const username = document.createElement('span');
@@ -134,11 +136,8 @@ async function showAssigneeSelect(event, tb, targetType) {
             }
 
             const avatarHtml = item.assignee_photo
-                ? `<img src="${item.assignee_photo}" class="rounded-circle me-3" style="width: 42px; height: 42px; object-fit: cover; border: 2px solid ${isMe ? 'rgba(255,255,255,0.6)' : '#f1f7f1'}" onerror="this.onerror=null; this.outerHTML='<div class=\\'rounded-circle d-flex align-items-center justify-content-center me-3\\' style=\\'width: 42px; height: 42px; background: ${isMe ? 'rgba(255,255,255,0.15)' : '#f1f7f1'}; border: 2px solid ${isMe ? 'rgba(255,255,255,0.4)' : '#e3eddf'}\\'><i class=\\'bi bi-person-fill ${isMe ? 'text-white' : 'text-success'}\\' style=\\'font-size: 1.2rem;\\'></i></div>';">`
-                : `<div class="rounded-circle d-flex align-items-center justify-content-center me-3" 
-                        style="width: 42px; height: 42px; background: ${isMe ? 'rgba(255,255,255,0.15)' : '#f1f7f1'}; border: 2px solid ${isMe ? 'rgba(255,255,255,0.4)' : '#e3eddf'}">
-                    <i class="bi bi-person-fill ${isMe ? 'text-white' : 'text-success'}" style="font-size: 1.2rem;"></i>
-                   </div>`;
+                ? `<img src="${item.assignee_photo}" referrerpolicy="no-referrer" class="rounded-circle me-3" style="width: 42px; height: 42px; object-fit: cover; border: 2px solid ${isMe ? 'rgba(255,255,255,0.6)' : '#f1f7f1'}" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(item.assignee_name)}&background=E9F5EC&color=2e7d32&rounded=true';">`
+                : `<img src="https://ui-avatars.com/api/?name=${encodeURIComponent(item.assignee_name)}&background=E9F5EC&color=2e7d32&rounded=true" class="rounded-circle me-3" style="width: 42px; height: 42px; object-fit: cover; border: 2px solid ${isMe ? 'rgba(255,255,255,0.6)' : '#f1f7f1'};">`;
 
             btn.innerHTML = `
                 <div class="d-flex align-items-center w-100">
@@ -202,8 +201,8 @@ async function loadAssignmentHome(tb_name) {
             <div class="ah-list">
                 ${data.map(d => {
             const avatarHtml = d.assignee_photo
-                ? `<img src="${d.assignee_photo}" class="ha-avatar" style="border: 1px solid #eee;" onerror="this.onerror=null; this.outerHTML='<i class=\\'bi bi-person-circle fs-6 opacity-75 me-2\\'></i>';">`
-                : `<i class="bi bi-person-circle fs-6 opacity-75 me-2"></i>`;
+                ? `<img src="${d.assignee_photo}" referrerpolicy="no-referrer" class="ha-avatar" style="border: 1px solid #eee;" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(d.assignee_name)}&background=E9F5EC&color=2e7d32&rounded=true';">`
+                : `<img src="https://ui-avatars.com/api/?name=${encodeURIComponent(d.assignee_name)}&background=E9F5EC&color=2e7d32&rounded=true" class="ha-avatar" style="border: 1px solid #eee;">`;
 
             return `
                     <div class="home-assignee-card shadow-sm" onclick="showAssigneeSelect(event, '${tb_name}', 'reshape')">
@@ -486,7 +485,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (user) {
             document.getElementById('google-login-link').style.display = 'none';
             document.getElementById('profile-section').style.display = 'flex';
-            document.getElementById('profile-image').src = user.photo;
+            const profileImg = document.getElementById('profile-image');
+            profileImg.referrerPolicy = "no-referrer";
+            profileImg.src = user.photo;
+            profileImg.onerror = function() {
+                this.onerror = null;
+                this.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName)}&background=E9F5EC&color=2e7d32&rounded=true`;
+            };
             document.getElementById('display-name').textContent = user.displayName;
 
             document.getElementById('logout-link').addEventListener('click', async (e) => {

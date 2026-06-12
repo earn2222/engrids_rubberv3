@@ -776,54 +776,36 @@ app.delete('/api/delete_reclass_feature/:tb/:sub_id', async (req, res) => {
     }
 });
 
-// GET shpall background polygons (table in rub2 database)
+// GET shpall background polygons from PostgreSQL with bbox spatial filtering
 app.get('/api/shpall/:tb', async (req, res) => {
     try {
-        const tb = 'shpall';
-        
-        // Check table exists first
-        const checkSql = `SELECT EXISTS (
-            SELECT 1 FROM information_schema.tables
-            WHERE table_schema = 'public' AND table_name = $1
-        )`;
-        const checkResult = await pool.query(checkSql, [tb]);
-        if (!checkResult.rows[0].exists) {
-            return res.status(404).json({ success: false, error: `Table ${tb} not found in database` });
+        const bboxStr = req.query.bbox;
+        let sql, params;
+
+        if (bboxStr) {
+            const parts = bboxStr.split(',').map(Number);
+            if (parts.length === 4 && parts.every(n => !isNaN(n))) {
+                // Use PostGIS GIST index: geom && ST_MakeEnvelope(minX,minY,maxX,maxY,4326)
+                sql = `
+                    SELECT ST_AsGeoJSON(geom) AS geom_json
+                    FROM public.shpall
+                    WHERE geom && ST_MakeEnvelope($1, $2, $3, $4, 4326)
+                    LIMIT 5000
+                `;
+                params = parts;
+            }
         }
 
-        // Get column list to build select
-        const colsResult = await pool.query(
-            "SELECT column_name FROM information_schema.columns WHERE table_name = $1 ORDER BY ordinal_position",
-            [tb]
-        );
-        const columns = colsResult.rows.map(r => r.column_name);
-        const geomCol = columns.find(c => c === 'geom' || c === 'geometry' || c === 'wkb_geometry' || c === 'the_geom');
-        if (!geomCol) {
-            return res.status(400).json({ success: false, error: `No geometry column found in ${tb}` });
+        if (!sql) {
+            return res.status(400).json({ success: false, error: 'bbox query param required: ?bbox=minX,minY,maxX,maxY' });
         }
 
-        // Select non-geometry columns + geometry as GeoJSON (transform to WGS84 for Leaflet)
-        const otherCols = columns.filter(c => c !== geomCol).map(c => `"${c}"`).join(', ');
-        const selectCols = otherCols ? `${otherCols}, ST_AsGeoJSON(ST_Transform("${geomCol}", 4326)) AS geom` : `ST_AsGeoJSON(ST_Transform("${geomCol}", 4326)) AS geom`;
+        const result = await pool.query(sql, params);
+        const features = result.rows
+            .filter(row => row.geom_json)
+            .map(row => ({ type: 'Feature', geometry: JSON.parse(row.geom_json), properties: {} }));
 
-        const sql = `SELECT ${selectCols} FROM ${tb} WHERE "${geomCol}" IS NOT NULL`;
-        const result = await pool.query(sql);
-
-        // Build GeoJSON FeatureCollection
-        const features = result.rows.map(row => {
-            const { geom, ...props } = row;
-            return {
-                type: 'Feature',
-                geometry: geom ? JSON.parse(geom) : null,
-                properties: props
-            };
-        }).filter(f => f.geometry !== null);
-
-        res.status(200).json({
-            success: true,
-            type: 'FeatureCollection',
-            features
-        });
+        res.status(200).json({ success: true, type: 'FeatureCollection', features });
     } catch (err) {
         console.error('Error in /api/shpall:', err);
         res.status(500).json({ success: false, error: err.message });

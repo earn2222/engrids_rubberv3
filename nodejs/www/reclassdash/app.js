@@ -102,41 +102,47 @@ const ndvi = L.tileLayer.wms("https://engrids.soc.cmu.ac.th/geoserver/gwc/servic
     zIndex: 6
 });
 
-// shpall background layer — loaded from database, shown when checkbox is toggled
-const shpallLayer = L.featureGroup();  // placeholder group — data loaded on first add
-let shpallLoaded = false;
+// shpall background layer — bbox-filtered per viewport, reloads on map move
+const shpallLayer = L.featureGroup();
+let _shpallActive = false;
+let _shpallTimer = null;
+
+function _shpallStyle() {
+    return {
+        color: '#0055ff', weight: 2.5, opacity: 0.9,
+        fillColor: '#0055ff', fillOpacity: 0.15, dashArray: '4 4'
+    };
+}
 
 async function loadShpallLayer() {
-    if (shpallLoaded) return;
+    if (!_shpallActive) return;
+    const tb = document.getElementById('tb').value || new URLSearchParams(window.location.search).get('tb') || 'shpall';
     try {
-        const tb = document.getElementById('tb').value || new URLSearchParams(window.location.search).get('tb');
-        if (!tb) return console.warn('shpall: ไม่พบชื่อตาราง (tb)');
-        const res = await fetch(`/rub/api/shpall/${tb}`);
+        const b = map.getBounds();
+        const bbox = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
+        const res = await fetch(`/rub/api/shpall/${tb}?bbox=${bbox}`);
         const data = await res.json();
-        if (!data.success || !data.features || data.features.length === 0) {
-            console.warn('shpall: ไม่พบข้อมูลหรือยังไม่มี table', data);
-            return;
+        shpallLayer.clearLayers();
+        if (data.success && data.features && data.features.length > 0) {
+            L.geoJSON({ type: 'FeatureCollection', features: data.features }, {
+                interactive: false, style: _shpallStyle
+            }).addTo(shpallLayer);
+            console.log(`shpall: แสดง ${data.features.length} แปลง`);
         }
-        L.geoJSON({ type: 'FeatureCollection', features: data.features }, {
-            interactive: false,
-            style: () => ({
-                color: '#0055ff',
-                weight: 2.5,
-                opacity: 0.9,
-                fillColor: '#0055ff',
-                fillOpacity: 0.15,
-                dashArray: '4 4'
-            })
-        }).addTo(shpallLayer);
-        shpallLoaded = true;
-        console.log(`shpall: โหลดสำเร็จ ${data.features.length} แปลง`);
     } catch (err) {
         console.error('shpall load error:', err);
     }
 }
 
-// Listen for layer add event to lazy-load data
-shpallLayer.on('add', () => loadShpallLayer());
+function _shpallDebounce() {
+    if (!_shpallActive) return;
+    clearTimeout(_shpallTimer);
+    _shpallTimer = setTimeout(loadShpallLayer, 400);
+}
+
+shpallLayer.on('add', () => { _shpallActive = true; loadShpallLayer(); });
+shpallLayer.on('remove', () => { _shpallActive = false; shpallLayer.clearLayers(); });
+map.on('moveend zoomend', _shpallDebounce);
 
 const baseLayers = {
     "Google Road": gmap_road,
@@ -1505,7 +1511,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Show profile section
             document.getElementById('google-login-link').style.display = 'none';
             document.getElementById('profile-section').style.display = 'flex';
-            document.getElementById('profile-image').src = user.photo;
+            const profileImg = document.getElementById('profile-image');
+            profileImg.referrerPolicy = "no-referrer";
+            profileImg.src = user.photo;
+            profileImg.onerror = function() {
+                this.onerror = null;
+                this.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName)}&background=E9F5EC&color=2e7d32&rounded=true`;
+            };
             document.getElementById('display-name').textContent = user.displayName;
 
             // Re-load progress with correct user identity after login
