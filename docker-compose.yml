@@ -45,6 +45,30 @@ services:
     networks:
       - rub-network
     command: sh -c "npm i -g nodemon && nodemon server.js"
+
+  backup:
+    build: ./backup
+    container_name: rub_backup
+    restart: always
+    environment:
+      - POSTGRES_HOST=postgis
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=rub1234
+      - POSTGRES_DB=rub2
+      - BACKUP_INTERVAL_HOURS=24
+      - BACKUP_KEEP_DAYS=7
+      - BACKUP_DIR=/backups
+    depends_on:
+      postgis:
+        condition: service_healthy
+    volumes:
+      - ./backups:/backups
+    ports:
+      - "8100:8100"
+    networks:
+      - rub-network
+
 networks:
   rub-network:
     driver: bridge
