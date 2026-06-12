@@ -1,7 +1,9 @@
 const initUser = async () => {
     try {
         const response = await fetch(`/rub/api/users`);
+        if (!response.ok) { console.error('users API:', response.status); return; }
         const result = await response.json();
+        if (!Array.isArray(result)) { console.error('users unexpected response:', result); return; }
 
         const usersDiv = document.getElementById('usersList');
         usersDiv.innerHTML = '';
@@ -231,7 +233,9 @@ const initApp = async () => {
     try {
 
         const response = await fetch('/rub/api/layerlist');
+        if (!response.ok) { console.error('layerlist API:', response.status); return; }
         const result = await response.json();
+        if (!Array.isArray(result)) { console.error('layerlist unexpected response:', result); return; }
 
         const layerList = document.getElementById('layerList');
         layerList.innerHTML = ''; // clear existing

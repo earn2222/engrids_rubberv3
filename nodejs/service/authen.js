@@ -93,11 +93,30 @@ app.get('/auth/google',
 );
 
 app.get('/auth/callback',
-    passport.authenticate('google', { failureRedirect: '/rub/index.html' }),
-    (req, res) => {
-        const { id, displayName, email, photo } = req.user;
-        req.session.user = { id, displayName, email, photo };
-        res.redirect('/rub/index.html');
+    (req, res, next) => {
+        passport.authenticate('google', (err, user, info) => {
+            if (err) {
+                console.error('[AUTH ERROR]', err);
+                return res.status(500).send(`Auth error: ${err.message}`);
+            }
+            if (!user) {
+                console.warn('[AUTH FAILED]', info);
+                return res.redirect('/rub/index.html');
+            }
+            req.logIn(user, (loginErr) => {
+                if (loginErr) {
+                    console.error('[LOGIN ERROR]', loginErr);
+                    return res.status(500).send(`Login error: ${loginErr.message}`);
+                }
+                req.session.user = {
+                    id: user.id,
+                    displayName: user.displayName,
+                    email: user.email,
+                    photo: user.photo,
+                };
+                return res.redirect('/rub/index.html');
+            });
+        })(req, res, next);
     }
 );
 
