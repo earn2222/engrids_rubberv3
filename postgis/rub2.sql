@@ -49,6 +49,21 @@ CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA public;
 COMMENT ON EXTENSION postgis IS 'PostGIS geometry and geography spatial types and functions';
 
 --
+-- Users table for Google OAuth authentication
+--
+
+CREATE TABLE IF NOT EXISTS public.users (
+    id SERIAL PRIMARY KEY,
+    google_id text UNIQUE NOT NULL,
+    display_name text,
+    email text,
+    photo text,
+    created_at timestamp DEFAULT NOW()
+);
+
+ALTER TABLE public.users OWNER TO postgres;
+
+--
 -- LayerList table to keep track of all layers
 --
 

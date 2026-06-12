@@ -24,7 +24,7 @@ app.use(session({
     saveUninitialized: false,
     proxy: true,
     cookie: {
-        secure: process.env.NODE_ENV === 'production',
+        secure: (process.env.GOOGLE_CALLBACK_URL || '').startsWith('https'),
         sameSite: 'lax',
     }
 }));
