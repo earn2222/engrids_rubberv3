@@ -65,7 +65,12 @@
             <div class="col-sm-4">
                 <div class="card">
                     <div class="card-body">
-                        <div class="label">ทีมงานคุณภาพ</div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="label">ทีมงานคุณภาพ</div>
+                            <button class="btn btn-team-overview btn-sm" id="btnTeamOverview">
+                                <i class="bi bi-people-fill me-1"></i>ภาพรวมทีมงาน
+                            </button>
+                        </div>
                         <div class="mt-3" id="usersList"></div>
                     </div>
                 </div>
@@ -245,6 +250,103 @@
                             </button>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════
+         MODAL 4: ภาพรวมทีมงานทุกโปรเจค (Global Team Overview)
+    ═══════════════════════════════════════════════════════ -->
+    <div class="modal fade" id="teamOverviewModal" tabindex="-1" aria-labelledby="teamOverviewModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title f" id="teamOverviewModalLabel">
+                        <i class="bi bi-people-fill me-2"></i>ภาพรวมทีมงาน – ทุกโปรเจค
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Rate setting -->
+                    <div class="payment-rate-bar d-flex align-items-center gap-2 flex-wrap mb-4">
+                        <i class="bi bi-currency-exchange payment-rate-icon"></i>
+                        <label class="fw-bold mb-0" style="white-space:nowrap;">อัตราค่าจ้าง</label>
+                        <input type="number" id="team_rate_rai" class="form-control payment-rate-input"
+                            value="50" min="0" step="1" placeholder="50">
+                        <span class="fw-bold mb-0" style="white-space:nowrap;">บาท / ไร่</span>
+                        <span class="text-muted" style="white-space:nowrap;">คำนวณจาก</span>
+                        <select id="team_basis" class="form-select form-select-sm" style="max-width:210px;">
+                            <option value="reclass_rubber">ยางพาราที่ลงทะเบียน (Rubber)</option>
+                            <option value="reclass_all">Reclass ทั้งหมด</option>
+                            <option value="reshape">โฉนด (Reshape)</option>
+                        </select>
+                        <button class="btn btn-primary btn-sm" id="btnCalcTeam">
+                            <i class="bi bi-calculator me-1"></i>คำนวณ
+                        </button>
+                    </div>
+
+                    <!-- Team summary accordion -->
+                    <div id="teamOverviewWrap">
+                        <div class="text-center text-muted py-4">
+                            <div class="spinner-border spinner-border-sm me-2"></div>กำลังโหลดข้อมูล...
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-between">
+                    <button class="btn btn-outline-secondary btn-sm" id="btnPrintTeam">
+                        <i class="bi bi-printer me-1"></i>พิมพ์รายงาน
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════
+         MODAL 5: คำนวณค่าจ้าง (Worker Payment Summary per layer)
+    ═══════════════════════════════════════════════════════ -->
+    <div class="modal fade" id="paymentModal" tabindex="-1" aria-labelledby="paymentModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title f" id="paymentModalLabel">
+                        <i class="bi bi-calculator-fill me-2"></i>สรุปค่าจ้างทีมงาน
+                        <span class="ms-2 badge bg-secondary" id="paymentModalTbBadge"></span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Rate setting -->
+                    <div class="payment-rate-bar d-flex align-items-center gap-2 flex-wrap mb-4">
+                        <i class="bi bi-currency-exchange payment-rate-icon"></i>
+                        <label class="fw-bold mb-0" style="white-space:nowrap;">อัตราค่าจ้าง</label>
+                        <input type="number" id="pay_rate_rai" class="form-control payment-rate-input"
+                            value="50" min="0" step="1" placeholder="50">
+                        <span class="fw-bold mb-0" style="white-space:nowrap;">บาท / ไร่</span>
+                        <span class="text-muted" style="white-space:nowrap;">คำนวณจาก</span>
+                        <select id="pay_basis" class="form-select form-select-sm" style="max-width:210px;">
+                            <option value="reclass_rubber">ยางพาราที่ลงทะเบียน (Rubber)</option>
+                            <option value="reclass_all">Reclass ทั้งหมด</option>
+                            <option value="reshape">โฉนด (Reshape)</option>
+                        </select>
+                        <button class="btn btn-primary btn-sm" id="btnCalcPay">
+                            <i class="bi bi-calculator me-1"></i>คำนวณ
+                        </button>
+                    </div>
+
+                    <!-- Summary table -->
+                    <div id="paymentTableWrap">
+                        <div class="text-center text-muted py-4">
+                            <div class="spinner-border spinner-border-sm me-2"></div>กำลังโหลดข้อมูล...
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-between">
+                    <button class="btn btn-outline-secondary btn-sm" id="btnPrintPayment">
+                        <i class="bi bi-printer me-1"></i>พิมพ์รายงาน
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>
                 </div>
             </div>
         </div>

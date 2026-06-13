@@ -141,6 +141,9 @@ const initApp = async () => {
                                 </li>
                             </ul>
                         </div>
+                        <button class="btn btn-payment layer-btn payBtn mt-1" data-tb="${tb_name}" title="คำนวณค่าจ้าง">
+                            <i class="bi bi-calculator-fill me-1"></i>คำนวณค่าจ้าง
+                        </button>
                         <button class="btn btn-danger layer-btn deleteBtn mt-1" data-tb="${tb_name}" title="ลบ layer">
                             <i class="bi bi-trash3-fill"></i>
                         </button>
@@ -271,6 +274,15 @@ const initApp = async () => {
                 e.preventDefault();
                 const tb = this.getAttribute('data-tb');
                 downloadFile(`/rub/api/download/reshape/v_reclass_${tb}?type=rubber_and_ex`, `v_reclass_rubber_ex_${tb}.geojson`);
+            });
+        });
+
+        /* ── คำนวณค่าจ้าง ── */
+        document.querySelectorAll('.payBtn').forEach(btn => {
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                const tb = this.getAttribute('data-tb');
+                openPaymentModal(tb);
             });
         });
 
@@ -1006,6 +1018,334 @@ async function loadAssignmentStrip(tb_name) {
     }
 }
 
+
+/* ═════════════════════════════════════════════════════════════
+   MODAL 4 – ภาพรวมทีมงานทุกโปรเจค (Global Team Overview)
+═════════════════════════════════════════════════════════════ */
+
+let teamOverviewModal = null;
+let teamOverviewData = [];
+
+document.getElementById('btnTeamOverview').addEventListener('click', () => {
+    if (!teamOverviewModal) {
+        teamOverviewModal = new bootstrap.Modal(document.getElementById('teamOverviewModal'));
+    }
+    document.getElementById('teamOverviewWrap').innerHTML = `
+        <div class="text-center text-muted py-4">
+            <div class="spinner-border spinner-border-sm me-2"></div>กำลังโหลดข้อมูล...
+        </div>`;
+    teamOverviewModal.show();
+
+    fetch('/rub/api/worker-summary-all')
+        .then(r => r.json())
+        .then(({ data }) => {
+            teamOverviewData = data || [];
+            renderTeamOverview();
+        })
+        .catch(() => {
+            document.getElementById('teamOverviewWrap').innerHTML =
+                '<div class="alert alert-danger">โหลดข้อมูลไม่สำเร็จ</div>';
+        });
+});
+
+/* ── Shared helper: render one area cell (ไร่ + ตร.ม.) ── */
+function areaCell(a, countLabel) {
+    if (!a || a.total_sqm === 0) return '<span class="text-muted small">—</span>';
+    const sqm = Math.round(a.total_sqm).toLocaleString('th-TH');
+    return `<div class="area-cnt">${countLabel}</div>
+            <div class="pay-area-badge">${fmtRai(a.total_sqm)}</div>
+            <div class="pay-area-sub">${sqm} ตร.ม.</div>`;
+}
+
+function renderTeamOverview() {
+    const rate   = parseFloat(document.getElementById('team_rate_rai').value) || 0;
+    const basis  = document.getElementById('team_basis').value;
+    const data   = teamOverviewData;
+    const wrap   = document.getElementById('teamOverviewWrap');
+
+    if (!data || data.length === 0) {
+        wrap.innerHTML = `<div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle me-2"></i>ยังไม่มีข้อมูลการทำงานในระบบ
+        </div>`;
+        return;
+    }
+
+    const palette = ['#4CAF50','#2196F3','#FF9800','#9C27B0','#F44336','#00BCD4','#FF5722','#795548'];
+    const basisLabel = { reshape: 'โฉนด', reclass_all: 'Reclass ทั้งหมด', reclass_rubber: 'ยางพารา Rubber' };
+
+    const cards = data.map((worker, wi) => {
+        const color  = palette[wi % palette.length];
+        const basisA = worker[basis] || {};
+        const totalPay = (basisA.area_rai_decimal || 0) * rate;
+        const avatar = worker.photo
+            ? `<img src="${worker.photo}" class="pay-avatar" referrerpolicy="no-referrer"
+                onerror="this.onerror=null;this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(worker.editor)}&background=E9F5EC&color=2e7d32&rounded=true'">`
+            : `<img src="https://ui-avatars.com/api/?name=${encodeURIComponent(worker.editor)}&background=E9F5EC&color=2e7d32&rounded=true" class="pay-avatar">`;
+
+        const projectRows = worker.projects.map(p => {
+            const pBasis = p[basis] || {};
+            const pPay = (pBasis.area_rai_decimal || 0) * rate;
+            const reshapeCnt  = `${(p.reshape.farmer_count||0)} แปลง`;
+            const reclassCnt  = `${(p.reclass_all.sub_plot_count||0)} รายการ /${(p.reclass_all.farmer_count||0)} แปลง`;
+            const rubberCnt   = `${(p.reclass_rubber.sub_plot_count||0)} รายการ /${(p.reclass_rubber.farmer_count||0)} แปลง`;
+            return `<tr class="team-project-row">
+                <td><span class="team-project-badge"><i class="bi bi-table me-1"></i>${p.tb_name}</span></td>
+                <td class="text-center ${basis==='reshape'?'area-col-selected':''}">${areaCell(p.reshape, reshapeCnt)}</td>
+                <td class="text-center ${basis==='reclass_all'?'area-col-selected':''}">${areaCell(p.reclass_all, reclassCnt)}</td>
+                <td class="text-center ${basis==='reclass_rubber'?'area-col-selected':''}">${areaCell(p.reclass_rubber, rubberCnt)}</td>
+                <td class="text-end fw-bold" style="color:${color};">${pPay.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})} บาท</td>
+            </tr>`;
+        }).join('');
+
+        const wReshapeCnt  = `${(worker.reshape.farmer_count||0)} แปลง`;
+        const wReclassCnt  = `${(worker.reclass_all.sub_plot_count||0)} รายการ`;
+        const wRubberCnt   = `${(worker.reclass_rubber.sub_plot_count||0)} รายการ`;
+
+        return `
+        <div class="team-worker-card mb-3" style="border-color:${color}44;">
+            <div class="team-worker-header" data-bs-toggle="collapse" data-bs-target="#worker_${wi}" style="cursor:pointer;">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    ${avatar}
+                    <div class="team-worker-dot" style="background:${color};"></div>
+                    <span class="team-worker-name" style="color:${color};">${worker.editor}</span>
+                    <span class="team-worker-meta">${worker.projects.length} โปรเจค</span>
+                    <span class="ms-auto d-flex align-items-center gap-3 flex-wrap">
+                        <span class="area-summary-group">
+                            <span class="area-summary-label">โฉนด</span>
+                            <span class="area-summary-val ${basis==='reshape'?'area-selected-text':''}">${fmtRai(worker.reshape.total_sqm||0)} · ${Math.round(worker.reshape.total_sqm||0).toLocaleString()}ตร.ม.</span>
+                        </span>
+                        <span class="area-summary-group">
+                            <span class="area-summary-label">Reclass</span>
+                            <span class="area-summary-val ${basis==='reclass_all'?'area-selected-text':''}">${fmtRai(worker.reclass_all.total_sqm||0)} · ${Math.round(worker.reclass_all.total_sqm||0).toLocaleString()}ตร.ม.</span>
+                        </span>
+                        <span class="area-summary-group">
+                            <span class="area-summary-label">Rubber</span>
+                            <span class="area-summary-val ${basis==='reclass_rubber'?'area-selected-text':''}">${fmtRai(worker.reclass_rubber.total_sqm||0)} · ${Math.round(worker.reclass_rubber.total_sqm||0).toLocaleString()}ตร.ม.</span>
+                        </span>
+                        <span class="team-pay-total" style="color:${color};">${totalPay.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})} บาท</span>
+                        <i class="bi bi-chevron-down team-chevron"></i>
+                    </span>
+                </div>
+            </div>
+            <div class="collapse show" id="worker_${wi}">
+                <div class="team-project-table-wrap table-responsive">
+                    <table class="table table-sm payment-table mb-0">
+                        <thead>
+                            <tr>
+                                <th>โปรเจค</th>
+                                <th class="text-center ${basis==='reshape'?'area-col-selected':''}">🏡 โฉนด Reshape<br><small class="fw-normal text-muted">แปลง / ไร่ / ตร.ม.</small></th>
+                                <th class="text-center ${basis==='reclass_all'?'area-col-selected':''}">📋 Reclass ทั้งหมด<br><small class="fw-normal text-muted">แปลง / ไร่ / ตร.ม.</small></th>
+                                <th class="text-center ${basis==='reclass_rubber'?'area-col-selected':''}">🌿 ยางพารา Rubber<br><small class="fw-normal text-muted">แปลง / ไร่ / ตร.ม.</small></th>
+                                <th class="text-end">ค่าจ้าง<br><small class="fw-normal text-muted">(จาก ${basisLabel[basis]})</small></th>
+                            </tr>
+                        </thead>
+                        <tbody>${projectRows}</tbody>
+                    </table>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+
+    // Grand total per basis
+    const grandSqm = data.reduce((s,w) => s + ((w[basis]||{}).total_sqm||0), 0);
+    const grandPay = (grandSqm / 1600) * rate;
+
+    wrap.innerHTML = `
+        ${cards}
+        <div class="team-grand-total">
+            <span class="fw-bold">รวมทั้งระบบ (${basisLabel[basis]})</span>
+            <span class="pay-area-badge ms-3">${fmtRai(grandSqm)}</span>
+            <span class="pay-area-sub ms-1">${Math.round(grandSqm).toLocaleString()} ตร.ม.</span>
+            <span class="team-pay-total ms-3">${grandPay.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})} บาท</span>
+        </div>`;
+}
+
+function fmtRai(sqm) {
+    return (parseFloat(sqm) / 1600).toFixed(2) + ' ไร่';
+}
+
+document.getElementById('btnCalcTeam').addEventListener('click', renderTeamOverview);
+
+document.getElementById('btnPrintTeam').addEventListener('click', () => {
+    const rate = document.getElementById('team_rate_rai').value;
+    const bodyHtml = document.getElementById('teamOverviewWrap').innerHTML;
+    const win = window.open('', '_blank');
+    win.document.write(`<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>ภาพรวมทีมงาน – ทุกโปรเจค</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css">
+<style>
+  body { font-family:"Noto Sans Thai",sans-serif; padding:20px; }
+  .pay-avatar{width:28px;height:28px;border-radius:50%;object-fit:cover;}
+  .pay-area-badge{font-size:0.85rem;font-weight:600;color:#2e7d32;}
+  .pay-area-sub{font-size:0.72rem;color:#78909c;}
+  .team-worker-card{border:1px solid #ddd;border-radius:10px;padding:12px;margin-bottom:12px;}
+  .team-worker-header{margin-bottom:8px;}
+  .team-worker-name{font-weight:700;font-size:1rem;}
+  .team-worker-meta{font-size:0.8rem;color:#78909c;}
+  .team-pay-total{font-weight:700;font-size:0.95rem;}
+  .team-project-badge{background:#f5f5f5;padding:2px 8px;border-radius:6px;font-size:0.82rem;}
+  .team-grand-total{background:#e8f5e9;border-radius:10px;padding:12px 16px;font-size:1rem;margin-top:16px;}
+  .team-worker-dot,.team-chevron{display:none;}
+  @media print{button,.btn{display:none!important;}}
+</style>
+</head>
+<body>
+<h4 style="color:#4a7c59">ภาพรวมทีมงาน – ทุกโปรเจค</h4>
+<p class="text-muted mb-3">อัตราค่าจ้าง: <strong>${rate} บาท/ไร่</strong> &nbsp;|&nbsp; วันที่พิมพ์: ${new Date().toLocaleDateString('th-TH',{day:'2-digit',month:'long',year:'numeric'})}</p>
+${bodyHtml}
+<script>window.onload=()=>window.print();<\/script>
+</body></html>`);
+    win.document.close();
+});
+
+/* ═════════════════════════════════════════════════════════════
+   MODAL 5 – คำนวณค่าจ้างรายโปรเจค (Payment per Layer)
+═════════════════════════════════════════════════════════════ */
+
+let paymentModal = null;
+let paymentWorkerData = [];
+
+function openPaymentModal(tb_name) {
+    if (!paymentModal) {
+        paymentModal = new bootstrap.Modal(document.getElementById('paymentModal'));
+    }
+    document.getElementById('paymentModalTbBadge').textContent = tb_name;
+    document.getElementById('paymentTableWrap').innerHTML = `
+        <div class="text-center text-muted py-4">
+            <div class="spinner-border spinner-border-sm me-2"></div>กำลังโหลดข้อมูล...
+        </div>`;
+    paymentModal.show();
+
+    fetch(`/rub/api/worker-summary/${tb_name}`)
+        .then(r => r.json())
+        .then(({ data }) => {
+            paymentWorkerData = data || [];
+            renderPaymentTable();
+        })
+        .catch(() => {
+            document.getElementById('paymentTableWrap').innerHTML =
+                '<div class="alert alert-danger">โหลดข้อมูลไม่สำเร็จ</div>';
+        });
+}
+
+function renderPaymentTable() {
+    const rate  = parseFloat(document.getElementById('pay_rate_rai').value) || 0;
+    const basis = document.getElementById('pay_basis').value;
+    const data  = paymentWorkerData;
+    const wrap  = document.getElementById('paymentTableWrap');
+
+    if (!data || data.length === 0) {
+        wrap.innerHTML = `<div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            ยังไม่มีข้อมูลการทำงานใน table นี้
+        </div>`;
+        return;
+    }
+
+    const basisLabel = { reshape: 'โฉนด Reshape', reclass_all: 'Reclass ทั้งหมด', reclass_rubber: 'ยางพารา Rubber' };
+
+    const rows = data.map((r, i) => {
+        const basisA = r[basis] || {};
+        const pay = (basisA.area_rai_decimal || 0) * rate;
+        const avatar = r.photo
+            ? `<img src="${r.photo}" class="pay-avatar" referrerpolicy="no-referrer"
+                onerror="this.onerror=null;this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(r.editor)}&background=E9F5EC&color=2e7d32&rounded=true'">`
+            : `<img src="https://ui-avatars.com/api/?name=${encodeURIComponent(r.editor)}&background=E9F5EC&color=2e7d32&rounded=true" class="pay-avatar">`;
+
+        const reshapeCnt  = `${(r.reshape.farmer_count||0).toLocaleString()} แปลง`;
+        const reclassCnt  = `${(r.reclass_all.sub_plot_count||0).toLocaleString()} รายการ ·${(r.reclass_all.farmer_count||0).toLocaleString()} แปลง`;
+        const rubberCnt   = `${(r.reclass_rubber.sub_plot_count||0).toLocaleString()} รายการ ·${(r.reclass_rubber.farmer_count||0).toLocaleString()} แปลง`;
+
+        return `<tr>
+            <td class="text-center align-middle">${i + 1}</td>
+            <td class="align-middle">
+                <div class="d-flex align-items-center gap-2">
+                    ${avatar}
+                    <span class="fw-bold">${r.editor}</span>
+                </div>
+            </td>
+            <td class="text-center ${basis==='reshape'?'area-col-selected':''}">${areaCell(r.reshape, reshapeCnt)}</td>
+            <td class="text-center ${basis==='reclass_all'?'area-col-selected':''}">${areaCell(r.reclass_all, reclassCnt)}</td>
+            <td class="text-center ${basis==='reclass_rubber'?'area-col-selected':''}">${areaCell(r.reclass_rubber, rubberCnt)}</td>
+            <td class="text-end fw-bold align-middle pay-amount">${pay.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})} บาท</td>
+        </tr>`;
+    }).join('');
+
+    // Totals
+    const sumSqm = (key) => data.reduce((s, r) => s + ((r[key]||{}).total_sqm||0), 0);
+    const rSqm = sumSqm('reshape'), rcSqm = sumSqm('reclass_all'), rubSqm = sumSqm('reclass_rubber');
+    const bSqm = sumSqm(basis);
+    const totalPay = (bSqm / 1600) * rate;
+
+    const sumCell = (sqm) => {
+        return `<div class="pay-area-badge">${fmtRai(sqm)}</div>
+                <div class="pay-area-sub">${Math.round(sqm).toLocaleString('th-TH')} ตร.ม.</div>`;
+    };
+
+    wrap.innerHTML = `
+    <div class="table-responsive">
+        <table class="table table-hover payment-table">
+            <thead>
+                <tr>
+                    <th class="text-center align-middle" style="width:40px" rowspan="1">#</th>
+                    <th class="align-middle">ชื่อผู้ทำงาน</th>
+                    <th class="text-center ${basis==='reshape'?'area-col-selected':''}">🏡 โฉนด Reshape<br><small class="fw-normal text-muted">แปลง / ไร่ / ตร.ม.</small></th>
+                    <th class="text-center ${basis==='reclass_all'?'area-col-selected':''}">📋 Reclass ทั้งหมด<br><small class="fw-normal text-muted">รายการ / แปลง / ไร่ / ตร.ม.</small></th>
+                    <th class="text-center ${basis==='reclass_rubber'?'area-col-selected':''}">🌿 ยางพารา Rubber<br><small class="fw-normal text-muted">รายการ / แปลง / ไร่ / ตร.ม.</small></th>
+                    <th class="text-end align-middle">ค่าจ้าง<br><small class="fw-normal text-muted">(จาก ${basisLabel[basis]})</small></th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+            <tfoot>
+                <tr class="payment-total-row">
+                    <td colspan="2" class="fw-bold align-middle">รวมทั้งหมด</td>
+                    <td class="text-center ${basis==='reshape'?'area-col-selected':''}">${sumCell(rSqm)}</td>
+                    <td class="text-center ${basis==='reclass_all'?'area-col-selected':''}">${sumCell(rcSqm)}</td>
+                    <td class="text-center ${basis==='reclass_rubber'?'area-col-selected':''}">${sumCell(rubSqm)}</td>
+                    <td class="text-end fw-bold align-middle pay-total-amount">${totalPay.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})} บาท</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>`;
+}
+
+document.getElementById('btnCalcPay').addEventListener('click', renderPaymentTable);
+
+document.getElementById('btnPrintPayment').addEventListener('click', () => {
+    const tb = document.getElementById('paymentModalTbBadge').textContent;
+    const rate = document.getElementById('pay_rate_rai').value;
+    const tableHtml = document.getElementById('paymentTableWrap').innerHTML;
+    const win = window.open('', '_blank');
+    win.document.write(`<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>สรุปค่าจ้าง – ${tb}</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css">
+<style>
+  body { font-family: "Noto Sans Thai", sans-serif; padding: 20px; }
+  .pay-avatar { width:28px; height:28px; border-radius:50%; object-fit:cover; }
+  .pay-area-badge { font-size:0.85rem; }
+  .pay-area-sub { font-size:0.72rem; color:#78909c; }
+  .pay-amount { color:#2e7d32; }
+  .pay-total-amount { color:#1b5e20; font-size:1.1rem; }
+  .payment-total-row { background:#e8f5e9; }
+  @media print { button { display:none; } }
+</style>
+</head>
+<body>
+<h4 style="color:#4a7c59">สรุปค่าจ้างทีมงาน – ${tb}</h4>
+<p class="text-muted mb-3">อัตราค่าจ้าง: <strong>${rate} บาท/ไร่</strong> &nbsp;|&nbsp; วันที่พิมพ์: ${new Date().toLocaleDateString('th-TH', {day:'2-digit',month:'long',year:'numeric'})}</p>
+${tableHtml}
+<script>window.onload=()=>window.print();<\/script>
+</body></html>`);
+    win.document.close();
+});
 
 /* ── Bootstrap DOMContentLoaded: auth check → init ── */
 document.addEventListener('DOMContentLoaded', async () => {

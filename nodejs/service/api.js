@@ -3040,5 +3040,227 @@ app.get('/api/task-progress/:tb', async (req, res) => {
     }
 });
 
+/* ── Helper: แปลง sqm → { total_sqm, area_rai, area_ngan, area_sqwa, area_rai_decimal } ── */
+function toAreaObj(sqm) {
+    const s = parseFloat(sqm) || 0;
+    if (s <= 0) return { total_sqm: 0, area_rai: 0, area_ngan: 0, area_sqwa: 0, area_rai_decimal: 0 };
+    const rai = Math.floor(s / 1600);
+    const rem = s - rai * 1600;
+    return {
+        total_sqm: parseFloat(s.toFixed(2)),
+        area_rai: rai,
+        area_ngan: Math.floor(rem / 400),
+        area_sqwa: Math.floor((rem % 400) / 4),
+        area_rai_decimal: parseFloat((s / 1600).toFixed(4))
+    };
+}
+const emptyArea = { total_sqm: 0, area_rai: 0, area_ngan: 0, area_sqwa: 0, area_rai_decimal: 0 };
+
+/* GET /api/worker-summary-all
+   สรุปงานต่อคนข้ามทุก table ใน layerlist แบ่ง 3 หมวด:
+   reshape (โฉนด), reclass_all, reclass_rubber (เฉพาะยางพาราลงทะเบียน) */
+app.get('/api/worker-summary-all', async (req, res) => {
+    try {
+        const layersRes = await pool.query(`SELECT tb_name FROM layerlist ORDER BY created_at`);
+        const usersRes = await pool.query(`SELECT display_name, photo FROM users`);
+        const photoMap = {};
+        usersRes.rows.forEach(u => { photoMap[u.display_name] = u.photo; });
+
+        const editorMap = {};
+        const ensureEditor = (name) => {
+            if (!editorMap[name]) {
+                editorMap[name] = {
+                    editor: name,
+                    photo: photoMap[name] || null,
+                    projects: [],
+                    reshape:        { ...emptyArea, farmer_count: 0 },
+                    reclass_all:    { ...emptyArea, sub_plot_count: 0, farmer_count: 0 },
+                    reclass_rubber: { ...emptyArea, sub_plot_count: 0, farmer_count: 0 }
+                };
+            }
+        };
+
+        for (const layer of layersRes.rows) {
+            const tb = layer.tb_name.toLowerCase();
+            if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tb)) continue;
+
+            // ── Reshape from main table ──
+            const mainReshapeRows = await pool.query(`
+                SELECT editor,
+                    COUNT(*) AS farmer_count,
+                    ROUND(COALESCE(SUM("Sqm_Deed"), 0)::numeric, 2) AS total_sqm
+                FROM ${tb}
+                WHERE editor IS NOT NULL AND editor != ''
+                GROUP BY editor
+            `).catch(() => ({ rows: [] }));
+
+            const projReshape = {};
+            for (const r of mainReshapeRows.rows) {
+                ensureEditor(r.editor);
+                const a = toAreaObj(r.total_sqm);
+                const fc = parseInt(r.farmer_count);
+                projReshape[r.editor] = { ...a, farmer_count: fc };
+                editorMap[r.editor].reshape.total_sqm        += a.total_sqm;
+                editorMap[r.editor].reshape.farmer_count     += fc;
+            }
+
+            // ── Reclass from reclass table ──
+            const reclassExists = await pool.query(
+                `SELECT EXISTS(SELECT 1 FROM information_schema.tables
+                  WHERE table_schema='public' AND table_name=$1)`,
+                [`reclass_${tb}`]
+            );
+            const projReclassAll = {};
+            const projReclassRubber = {};
+
+            if (reclassExists.rows[0].exists) {
+                const [allRes, rubberRes] = await Promise.all([
+                    pool.query(`
+                        SELECT editor, COUNT(*) AS sp, COUNT(DISTINCT id) AS fc,
+                            ROUND(COALESCE(SUM(shpsplit_sqm),0)::numeric,2) AS total_sqm
+                        FROM reclass_${tb}
+                        WHERE editor IS NOT NULL AND editor != ''
+                        GROUP BY editor
+                    `),
+                    pool.query(`
+                        SELECT editor, COUNT(*) AS sp, COUNT(DISTINCT id) AS fc,
+                            ROUND(COALESCE(SUM(shpsplit_sqm),0)::numeric,2) AS total_sqm
+                        FROM reclass_${tb}
+                        WHERE editor IS NOT NULL AND editor != ''
+                            AND LOWER(TRIM(classtype)) = 'rubber'
+                        GROUP BY editor
+                    `)
+                ]);
+                for (const r of allRes.rows) {
+                    ensureEditor(r.editor);
+                    const a = toAreaObj(r.total_sqm);
+                    const sp = parseInt(r.sp), fc = parseInt(r.fc);
+                    projReclassAll[r.editor] = { ...a, sub_plot_count: sp, farmer_count: fc };
+                    editorMap[r.editor].reclass_all.total_sqm    += a.total_sqm;
+                    editorMap[r.editor].reclass_all.sub_plot_count += sp;
+                    editorMap[r.editor].reclass_all.farmer_count  += fc;
+                }
+                for (const r of rubberRes.rows) {
+                    ensureEditor(r.editor);
+                    const a = toAreaObj(r.total_sqm);
+                    const sp = parseInt(r.sp), fc = parseInt(r.fc);
+                    projReclassRubber[r.editor] = { ...a, sub_plot_count: sp, farmer_count: fc };
+                    editorMap[r.editor].reclass_rubber.total_sqm    += a.total_sqm;
+                    editorMap[r.editor].reclass_rubber.sub_plot_count += sp;
+                    editorMap[r.editor].reclass_rubber.farmer_count  += fc;
+                }
+            }
+
+            // รวม project entry เฉพาะที่มีข้อมูล
+            const allEditorsInProject = new Set([
+                ...Object.keys(projReshape),
+                ...Object.keys(projReclassAll),
+                ...Object.keys(projReclassRubber)
+            ]);
+            for (const ed of allEditorsInProject) {
+                editorMap[ed].projects.push({
+                    tb_name: layer.tb_name,
+                    reshape:        projReshape[ed]        || { ...emptyArea, farmer_count: 0 },
+                    reclass_all:    projReclassAll[ed]     || { ...emptyArea, sub_plot_count: 0, farmer_count: 0 },
+                    reclass_rubber: projReclassRubber[ed]  || { ...emptyArea, sub_plot_count: 0, farmer_count: 0 }
+                });
+            }
+        }
+
+        // คำนวณ rai/ngan/sqwa รวมจาก total_sqm
+        const data = Object.values(editorMap).map(e => {
+            ['reshape', 'reclass_all', 'reclass_rubber'].forEach(k => {
+                const a = toAreaObj(e[k].total_sqm);
+                Object.assign(e[k], a);
+            });
+            return e;
+        }).sort((a, b) => b.reclass_rubber.total_sqm - a.reclass_rubber.total_sqm);
+
+        res.json({ success: true, data });
+    } catch (err) {
+        console.error('[WORKER-SUMMARY-ALL]', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+/* GET /api/worker-summary/:tb
+   สรุปงานต่อคนใน table เดียว แบ่ง 3 หมวด:
+   reshape, reclass_all, reclass_rubber */
+app.get('/api/worker-summary/:tb', async (req, res) => {
+    try {
+        const tb = req.params.tb.toLowerCase();
+        if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tb)) {
+            return res.status(400).json({ error: 'Invalid table name' });
+        }
+
+        const usersRes = await pool.query(`SELECT display_name, photo FROM users`);
+        const photoMap = {};
+        usersRes.rows.forEach(u => { photoMap[u.display_name] = u.photo; });
+
+        // ── Reshape ──
+        const reshapeMap = {};
+        await pool.query(`
+            SELECT editor,
+                COUNT(*) AS farmer_count,
+                ROUND(COALESCE(SUM("Sqm_Deed"), 0)::numeric, 2) AS total_sqm
+            FROM ${tb}
+            WHERE editor IS NOT NULL AND editor != ''
+            GROUP BY editor
+        `).then(r => r.rows.forEach(row => {
+            reshapeMap[row.editor] = { ...toAreaObj(row.total_sqm), farmer_count: parseInt(row.farmer_count) };
+        })).catch(() => {});
+
+        // ── Reclass ──
+        const reclassAllMap = {}, reclassRubberMap = {};
+        const reclassExists = await pool.query(
+            `SELECT EXISTS(SELECT 1 FROM information_schema.tables
+              WHERE table_schema='public' AND table_name=$1)`,
+            [`reclass_${tb}`]
+        );
+        if (reclassExists.rows[0].exists) {
+            const [allRes, rubberRes] = await Promise.all([
+                pool.query(`
+                    SELECT editor, COUNT(*) AS sp, COUNT(DISTINCT id) AS fc,
+                        ROUND(COALESCE(SUM(shpsplit_sqm),0)::numeric,2) AS total_sqm
+                    FROM reclass_${tb}
+                    WHERE editor IS NOT NULL AND editor != ''
+                    GROUP BY editor
+                `),
+                pool.query(`
+                    SELECT editor, COUNT(*) AS sp, COUNT(DISTINCT id) AS fc,
+                        ROUND(COALESCE(SUM(shpsplit_sqm),0)::numeric,2) AS total_sqm
+                    FROM reclass_${tb}
+                    WHERE editor IS NOT NULL AND editor != ''
+                        AND LOWER(TRIM(classtype)) = 'rubber'
+                    GROUP BY editor
+                `)
+            ]);
+            allRes.rows.forEach(r => {
+                reclassAllMap[r.editor] = { ...toAreaObj(r.total_sqm), sub_plot_count: parseInt(r.sp), farmer_count: parseInt(r.fc) };
+            });
+            rubberRes.rows.forEach(r => {
+                reclassRubberMap[r.editor] = { ...toAreaObj(r.total_sqm), sub_plot_count: parseInt(r.sp), farmer_count: parseInt(r.fc) };
+            });
+        }
+
+        const allEditors = new Set([...Object.keys(reshapeMap), ...Object.keys(reclassAllMap), ...Object.keys(reclassRubberMap)]);
+        const emptyR  = { ...emptyArea, farmer_count: 0 };
+        const emptyRC = { ...emptyArea, sub_plot_count: 0, farmer_count: 0 };
+
+        const data = [...allEditors].map(editor => ({
+            editor,
+            photo: photoMap[editor] || null,
+            reshape:        reshapeMap[editor]      || emptyR,
+            reclass_all:    reclassAllMap[editor]   || emptyRC,
+            reclass_rubber: reclassRubberMap[editor] || emptyRC
+        })).sort((a, b) => b.reclass_rubber.total_sqm - a.reclass_rubber.total_sqm);
+
+        res.json({ success: true, data });
+    } catch (err) {
+        console.error('[WORKER-SUMMARY]', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 module.exports = app;
 

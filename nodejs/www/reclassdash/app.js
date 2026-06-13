@@ -1588,15 +1588,22 @@ async function loadTaskProgress(tb, currentUser) {
         });
 
         // Filter to show only current user's progress if specified
+        // If user has no assigned tasks, fall back to showing all (admin/supervisor view)
         let displayData = data;
+        let isPersonalView = false;
         if (currentUser) {
-            displayData = data.filter(d =>
+            const myData = data.filter(d =>
                 d.assignee_name.toLowerCase().includes(currentUser.toLowerCase())
             );
+            if (myData.length > 0) {
+                displayData = myData;
+                isPersonalView = true;
+            }
+            // else: currentUser has no assignments → show all (fall through)
         }
 
         let overallHtml = '';
-        if (!currentUser && data.length > 0) {
+        if ((!currentUser || !isPersonalView) && data.length > 0) {
             const totalDone = data.reduce((acc, item) => acc + (item.done || 0), 0);
             const totalTotal = data.reduce((acc, item) => acc + (item.total || 0), 0);
             const totalPct = totalTotal > 0 ? Math.round((totalDone / totalTotal) * 100) : 0;
