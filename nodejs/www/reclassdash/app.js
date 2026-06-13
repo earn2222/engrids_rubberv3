@@ -809,6 +809,16 @@ const loadGeoData = async () => {
                                 </button>`;
                     }
                 },
+                {
+                    data: null,
+                    title: 'ประวัติ',
+                    orderable: false,
+                    render: (data, type, row) => {
+                        return `<button class="btn btn-sm btn-outline-info btn-review-history" data-id="${row.id}" title="ดูประวัติการตรวจสอบ">
+                                    <i class="bi bi-clock-history"></i>
+                                </button>`;
+                    }
+                },
             ],
             pageLength: 10,
             order: [[1, 'asc']],
@@ -1171,6 +1181,84 @@ const loadGeoData = async () => {
         dataTable.rows().every(function () {
             const rowData = this.data();
             $(this.node()).attr('id', `row_${rowData.id}`);
+        });
+
+        // Review history button handler
+        $('#featureTable tbody').on('click', '.btn-review-history', async function (e) {
+            e.stopPropagation();
+            const id = $(this).data('id');
+            const tb = document.getElementById('tb').value;
+
+            document.getElementById('history-plot-id').textContent = id;
+            const body = document.getElementById('history-modal-body');
+            body.innerHTML = '<div class="text-center py-3"><span class="spinner-border spinner-border-sm"></span> กำลังโหลด...</div>';
+
+            const modal = new bootstrap.Modal(document.getElementById('reviewHistoryModal'));
+            modal.show();
+
+            const reasonLabels = {
+                'restore':        '🔄 คืนค่าแปลง',
+                'reshape':        '✏️ ปรับรูปแปลง',
+                'manual_clear':   '🗑️ ล้างข้อมูล',
+                'update_landuse': '🏷️ อัปเดตประเภท',
+                'update_geometry':'📐 อัปเดตรูปทรง',
+                'split':          '✂️ ตัดแบ่งแปลง',
+                'unsplit':        '🔗 ยกเลิกการตัด — คืนเป็นแปลงเดิม'
+            };
+
+            try {
+                const res = await fetch(`/rub/api/review_history/${tb}/${id}`);
+                const data = await res.json();
+
+                if (!data.success || data.data.length === 0) {
+                    body.innerHTML = `<div class="text-center py-5 text-muted">
+                        <i class="bi bi-inbox fs-2"></i>
+                        <div class="mt-2">ไม่มีประวัติการตรวจสอบสำหรับแปลง ID: ${id}</div>
+                        <div class="small mt-1">ประวัติจะถูกบันทึกเมื่อมีการปรับรูปแปลงหรือรีเซตข้อมูล</div>
+                    </div>`;
+                    return;
+                }
+
+                const rows = data.data.map(h => {
+                    const resetTs = h.reset_ts ? new Date(h.reset_ts).toLocaleString('th-TH', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) + 'น.' : '-';
+                    const reviewTs = h.review_ts ? new Date(h.review_ts).toLocaleString('th-TH', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) + 'น.' : '-';
+                    const caClass = h.check_area === 'ผ่าน' ? 'text-success fw-bold' : h.check_area === 'ไม่ผ่าน' ? 'text-danger fw-bold' : 'text-muted';
+                    const csClass = h.check_shape === 'ผ่าน' ? 'text-success fw-bold' : h.check_shape === 'ไม่ผ่าน' ? 'text-danger fw-bold' : 'text-muted';
+                    const reason = reasonLabels[h.reset_reason] || (h.reset_reason || '-');
+                    return `<tr>
+                        <td class="small text-muted text-nowrap">${resetTs}</td>
+                        <td><span class="badge bg-secondary">${reason}</span></td>
+                        <td class="small">${h.sub_id || '-'}</td>
+                        <td class="${caClass}">${h.check_area || '<span class="text-muted">-</span>'}</td>
+                        <td class="${csClass}">${h.check_shape || '<span class="text-muted">-</span>'}</td>
+                        <td class="small" style="max-width:200px;white-space:pre-wrap;">${h.remark ? h.remark.replace(/</g,'&lt;') : '<span class="text-muted">-</span>'}</td>
+                        <td class="small">${h.reviewer || '<span class="text-muted">-</span>'}</td>
+                        <td class="small text-muted text-nowrap">${reviewTs}</td>
+                    </tr>`;
+                }).join('');
+
+                body.innerHTML = `
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped table-bordered align-middle">
+                            <thead class="table-info">
+                                <tr>
+                                    <th>รีเซตเมื่อ</th>
+                                    <th>สาเหตุ</th>
+                                    <th>Sub ID</th>
+                                    <th>ตรวจโฉนด</th>
+                                    <th>ตรวจประเภท</th>
+                                    <th>หมายเหตุ</th>
+                                    <th>ผู้ตรวจ</th>
+                                    <th>เวลาตรวจ</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>
+                    <div class="text-muted small mt-1"><i class="bi bi-info-circle"></i> แสดงล่าสุดก่อน · ${data.data.length} รายการ</div>`;
+            } catch (err) {
+                body.innerHTML = `<div class="text-danger p-3">โหลดไม่ได้: ${err.message}</div>`;
+            }
         });
 
         // Note popup handler — show full remark text formatted in modal

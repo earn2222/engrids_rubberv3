@@ -22,6 +22,100 @@ const pool = new Pool({
     port: process.env.DB_PORT,
 });
 
+// ── Review history helpers ──────────────────────────────────────────────────
+// ใช้ pool เสมอ (ไม่ใช้ transaction client) เพื่อไม่ให้ history หายไปถ้า rollback
+let _reviewHistoryReady = false;
+async function ensureReviewHistoryTable() {
+    if (_reviewHistoryReady) return;
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS review_history (
+            id          SERIAL PRIMARY KEY,
+            tb_name     TEXT NOT NULL,
+            parent_id   INTEGER,
+            sub_id      TEXT,
+            check_area  TEXT,
+            check_shape TEXT,
+            remark      TEXT,
+            reviewer    TEXT,
+            review_ts   TIMESTAMP WITHOUT TIME ZONE,
+            reset_reason TEXT,
+            reset_ts    TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+        )
+    `);
+    _reviewHistoryReady = true;
+}
+
+async function _saveHistoryRows(tb, rows, reason) {
+    // ตรวจสอบว่า remark column มีอยู่หรือไม่
+    let hasRemark = false;
+    try {
+        const colCheck = await pool.query(
+            `SELECT 1 FROM information_schema.columns
+             WHERE table_schema='public' AND table_name=$1 AND column_name='remark'`,
+            [`reclass_${tb}`]
+        );
+        hasRemark = colCheck.rowCount > 0;
+    } catch (_) {}
+
+    let remarkMap = {};
+    if (hasRemark && rows.length > 0) {
+        try {
+            const subIds = rows.map(r => r.sub_id).filter(Boolean);
+            if (subIds.length > 0) {
+                const placeholders = subIds.map((_, i) => `$${i + 1}`).join(',');
+                const remarkRows = await pool.query(
+                    `SELECT sub_id, remark FROM reclass_${tb} WHERE sub_id IN (${placeholders})`,
+                    subIds
+                );
+                remarkRows.rows.forEach(r => { remarkMap[r.sub_id] = r.remark; });
+            }
+        } catch (_) {}
+    }
+
+    for (const row of rows) {
+        await pool.query(
+            `INSERT INTO review_history
+             (tb_name, parent_id, sub_id, check_area, check_shape, remark, reviewer, review_ts, reset_reason)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+            [tb, row.id, row.sub_id, row.check_area, row.check_shape,
+             remarkMap[row.sub_id] || null, row.reviewer, row.review_ts, reason]
+        );
+    }
+}
+
+async function saveReviewHistoryById(_, tb, id, reason) {
+    try {
+        await ensureReviewHistoryTable();
+        const { rows } = await pool.query(
+            `SELECT id, sub_id, check_area, check_shape, reviewer, review_ts
+             FROM reclass_${tb}
+             WHERE id = $1
+               AND (check_area IS NOT NULL OR check_shape IS NOT NULL OR reviewer IS NOT NULL)`,
+            [id]
+        );
+        if (rows.length > 0) await _saveHistoryRows(tb, rows, reason);
+    } catch (e) {
+        console.error('saveReviewHistoryById error:', e.message);
+    }
+}
+
+async function saveReviewHistoryBySubId(_, tb, sub_id, reason) {
+    try {
+        await ensureReviewHistoryTable();
+        const { rows } = await pool.query(
+            `SELECT id, sub_id, check_area, check_shape, reviewer, review_ts
+             FROM reclass_${tb}
+             WHERE sub_id = $1
+               AND (check_area IS NOT NULL OR check_shape IS NOT NULL OR reviewer IS NOT NULL)`,
+            [sub_id]
+        );
+        if (rows.length > 0) await _saveHistoryRows(tb, rows, reason);
+    } catch (e) {
+        console.error('saveReviewHistoryBySubId error:', e.message);
+    }
+}
+// ───────────────────────────────────────────────────────────────────────────
+
 // get all users
 app.get('/api/getfeatures/:tb', async (req, res) => {
     try {
@@ -326,6 +420,8 @@ app.put('/api/restorefeatures/:tb/:id', async (req, res) => {
                         `, [bk['Sqm_Deed'], featureId, featureId.toString()]);
                     }
 
+                    // Save review history before resetting
+                    await saveReviewHistoryById(pool, tb, featureId, 'restore');
                     // Safely reset check fields if they exist
                     await pool.query(`
                         DO $$ BEGIN
@@ -545,6 +641,7 @@ app.post('/api/updatefeatures/:tb', async (req, res) => {
                     [`reclass_${tb}`]
                 );
                 if (reclassCheck.rows[0].exists) {
+                    await saveReviewHistoryById(client, tb, parseInt(id, 10), 'reshape');
                     await client.query(`
                         DO $$ BEGIN
                             UPDATE reclass_${tb}
@@ -700,6 +797,8 @@ app.put('/api/clear_review/:tb', async (req, res) => {
             return res.status(400).json({ error: 'Table name and sub_id are required' });
         }
 
+        await saveReviewHistoryBySubId(pool, tb, sub_id, 'manual_clear');
+
         const sql = `
             UPDATE reclass_${tb}
             SET check_area = NULL,
@@ -716,6 +815,31 @@ app.put('/api/clear_review/:tb', async (req, res) => {
             return res.status(404).json({ error: 'Feature not found' });
         }
         res.status(200).json({ success: true, data: result.rows });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// Review history endpoint
+app.get('/api/review_history/:tb/:id', async (req, res) => {
+    try {
+        const tb = req.params.tb.toLowerCase();
+        const id = parseInt(req.params.id, 10);
+        if (!tb || isNaN(id)) return res.status(400).json({ error: 'Invalid parameters' });
+
+        const exists = await pool.query(
+            `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'review_history')`
+        );
+        if (!exists.rows[0].exists) {
+            return res.json({ success: true, data: [] });
+        }
+
+        const result = await pool.query(
+            `SELECT * FROM review_history WHERE tb_name = $1 AND parent_id = $2 ORDER BY reset_ts DESC`,
+            [tb, id]
+        );
+        res.json({ success: true, data: result.rows });
     } catch (err) {
         console.error(err);
         res.status(500).json({ success: false, error: err.message });
@@ -1052,6 +1176,9 @@ app.post('/api/splitfeature/:tb', async (req, res) => {
 
         console.log(`Splitting feature in table ${tb} with ID ${id} and sub_id ${sub_id}`);
 
+        // Save review history before deleting the existing sub_id row
+        await saveReviewHistoryBySubId(null, tb, sub_id, 'split');
+
         if (!properties?.Farmer_ID) {
             return res.status(400).json({ error: 'Farmer_ID is required in properties' });
         }
@@ -1204,6 +1331,9 @@ app.post('/api/unsplit_feature/:tb', async (req, res) => {
             return res.status(400).json({ error: 'id must be a number' });
         }
 
+        // Save review history for all split rows before deleting
+        await saveReviewHistoryById(null, tb, featureId, 'unsplit');
+
         const client = await pool.connect();
         try {
             await client.query('BEGIN');
@@ -1271,6 +1401,7 @@ app.put('/api/update_landuse/:tb', async (req, res) => {
         const values = [classtype, displayName, sub_id];
         const result = await pool.query(updateReclass, values);
 
+        await saveReviewHistoryBySubId(pool, tb, sub_id, 'update_landuse');
         await pool.query(`
             DO $$ BEGIN
                 UPDATE reclass_${tb}
@@ -1341,6 +1472,7 @@ app.put('/api/update_geometry/:tb', async (req, res) => {
         const values = [JSON.stringify(geometry), displayName, sub_id];
         const result = await pool.query(query, values);
 
+        await saveReviewHistoryBySubId(pool, tb, sub_id, 'update_geometry');
         await pool.query(`
             DO $$ BEGIN
                 UPDATE reclass_${tb}
