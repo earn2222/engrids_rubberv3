@@ -182,10 +182,23 @@
 
                                 <!-- Review Section -->
                                 <div class="review-section-container">
-                                    <!-- Box สำหรับผู้ตรวจสอบ -->
+
+                                    <!-- ═══ Box สำหรับเจ้าหน้าที่ (Checker) ═══ -->
                                     <div class="review-box checker-box mb-3">
-                                        <div class="section-title-sm mb-2"><i class="bi bi-shield-check"></i>
-                                            สำหรับเจ้าหน้าที่ (Checker)</div>
+                                        <!-- Header row -->
+                                        <div class="d-flex align-items-center justify-content-between mb-2">
+                                            <div class="section-title-sm">
+                                                <i class="bi bi-shield-check"></i> เจ้าหน้าที่ (Checker)
+                                            </div>
+                                            <div class="d-flex align-items-center gap-1">
+                                                <span id="checker-draft-badge" class="draft-badge" style="display:none;">
+                                                    <i class="bi bi-pencil-fill"></i> ร่าง
+                                                </span>
+                                                <div id="panel-check-status-summary"></div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Check selects -->
                                         <div class="row g-2 mb-2">
                                             <div class="col-6">
                                                 <label class="xs-label">ตรวจสอบโฉนด</label>
@@ -204,55 +217,73 @@
                                                 </select>
                                             </div>
                                         </div>
+
+                                        <!-- Remark textarea -->
                                         <div class="mb-2">
-                                            <label class="xs-label">หมายเหตุผู้เช็ค</label>
+                                            <label class="xs-label">หมายเหตุ / ความเห็น</label>
                                             <textarea class="form-control form-control-sm" id="panel-remark" rows="2"
-                                                placeholder="ความเห็นผู้ตรวจสอบ..."></textarea>
+                                                placeholder="พิมพ์ความเห็นผู้ตรวจสอบ..."></textarea>
                                         </div>
-                                        <div class="reviewer-footer mt-2 pt-2 border-top mb-2" id="panel-reviewer-info"
-                                            style="display:none;">
-                                            <div class="x-small text-muted">
-                                                <div><i class="bi bi-person-fill"></i> ผู้ตรวจ: <span
-                                                        id="panel-reviewer-name">-</span></div>
-                                                <div><i class="bi bi-clock"></i> <span id="panel-review-time">-</span>
-                                                </div>
+
+                                        <!-- Last saved info — always visible -->
+                                        <div class="saved-info-footer" id="panel-reviewer-info">
+                                            <i class="bi bi-check-circle-fill saved-icon"></i>
+                                            <div class="saved-info-text">
+                                                <span class="saved-label">บันทึกล่าสุดโดย</span>
+                                                <span id="panel-reviewer-name" class="saved-name">-</span>
+                                                <span id="panel-review-time" class="saved-time"></span>
                                             </div>
                                         </div>
-                                        <div class="d-flex gap-2">
-                                            <button class="btn btn-success btn-sm flex-grow-1"
-                                                id="panel-btn-save-checker">
+
+                                        <!-- Action buttons -->
+                                        <div class="d-flex gap-2 mt-2">
+                                            <button class="btn btn-success btn-sm flex-grow-1" id="panel-btn-save-checker">
                                                 <i class="bi bi-floppy-fill me-1"></i> บันทึกผลการตรวจ
+                                            </button>
+                                            <button class="btn btn-outline-secondary btn-sm" id="btn-discard-checker-draft"
+                                                title="ยกเลิกร่าง คืนค่าเดิม" style="display:none;">
+                                                <i class="bi bi-arrow-counterclockwise"></i>
                                             </button>
                                         </div>
                                     </div>
 
-                                    <!-- Box สำหรับผู้ใช้งาน -->
+                                    <!-- ═══ Box สำหรับผู้ใช้งาน (User) ═══ -->
                                     <div class="review-box user-box">
-                                        <div class="section-title-sm mb-2" style="color: #1976d2;"><i
-                                                class="bi bi-chat-dots-fill"></i> สำหรับผู้ใช้งาน (User)</div>
-                                        <div class="mb-2">
-                                            <label class="xs-label">หมายเหตุ/คำอธิบายจากผู้ใช้</label>
-                                            <textarea class="form-control form-control-sm" id="panel-user-remark"
-                                                rows="2" placeholder="คำอธิบาย หรือแจ้งการแก้ไข..."></textarea>
+                                        <!-- Header row -->
+                                        <div class="d-flex align-items-center justify-content-between mb-2">
+                                            <div class="section-title-sm" style="color: #1565c0;">
+                                                <i class="bi bi-chat-dots-fill"></i> ผู้ใช้งาน (User)
+                                            </div>
+                                            <span id="user-dirty-badge" class="draft-badge draft-badge-blue" style="display:none;">
+                                                <i class="bi bi-pencil-fill"></i> ยังไม่บันทึก
+                                            </span>
                                         </div>
-                                        <div class="reviewer-footer mt-2 pt-2 border-top mb-2" id="panel-user-info"
-                                            style="display:none;">
-                                            <div class="x-small text-muted">
-                                                <div><i class="bi bi-person-circle"></i> ผู้ใช้: <span
-                                                        id="panel-user-name">-</span></div>
-                                                <div><i class="bi bi-clock-history"></i> <span
-                                                        id="panel-user-time">-</span>
-                                                </div>
+
+                                        <!-- Remark textarea -->
+                                        <div class="mb-2">
+                                            <label class="xs-label">หมายเหตุ / แจ้งการแก้ไข</label>
+                                            <textarea class="form-control form-control-sm" id="panel-user-remark"
+                                                rows="2" placeholder="ระบุรายละเอียด หรือแจ้งการแก้ไข..."></textarea>
+                                        </div>
+
+                                        <!-- Last saved info — always visible -->
+                                        <div class="saved-info-footer saved-info-blue" id="panel-user-info">
+                                            <i class="bi bi-check-circle-fill saved-icon"></i>
+                                            <div class="saved-info-text">
+                                                <span class="saved-label">บันทึกล่าสุดโดย</span>
+                                                <span id="panel-user-name" class="saved-name">-</span>
+                                                <span id="panel-user-time" class="saved-time"></span>
                                             </div>
                                         </div>
-                                        <div class="d-flex gap-2">
-                                            <button class="btn btn-outline-primary btn-sm flex-grow-1"
-                                                id="panel-btn-save-user">
-                                                <i class="bi bi-send-fill me-1"></i> บันทึกหมายเหตุผู้ใช้
+
+                                        <!-- Action buttons -->
+                                        <div class="d-flex gap-2 mt-2">
+                                            <button class="btn btn-primary btn-sm flex-grow-1" id="panel-btn-save-user">
+                                                <i class="bi bi-send-fill me-1"></i> บันทึกหมายเหตุ
                                             </button>
                                             <button class="btn btn-outline-danger btn-sm" id="panel-btn-clear-user"
                                                 title="ล้างหมายเหตุ">
-                                                <i class="bi bi-trash3-fill"></i> ลบ
+                                                <i class="bi bi-trash3-fill"></i>
                                             </button>
                                         </div>
                                     </div>
@@ -288,7 +319,17 @@
             <div class="col-12">
                 <div class="card">
                     <div class="card-body">
-                        <div class="section-title"><i class="bi bi-table"></i> ตารางข้อมูลแปลงยาง</div>
+                        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                            <div class="section-title mb-0"><i class="bi bi-table"></i> ตารางข้อมูลแปลงยาง</div>
+                            <div class="d-flex gap-2 flex-wrap align-items-center">
+                                <span class="small fw-bold text-muted">กรอง:</span>
+                                <button class="btn btn-sm btn-filter-status active" data-filter="">ทั้งหมด</button>
+                                <button class="btn btn-sm btn-filter-status" data-filter="none">⏳ ยังไม่ตรวจ</button>
+                                <button class="btn btn-sm btn-filter-status" data-filter="pass">✅ ผ่านทั้งหมด</button>
+                                <button class="btn btn-sm btn-filter-status" data-filter="fail">❌ มีไม่ผ่าน</button>
+                                <button class="btn btn-sm btn-filter-status" data-filter="remark">💬 มีหมายเหตุ</button>
+                            </div>
+                        </div>
                         <table id="featureTable" class="display nowrap" style="width: 100%;"></table>
                     </div>
                 </div>

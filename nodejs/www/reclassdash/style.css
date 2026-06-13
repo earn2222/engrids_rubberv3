@@ -862,4 +862,147 @@ table.dataTable tbody tr.selected > * {
     padding: 4px 8px;
     background: rgba(0,0,0,0.03);
     border-radius: 6px;
+}
+
+/* ===== Draft Badge ===== */
+.draft-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffc107;
+    border-radius: 12px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    animation: blink-badge 1.4s ease-in-out infinite;
+    white-space: nowrap;
+}
+
+.draft-badge-blue {
+    background: #e3f2fd;
+    color: #1565c0;
+    border-color: #90caf9;
+}
+
+@keyframes blink-badge {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+}
+
+/* ===== Saved Info Footer (always visible) ===== */
+.saved-info-footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f1f8f3;
+    border: 1px solid #c8e6c9;
+    border-radius: 8px;
+    padding: 6px 10px;
+    margin-bottom: 0;
+}
+
+.saved-info-blue {
+    background: #e8f4fd;
+    border-color: #bbdefb;
+}
+
+.saved-info-footer .saved-icon {
+    color: #43a047;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+}
+
+.saved-info-blue .saved-icon {
+    color: #1976d2;
+}
+
+.saved-info-text {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px;
+    font-size: 0.72rem;
+    color: #555;
+    line-height: 1.4;
+}
+
+.saved-label {
+    color: #78909c;
+    font-weight: 600;
+}
+
+.saved-name {
+    color: #2e3a2e;
+    font-weight: 700;
+}
+
+.saved-time {
+    color: #90a4ae;
+    font-size: 0.68rem;
+}
+
+/* When no data yet — muted style */
+.saved-name:empty::before,
+.saved-name:contains('-') {
+    color: #aaa;
+}
+
+/* ===== Discard draft button ===== */
+#btn-discard-checker-draft {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+    border-radius: 8px;
+    white-space: nowrap;
+}
+
+/* ===== Filter Status Buttons ===== */
+.btn-filter-status {
+    background: #f1f4f1;
+    border: 1px solid rgba(76, 175, 80, 0.25);
+    color: #546e7a;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    padding: 0.25rem 0.75rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.btn-filter-status:hover {
+    background: #e8f5e9;
+    border-color: #66bb6a;
+    color: #2e7d32;
+}
+
+.btn-filter-status.active {
+    background: linear-gradient(135deg, #66bb6a, #43a047);
+    border-color: #43a047;
+    color: #fff;
+    box-shadow: 0 2px 6px rgba(76, 175, 80, 0.3);
+}
+
+/* ===== Row Status Color Coding ===== */
+#featureTable tr.row-checked-pass td {
+    background-color: rgba(76, 175, 80, 0.07) !important;
+}
+
+#featureTable tr.row-checked-pass:hover td {
+    background-color: rgba(76, 175, 80, 0.14) !important;
+}
+
+#featureTable tr.row-checked-fail td {
+    background-color: rgba(244, 67, 54, 0.05) !important;
+}
+
+#featureTable tr.row-checked-fail:hover td {
+    background-color: rgba(244, 67, 54, 0.10) !important;
+}
+
+/* ===== Panel check status summary ===== */
+#panel-check-status-summary .badge {
+    font-size: 0.72rem;
+    padding: 4px 10px;
+    border-radius: 10px;
 }

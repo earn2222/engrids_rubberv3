@@ -1,3 +1,27 @@
+// ── Global state ──
+let _panelUserDirty = false;
+let _autoSavingUserRemark = false;
+let _activeFilter = '';
+let _panelCheckerDirty = false;
+const _checkerDraft = {};   // { [sub_id]: { check_area, check_shape, remark } }
+
+// Custom DataTable search filter for status buttons
+$.fn.dataTable.ext.search.push(function (settings, data, dataIndex) {
+    if (settings.nTable.id !== 'featureTable') return true;
+    if (!_activeFilter) return true;
+    try {
+        const rowData = settings.aoData[dataIndex]._aData;
+        if (!rowData) return true;
+        switch (_activeFilter) {
+            case 'none': return !rowData.check_area && !rowData.check_shape;
+            case 'pass': return rowData.check_area === 'ผ่าน' && rowData.check_shape === 'ผ่าน';
+            case 'fail': return rowData.check_area === 'ไม่ผ่าน' || rowData.check_shape === 'ไม่ผ่าน';
+            case 'remark': return !!(rowData.remark || rowData.user_remark);
+            default: return true;
+        }
+    } catch (e) { return true; }
+});
+
 // Format remark text for popup: detect "1.xxx\n2.xxx" pattern → <ol>
 function formatRemarkPopup(text) {
     if (!text || !text.trim()) return '<span class="text-muted">ไม่มีข้อมูล</span>';
@@ -229,8 +253,48 @@ const focusPlot = (rowData) => {
     }
 };
 
+// Auto-save user remark before navigating away (prevents text disappearing)
+const autoSaveUserRemark = async () => {
+    const subId = $('#panel-sub-id').val();
+    const tb = $('#tb').val();
+    if (!subId || !_panelUserDirty || _autoSavingUserRemark) return;
+
+    const userRemark = $('#panel-user-remark').val();
+    const displayName = document.getElementById('display-name')?.textContent || '';
+
+    _autoSavingUserRemark = true;
+    try {
+        const res = await fetch(`/rub/api/update_user_remark/${tb}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sub_id: subId, user_remark: userRemark, user_name: displayName })
+        });
+        const data = await res.json();
+        if (data.success) {
+            const updatedTs = data.data && data.data[0] ? data.data[0].user_remark_ts : new Date().toISOString();
+            const dt = $('#featureTable').DataTable();
+            const tableRow = dt.row((idx, d) => d.sub_id == subId);
+            if (tableRow.any()) {
+                const rowData = tableRow.data();
+                rowData.user_remark = userRemark;
+                rowData.user_name = displayName;
+                rowData.user_remark_ts = updatedTs;
+                tableRow.data(rowData).draw(false);
+            }
+            _panelUserDirty = false;
+            $('#user-dirty-badge').hide();
+        }
+    } catch (e) {
+        console.error('Auto-save user remark error:', e);
+    } finally {
+        _autoSavingUserRemark = false;
+    }
+};
+
 // Helper to navigate between plots (Prev/Next)
-const navigatePlots = (direction) => {
+const navigatePlots = async (direction) => {
+    if (_panelUserDirty) await autoSaveUserRemark();
+
     const currentSubId = $('#panel-sub-id').val();
     const dt = $('#featureTable').DataTable();
     const allRows = dt.rows({ search: 'applied' }).data().toArray();
@@ -322,31 +386,76 @@ const showFeaturePanel = (feature, layer) => {
         $('#target-rubber-sqm').next('small').hide();
     }
 
-    // Review Fields
-    $('#panel-check-area').val(props.check_area || '');
-    $('#panel-check-shape').val(props.check_shape || '');
-    $('#panel-remark').val(props.remark || '');
-    $('#panel-user-remark').val(props.user_remark || '');
-
-    // Reviewer Info (Checker)
-    if (props.reviewer) {
-        $('#panel-reviewer-info').show();
-        $('#panel-reviewer-name').text(props.reviewer);
-        const date = new Date(props.review_ts);
-        $('#panel-review-time').text(props.review_ts ? date.toLocaleString('th-TH', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' น.' : '-');
+    // ── Checker fields: restore from draft if exists, else use saved DB values ──
+    const subIdKey = String(props.sub_id || '');
+    const draft = _checkerDraft[subIdKey];
+    if (draft) {
+        $('#panel-check-area').val(draft.check_area !== undefined ? draft.check_area : (props.check_area || ''));
+        $('#panel-check-shape').val(draft.check_shape !== undefined ? draft.check_shape : (props.check_shape || ''));
+        $('#panel-remark').val(draft.remark !== undefined ? draft.remark : (props.remark || ''));
+        _panelCheckerDirty = true;
+        $('#checker-draft-badge').show();
+        $('#btn-discard-checker-draft').show();
     } else {
-        $('#panel-reviewer-info').hide();
+        $('#panel-check-area').val(props.check_area || '');
+        $('#panel-check-shape').val(props.check_shape || '');
+        $('#panel-remark').val(props.remark || '');
+        _panelCheckerDirty = false;
+        $('#checker-draft-badge').hide();
+        $('#btn-discard-checker-draft').hide();
     }
 
-    // User Info (Editor)
+    // ── User remark ──
+    $('#panel-user-remark').val(props.user_remark || '');
+    _panelUserDirty = false;
+    $('#user-dirty-badge').hide();
+
+    // ── Checker: "บันทึกล่าสุด" footer ──
+    if (props.reviewer || props.review_ts) {
+        $('#panel-reviewer-info').show();
+        $('#panel-reviewer-name').text(props.reviewer || '-');
+        if (props.review_ts) {
+            const d = new Date(props.review_ts);
+            $('#panel-review-time').text(d.toLocaleString('th-TH', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' น.');
+        } else {
+            $('#panel-review-time').text('-');
+        }
+    } else {
+        $('#panel-reviewer-info').show();
+        $('#panel-reviewer-name').text('ยังไม่มีการบันทึก');
+        $('#panel-review-time').text('');
+    }
+
+    // ── User: "บันทึกล่าสุด" footer ──
     if (props.user_name || props.user_remark) {
         $('#panel-user-info').show();
         $('#panel-user-name').text(props.user_name || '-');
-        const date = new Date(props.user_remark_ts);
-        $('#panel-user-time').text(props.user_remark_ts ? date.toLocaleString('th-TH', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' น.' : '-');
+        if (props.user_remark_ts) {
+            const d = new Date(props.user_remark_ts);
+            $('#panel-user-time').text(d.toLocaleString('th-TH', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' น.');
+        } else {
+            $('#panel-user-time').text('');
+        }
     } else {
-        $('#panel-user-info').hide();
+        $('#panel-user-info').show();
+        $('#panel-user-name').text('ยังไม่มีการบันทึก');
+        $('#panel-user-time').text('');
     }
+
+    // ── Status summary badge ──
+    const ca = props.check_area || '';
+    const cs = props.check_shape || '';
+    let statusHtml = '';
+    if (!ca && !cs) {
+        statusHtml = '<span class="badge bg-secondary" style="font-size:0.7rem;">⏳ ยังไม่ตรวจ</span>';
+    } else if (ca === 'ผ่าน' && cs === 'ผ่าน') {
+        statusHtml = '<span class="badge bg-success" style="font-size:0.7rem;">✅ ผ่านทั้งหมด</span>';
+    } else if (ca === 'ไม่ผ่าน' || cs === 'ไม่ผ่าน') {
+        statusHtml = '<span class="badge bg-danger" style="font-size:0.7rem;">❌ มีไม่ผ่าน</span>';
+    } else {
+        statusHtml = '<span class="badge bg-warning text-dark" style="font-size:0.7rem;">⏳ ตรวจบางส่วน</span>';
+    }
+    $('#panel-check-status-summary').html(statusHtml);
 
     // ✅ Navigation Update (Counter)
     try {
@@ -702,9 +811,72 @@ const loadGeoData = async () => {
                 },
             ],
             pageLength: 10,
-            order: [[1, 'asc']], // Order by ID ascending for systematic checking
+            order: [[1, 'asc']],
             select: true,
             destroy: true,
+            createdRow: function (row, data) {
+                if (data.check_area === 'ผ่าน' && data.check_shape === 'ผ่าน') {
+                    $(row).addClass('row-checked-pass');
+                } else if (data.check_area === 'ไม่ผ่าน' || data.check_shape === 'ไม่ผ่าน') {
+                    $(row).addClass('row-checked-fail');
+                }
+            }
+        });
+
+        // ── Filter status buttons ──
+        $(document).off('click.filterBtn').on('click.filterBtn', '.btn-filter-status', function () {
+            $('.btn-filter-status').removeClass('active');
+            $(this).addClass('active');
+            _activeFilter = $(this).data('filter');
+            dataTable.draw();
+        });
+
+        // ── Dirty tracking for user remark textarea ──
+        $('#panel-user-remark').off('input.dirty').on('input.dirty', function () {
+            _panelUserDirty = true;
+            $('#user-dirty-badge').show();
+        });
+
+        // ── Checker draft: save to memory whenever checker fields change ──
+        $('#panel-check-area, #panel-check-shape').off('change.draft').on('change.draft', function () {
+            const subId = String($('#panel-sub-id').val() || '');
+            if (!subId) return;
+            if (!_checkerDraft[subId]) _checkerDraft[subId] = {};
+            _checkerDraft[subId].check_area = $('#panel-check-area').val();
+            _checkerDraft[subId].check_shape = $('#panel-check-shape').val();
+            _checkerDraft[subId].remark = $('#panel-remark').val();
+            _panelCheckerDirty = true;
+            $('#checker-draft-badge').show();
+            $('#btn-discard-checker-draft').show();
+        });
+
+        $('#panel-remark').off('input.draft').on('input.draft', function () {
+            const subId = String($('#panel-sub-id').val() || '');
+            if (!subId) return;
+            if (!_checkerDraft[subId]) _checkerDraft[subId] = {};
+            _checkerDraft[subId].check_area = $('#panel-check-area').val();
+            _checkerDraft[subId].check_shape = $('#panel-check-shape').val();
+            _checkerDraft[subId].remark = $('#panel-remark').val();
+            _panelCheckerDirty = true;
+            $('#checker-draft-badge').show();
+            $('#btn-discard-checker-draft').show();
+        });
+
+        // ── Discard checker draft: revert to last saved values ──
+        $('#btn-discard-checker-draft').off('click.discard').on('click.discard', function () {
+            const subId = String($('#panel-sub-id').val() || '');
+            if (!subId) return;
+            const dt = $('#featureTable').DataTable();
+            const rowData = dt.rows().data().toArray().find(r => String(r.sub_id) === subId);
+            if (rowData) {
+                delete _checkerDraft[subId];
+                _panelCheckerDirty = false;
+                $('#panel-check-area').val(rowData.check_area || '');
+                $('#panel-check-shape').val(rowData.check_shape || '');
+                $('#panel-remark').val(rowData.remark || '');
+                $('#checker-draft-badge').hide();
+                $('#btn-discard-checker-draft').hide();
+            }
         });
 
         // Auto-fill reviewer name when changing status
@@ -747,6 +919,11 @@ const loadGeoData = async () => {
                 const data = await res.json();
                 if (data.success) {
                     btn.html('<i class="bi bi-check-circle-fill"></i> เรียบร้อย').removeClass('btn-success').addClass('btn-primary');
+                    // Clear draft after successful save
+                    delete _checkerDraft[String(subId)];
+                    _panelCheckerDirty = false;
+                    $('#checker-draft-badge').hide();
+                    $('#btn-discard-checker-draft').hide();
 
                     const dataTable = $('#featureTable').DataTable();
                     const tableRow = dataTable.row((idx, d) => d.sub_id == subId);
@@ -758,7 +935,17 @@ const loadGeoData = async () => {
                         rowData.remark = remark;
                         rowData.reviewer = displayName;
                         rowData.review_ts = data.data && data.data[0] ? data.data[0].review_ts : new Date().toISOString();
+                        // Preserve current panel user_remark (may be unsaved)
+                        rowData.user_remark = $('#panel-user-remark').val();
                         tableRow.data(rowData).draw(false);
+
+                        // Update row color after checker save
+                        const rowNode = tableRow.node();
+                        if (rowNode) {
+                            $(rowNode).removeClass('row-checked-pass row-checked-fail');
+                            if (checkArea === 'ผ่าน' && checkShape === 'ผ่าน') $(rowNode).addClass('row-checked-pass');
+                            else if (checkArea === 'ไม่ผ่าน' || checkShape === 'ไม่ผ่าน') $(rowNode).addClass('row-checked-fail');
+                        }
                         showFeaturePanel({ properties: rowData });
                     }
 
@@ -772,7 +959,7 @@ const loadGeoData = async () => {
             } catch (err) {
                 console.error('Checker Save Error:', err);
                 alert('เกิดข้อผิดพลาดในการเชื่อมต่อ');
-                btn.prop('disabled', false).html('<i class="bi bi-floppy-fill me-1"></i> บันบันทึกผลการตรวจ');
+                btn.prop('disabled', false).html('<i class="bi bi-floppy-fill me-1"></i> บันทึกผลการตรวจ');
             }
         });
 
@@ -802,6 +989,8 @@ const loadGeoData = async () => {
                 const data = await res.json();
                 if (data.success) {
                     btn.html('<i class="bi bi-check-circle-fill"></i> เรียบร้อย');
+                    _panelUserDirty = false;
+                    $('#user-dirty-badge').hide();
 
                     const dataTable = $('#featureTable').DataTable();
                     const tableRow = dataTable.row((idx, d) => d.sub_id == subId);
@@ -812,6 +1001,7 @@ const loadGeoData = async () => {
                         rowData.user_name = displayName;
                         rowData.user_remark_ts = data.data && data.data[0] ? data.data[0].user_remark_ts : new Date().toISOString();
                         tableRow.data(rowData).draw(false);
+                        // Re-populate panel but preserve dirty=false
                         showFeaturePanel({ properties: rowData });
                     }
 
@@ -841,8 +1031,9 @@ const loadGeoData = async () => {
             }
         });
 
-        // Sync Table Selection to Panel
-        $('#featureTable tbody').on('click', 'tr', function () {
+        // Sync Table Selection to Panel (auto-save user remark if dirty before switching)
+        $('#featureTable tbody').on('click', 'tr', async function () {
+            if (_panelUserDirty) await autoSaveUserRemark();
             const data = $('#featureTable').DataTable().row(this).data();
             if (data) {
                 showFeaturePanel({ properties: data });
@@ -1022,11 +1213,13 @@ const loadGeoData = async () => {
                     btn.html('<i class="bi bi-check-lg"></i>').removeClass('btn-outline-primary').addClass('btn-success');
 
                     const updatedTs = data.data && data.data[0] ? data.data[0].user_remark_ts : new Date().toISOString();
+                    const displayName = document.getElementById('display-name')?.textContent || '';
 
                     const dataTable = $('#featureTable').DataTable();
                     const rowData = dataTable.row(row).data();
                     rowData.user_remark = userRemark;
                     rowData.user_remark_ts = updatedTs;
+                    if (displayName) rowData.user_name = displayName;
                     dataTable.row(row).data(rowData);
 
                     let dateStr = '';
@@ -1043,6 +1236,21 @@ const loadGeoData = async () => {
                         cellDiv.find('.btn-clear-user-remark').show();
                     } else {
                         cellDiv.find('.btn-clear-user-remark').hide();
+                    }
+
+                    // Sync side panel if this row is currently shown
+                    const panelSubId = $('#panel-sub-id').val();
+                    if (String(panelSubId) === String(subId)) {
+                        $('#panel-user-remark').val(userRemark);
+                        if (updatedTs) {
+                            const d2 = new Date(updatedTs);
+                            const opts = { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' };
+                            $('#panel-user-time').text(d2.toLocaleString('th-TH', opts) + ' น.');
+                            $('#panel-user-info').show();
+                        }
+                        if (displayName) $('#panel-user-name').text(displayName);
+                        _panelUserDirty = false;
+                        $('#user-dirty-badge').hide();
                     }
 
                     setTimeout(() => {
@@ -1156,6 +1364,18 @@ const loadGeoData = async () => {
                     rowData.reviewer = reviewerToSave;
                     rowData.review_ts = updatedTs;
                     dataTable.row(row).data(rowData);
+
+                    // Update row color based on new check status
+                    $(row).removeClass('row-checked-pass row-checked-fail');
+                    if (checkArea === 'ผ่าน' && checkShape === 'ผ่าน') $(row).addClass('row-checked-pass');
+                    else if (checkArea === 'ไม่ผ่าน' || checkShape === 'ไม่ผ่าน') $(row).addClass('row-checked-fail');
+
+                    // Sync panel status badge if this row is shown
+                    const panelSubId = $('#panel-sub-id').val();
+                    if (String(panelSubId) === String(subId)) {
+                        showFeaturePanel({ properties: rowData });
+                    }
+
                     setTimeout(() => {
                         btn.html('<i class="bi bi-floppy"></i> บันทึก').removeClass('btn-review-saved').prop('disabled', false);
                     }, 2000);
