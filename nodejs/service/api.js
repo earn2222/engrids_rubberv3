@@ -1384,7 +1384,7 @@ app.get('/api/download/reshape/:tb', async (req, res) => {
             sql = `
                 SELECT json_build_object(
                     'type', 'FeatureCollection',
-                    'features', COALESCE(json_agg(f.feat) FILTER (WHERE f.feat IS NOT NULL), '[]'::json)
+                    'features', COALESCE(json_agg(f.feat ORDER BY f.regis_no NULLS LAST) FILTER (WHERE f.feat IS NOT NULL), '[]'::json)
                 ) AS geojson
                 FROM (
                     SELECT json_build_object(
@@ -1405,19 +1405,19 @@ app.get('/api/download/reshape/:tb', async (req, res) => {
                                             END,
                             'Rubr_Area',    r."Rubr_Area",
                             'id',           r.id,
-                            'Farmer_ID',    m."Farmer_ID",
-                            'Regis_No',     m."Regis_No",
-                            'No_Plot',      m."No_Plot",
+                            'Farmer_ID',    TRANSLATE(m."Farmer_ID"::text, '๐๑๒๓๔๕๖๗๘๙', '0123456789'),
+                            'Regis_No',     TRANSLATE(m."Regis_No"::text, '๐๑๒๓๔๕๖๗๘๙', '0123456789'),
+                            'No_Plot',      TRANSLATE(m."No_Plot"::text, '๐๑๒๓๔๕๖๗๘๙', '0123456789'),
                             'Title_name',   m."Title_name",
                             'F_name',       m."F_name",
                             'L_name',       m."L_name",
                             'Full_nam',     m."Full_nam",
-                            'Address',      m."Address",
+                            'Address',      TRANSLATE(m."Address"::text, '๐๑๒๓๔๕๖๗๘๙', '0123456789'),
                             'Sub_Dis',      m."Sub_Dis",
                             'District',     m."District",
                             'Province',     m."Province",
                             'F_Status',     m."F_Status",
-                            'Deed_ID',      m."Deed_ID",
+                            'Deed_ID',      TRANSLATE(m."Deed_ID"::text, '๐๑๒๓๔๕๖๗๘๙', '0123456789'),
                             'Deed_Type',    m."Deed_Type",
                             'Rubr_Rai',     m."Rubr_Rai",
                             'Rubr_Ngan',    m."Rubr_Ngan",
@@ -1427,14 +1427,15 @@ app.get('/api/download/reshape/:tb', async (req, res) => {
                             'Deed_Ngan',    m."Deed_Ngan",
                             'Deed_sqwa',    m."Deed_sqwa",
                             'Deed_total',   m."Deed_total",
-                            'Para_Age',     m."Para_Age",
+                            'Para_Age',     TRANSLATE(m."Para_Age"::text, '๐๑๒๓๔๕๖๗๘๙', '0123456789'),
                             'X',            m."X",
                             'Y',            m."Y",
                             'Deed_Area',    m."Deed_Area",
                             'editor',       r.editor,
                             'ts',           r.ts
                         )
-                    ) AS feat
+                    ) AS feat,
+                    m."Regis_No" AS regis_no
                     FROM reclass_${baseTb} r
                     JOIN ${baseTb} m ON r.id = m.id
                     WHERE r.geom IS NOT NULL ${extraTypeCondition}
@@ -1446,7 +1447,7 @@ app.get('/api/download/reshape/:tb', async (req, res) => {
             sql = `
                 SELECT json_build_object(
                     'type', 'FeatureCollection',
-                    'features', COALESCE(json_agg(f.feat) FILTER (WHERE f.feat IS NOT NULL), '[]'::json)
+                    'features', COALESCE(json_agg(f.feat ORDER BY f.regis_no NULLS LAST) FILTER (WHERE f.feat IS NOT NULL), '[]'::json)
                 ) AS geojson
                 FROM (
                     SELECT json_build_object(
@@ -1454,19 +1455,19 @@ app.get('/api/download/reshape/:tb', async (req, res) => {
                         'geometry', ST_AsGeoJSON(m.geom)::json,
                         'properties', json_build_object(
                             'id',           m.id,
-                            'Farmer_ID',    m."Farmer_ID",
-                            'Regis_No',     m."Regis_No",
-                            'No_Plot',      m."No_Plot",
+                            'Farmer_ID',    TRANSLATE(m."Farmer_ID"::text, '๐๑๒๓๔๕๖๗๘๙', '0123456789'),
+                            'Regis_No',     TRANSLATE(m."Regis_No"::text, '๐๑๒๓๔๕๖๗๘๙', '0123456789'),
+                            'No_Plot',      TRANSLATE(m."No_Plot"::text, '๐๑๒๓๔๕๖๗๘๙', '0123456789'),
                             'Title_name',   m."Title_name",
                             'F_name',       m."F_name",
                             'L_name',       m."L_name",
                             'Full_nam',     m."Full_nam",
-                            'Address',      m."Address",
+                            'Address',      TRANSLATE(m."Address"::text, '๐๑๒๓๔๕๖๗๘๙', '0123456789'),
                             'Sub_Dis',      m."Sub_Dis",
                             'District',     m."District",
                             'Province',     m."Province",
                             'F_Status',     m."F_Status",
-                            'Deed_ID',      m."Deed_ID",
+                            'Deed_ID',      TRANSLATE(m."Deed_ID"::text, '๐๑๒๓๔๕๖๗๘๙', '0123456789'),
                             'Deed_Type',    m."Deed_Type",
                             'Rubr_Rai',     m."Rubr_Rai",
                             'Rubr_Ngan',    m."Rubr_Ngan",
@@ -1476,14 +1477,15 @@ app.get('/api/download/reshape/:tb', async (req, res) => {
                             'Deed_Ngan',    m."Deed_Ngan",
                             'Deed_sqwa',    m."Deed_sqwa",
                             'Deed_total',   m."Deed_total",
-                            'Para_Age',     m."Para_Age",
+                            'Para_Age',     TRANSLATE(m."Para_Age"::text, '๐๑๒๓๔๕๖๗๘๙', '0123456789'),
                             'X',            m."X",
                             'Y',            m."Y",
                             'Deed_Area',    m."Deed_Area",
                             'editor',       m.editor,
                             'ts',           m.ts
                         )
-                    ) AS feat
+                    ) AS feat,
+                    m."Regis_No" AS regis_no
                     FROM ${tb} m
                     WHERE m.geom IS NOT NULL
                 ) f;
