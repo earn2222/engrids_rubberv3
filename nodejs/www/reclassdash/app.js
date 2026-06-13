@@ -1231,7 +1231,14 @@ const loadGeoData = async () => {
                         <td class="small">${h.sub_id || '-'}</td>
                         <td class="${caClass}">${h.check_area || '<span class="text-muted">-</span>'}</td>
                         <td class="${csClass}">${h.check_shape || '<span class="text-muted">-</span>'}</td>
-                        <td class="small" style="max-width:200px;white-space:pre-wrap;">${h.remark ? h.remark.replace(/</g,'&lt;') : '<span class="text-muted">-</span>'}</td>
+                        <td class="small">${h.remark
+                            ? `<span class="history-remark-cell"
+                                    data-remark="${h.remark.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')}"
+                                    title="คลิกเพื่อดูทั้งหมด">
+                                    <span class="history-remark-preview">${h.remark.replace(/</g,'&lt;')}</span>
+                                    <i class="bi bi-arrows-angle-expand history-remark-icon"></i>
+                               </span>`
+                            : '<span class="text-muted">-</span>'}</td>
                         <td class="small">${h.reviewer || '<span class="text-muted">-</span>'}</td>
                         <td class="small text-muted text-nowrap">${reviewTs}</td>
                     </tr>`;
@@ -1259,6 +1266,22 @@ const loadGeoData = async () => {
             } catch (err) {
                 body.innerHTML = `<div class="text-danger p-3">โหลดไม่ได้: ${err.message}</div>`;
             }
+        });
+
+        // History remark cell → popup (delegated on the modal body)
+        document.getElementById('history-modal-body').addEventListener('click', function (e) {
+            const cell = e.target.closest('.history-remark-cell');
+            if (!cell) return;
+            const raw = cell.getAttribute('data-remark')
+                .replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&lt;/g, '<');
+            document.getElementById('notePopupTitle').innerHTML =
+                '<i class="bi bi-chat-text me-1"></i>หมายเหตุ — ประวัติการตรวจสอบ';
+            document.getElementById('notePopupBody').innerHTML = formatRemarkPopup(raw);
+            // raise z-index so popup sits above the history modal
+            const noteEl = document.getElementById('notePopupModal');
+            noteEl.style.zIndex = 1065;
+            const noteModal = bootstrap.Modal.getOrCreateInstance(noteEl);
+            noteModal.show();
         });
 
         // Note popup handler — show full remark text formatted in modal
