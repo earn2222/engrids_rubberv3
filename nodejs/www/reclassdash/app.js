@@ -4,6 +4,17 @@ let _autoSavingUserRemark = false;
 let _activeFilter = '';
 let _panelCheckerDirty = false;
 const _checkerDraft = {};   // { [sub_id]: { check_area, check_shape, remark } }
+let _userRole = null;
+
+const _applyWorkerVisibility = () => {
+    if (_userRole !== 'worker') return;
+    document.querySelector('.checker-box')?.style.setProperty('display', 'none', 'important');
+    if ($.fn.DataTable.isDataTable('#featureTable')) {
+        $('#featureTable').DataTable().columns().every(function () {
+            if (this.header().textContent.trim() === 'บันทึก') this.visible(false);
+        });
+    }
+};
 
 // Custom DataTable search filter for status buttons
 $.fn.dataTable.ext.search.push(function (settings, data, dataIndex) {
@@ -589,6 +600,7 @@ const loadGeoData = async () => {
         const dataTable = $('#featureTable').DataTable({
             data: tableData,
             scrollX: true,
+            initComplete: function () { _applyWorkerVisibility(); },
             columns: [
                 {
                     data: null,
@@ -1857,6 +1869,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 this.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName)}&background=E9F5EC&color=2e7d32&rounded=true`;
             };
             document.getElementById('display-name').textContent = user.displayName;
+
+            _userRole = user.role || 'worker';
+            _applyWorkerVisibility();
 
             // Re-load progress with correct user identity after login
             const urlParams = new URLSearchParams(window.location.search);
