@@ -1636,36 +1636,117 @@ app.get('/api/download/reshape/:tb', async (req, res) => {
     }
 });
 
+async function ensureUsersTable() {
+    const { rows } = await pool.query(
+        `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='users')`
+    );
+    if (!rows[0].exists) {
+        await pool.query(`
+            CREATE TABLE users (
+                id           SERIAL PRIMARY KEY,
+                google_id    TEXT UNIQUE,
+                display_name TEXT,
+                email        TEXT,
+                photo        TEXT,
+                role         TEXT NOT NULL DEFAULT 'worker',
+                created_at   TIMESTAMP DEFAULT NOW()
+            )
+        `);
+    } else {
+        await pool.query(`
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'worker'
+        `);
+    }
+}
+
+async function ensureTaskAssignmentColumns() {
+    await pool.query(`ALTER TABLE task_assignments ADD COLUMN IF NOT EXISTS user_id INTEGER`);
+    await pool.query(`ALTER TABLE task_assignments ADD COLUMN IF NOT EXISTS assignee_email TEXT`);
+    // Backfill user_id และ assignee_email สำหรับ assignment เก่าที่ยังไม่มีข้อมูล
+    // (จับคู่ด้วย display_name เมื่อมีผู้ใช้ชื่อตรงกันเพียงคนเดียว)
+    pool.query(`
+        UPDATE task_assignments ta
+        SET user_id = u.id,
+            assignee_email = u.email
+        FROM users u
+        WHERE ta.user_id IS NULL
+          AND ta.assignee_email IS NULL
+          AND LOWER(u.display_name) = LOWER(ta.assignee_name)
+          AND (SELECT COUNT(*) FROM users u2
+               WHERE LOWER(u2.display_name) = LOWER(ta.assignee_name)) = 1
+    `).catch(e => console.error('[BACKFILL-ASSIGN]', e.message));
+}
+
 app.get('/api/users', async (req, res) => {
     try {
-        // Check if users table exists, if not create it
-        const checkTableSql = `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'users')`;
-        const checkResult = await pool.query(checkTableSql);
-        const tableExists = checkResult.rows[0].exists;
-
-        if (!tableExists) {
-            const createTableSql = `
-                CREATE TABLE users (
-                    id SERIAL PRIMARY KEY,
-                    google_id TEXT UNIQUE,
-                    display_name TEXT,
-                    email TEXT,
-                    photo TEXT,
-                    created_at TIMESTAMP DEFAULT NOW()
-                )
-            `;
-            await pool.query(createTableSql);
-        }
-
-        const sql = `SELECT * FROM users`;
-        const result = await pool.query(sql);
-        // console.log(result.rows);
+        await ensureUsersTable();
+        const result = await pool.query(
+            `SELECT id, display_name, email, photo, role, created_at FROM users ORDER BY created_at`
+        );
         res.status(200).json(result.rows);
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: error.message });
     }
 })
+
+/* PUT /api/users/:id/role  – เปลี่ยน role ของ user (admin ใช้) */
+app.put('/api/users/:id/role', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { role } = req.body;
+        if (!['admin', 'worker'].includes(role)) {
+            return res.status(400).json({ error: 'role ต้องเป็น admin หรือ worker' });
+        }
+        await ensureUsersTable();
+        const result = await pool.query(
+            `UPDATE users SET role=$1 WHERE id=$2 RETURNING id, display_name, email, role`,
+            [role, parseInt(id)]
+        );
+        if (result.rowCount === 0) return res.status(404).json({ error: 'User not found' });
+        res.json({ success: true, data: result.rows[0] });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/* GET /api/my-assignment/:tb  – ดึง assignment ของผู้ login อยู่ สำหรับ table นั้น */
+app.get('/api/my-assignment/:tb', async (req, res) => {
+    try {
+        const sessionUser = req.session?.user;
+        if (!sessionUser) return res.status(401).json({ error: 'Not authenticated' });
+
+        await ensureTaskAssignmentsTable();
+        await ensureTaskAssignmentColumns();
+
+        const tb = req.params.tb.toLowerCase();
+        const result = await pool.query(
+            `SELECT * FROM task_assignments
+             WHERE LOWER(tb_name) = $1
+               AND (
+                 user_id = $2
+                 OR LOWER(assignee_email) = LOWER($3)
+                 OR (user_id IS NULL AND LOWER(assignee_name) = LOWER($4))
+               )
+             ORDER BY id_from LIMIT 1`,
+            [tb, sessionUser.id, sessionUser.email || '', sessionUser.displayName || '']
+        );
+        const row = result.rows[0] || null;
+        // Backfill user_id และ email ทันทีที่เจอ เพื่อให้ครั้งต่อไปค้นด้วย id/email ได้เลย
+        if (row && sessionUser.email && (!row.user_id || !row.assignee_email)) {
+            pool.query(
+                `UPDATE task_assignments SET user_id = $1, assignee_email = $2
+                 WHERE id = $3`,
+                [sessionUser.id, sessionUser.email, row.id]
+            ).catch(e => console.error('[BACKFILL-ROW]', e.message));
+        }
+        res.json({ success: true, data: row });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: err.message });
+    }
+});
 
 app.get('/api/layerlist', async (req, res) => {
     try {
@@ -2891,7 +2972,8 @@ app.get('/api/task-assignments-all', async (req, res) => {
 app.post('/api/task-assignments', async (req, res) => {
     try {
         await ensureTaskAssignmentsTable();
-        const { tb_name, assignee_name, assignee_photo, id_from, id_to, note } = req.body;
+        await ensureTaskAssignmentColumns();
+        const { tb_name, assignee_name, assignee_email, assignee_photo, user_id, id_from, id_to, note } = req.body;
         if (!tb_name || !assignee_name || id_from == null || id_to == null) {
             return res.status(400).json({ error: 'tb_name, assignee_name, id_from, id_to are required' });
         }
@@ -2899,10 +2981,11 @@ app.post('/api/task-assignments', async (req, res) => {
             return res.status(400).json({ error: 'id_from must be <= id_to' });
         }
         const result = await pool.query(
-            `INSERT INTO task_assignments (tb_name, assignee_name, assignee_photo, id_from, id_to, note)
-             VALUES ($1, $2, $3, $4, $5, $6)
+            `INSERT INTO task_assignments (tb_name, assignee_name, assignee_email, assignee_photo, user_id, id_from, id_to, note)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
              RETURNING *`,
-            [tb_name, assignee_name, assignee_photo || null, parseInt(id_from), parseInt(id_to), note || null]
+            [tb_name, assignee_name, assignee_email || null, assignee_photo || null,
+             user_id ? parseInt(user_id) : null, parseInt(id_from), parseInt(id_to), note || null]
         );
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
@@ -2915,8 +2998,9 @@ app.post('/api/task-assignments', async (req, res) => {
 app.put('/api/task-assignments/:id', async (req, res) => {
     try {
         await ensureTaskAssignmentsTable();
+        await ensureTaskAssignmentColumns();
         const { id } = req.params;
-        const { assignee_name, assignee_photo, id_from, id_to, note } = req.body;
+        const { assignee_name, assignee_email, assignee_photo, user_id, id_from, id_to, note } = req.body;
         if (!assignee_name || id_from == null || id_to == null) {
             return res.status(400).json({ error: 'assignee_name, id_from, id_to are required' });
         }
@@ -2925,10 +3009,13 @@ app.put('/api/task-assignments/:id', async (req, res) => {
         }
         const result = await pool.query(
             `UPDATE task_assignments
-             SET assignee_name=$1, assignee_photo=$2, id_from=$3, id_to=$4, note=$5, updated_at=NOW()
-             WHERE id=$6
+             SET assignee_name=$1, assignee_email=$2, assignee_photo=$3, user_id=$4,
+                 id_from=$5, id_to=$6, note=$7, updated_at=NOW()
+             WHERE id=$8
              RETURNING *`,
-            [assignee_name, assignee_photo || null, parseInt(id_from), parseInt(id_to), note || null, parseInt(id)]
+            [assignee_name, assignee_email || null, assignee_photo || null,
+             user_id ? parseInt(user_id) : null,
+             parseInt(id_from), parseInt(id_to), note || null, parseInt(id)]
         );
         if (result.rowCount === 0) return res.status(404).json({ error: 'Assignment not found' });
         res.json({ success: true, data: result.rows[0] });

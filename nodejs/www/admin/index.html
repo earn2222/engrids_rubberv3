@@ -213,14 +213,39 @@
                         <!-- Assignee selector -->
                         <div class="mb-3">
                             <label class="form-label">ผู้รับผิดชอบ <span class="text-danger">*</span></label>
-                            <div class="assignee-picker" id="assigneePicker"></div>
-                            <input type="hidden" id="assign_name">
-                            <input type="hidden" id="assign_photo">
-                            <!-- manual name fallback -->
-                            <div class="mt-2">
-                                <input type="text" class="form-control form-control-sm" id="assign_name_manual"
-                                    placeholder="หรือพิมพ์ชื่อเอง (ถ้าไม่มีในรายการ)">
+
+                            <!-- วิธีที่ 1: เลือกจาก chip (คนที่เคย Login) -->
+                            <div class="small text-muted mb-1">
+                                <i class="bi bi-person-check me-1"></i>เลือกจากรายชื่อผู้ที่เคย Login
                             </div>
+                            <div class="assignee-picker" id="assigneePicker"></div>
+
+                            <!-- divider -->
+                            <div class="d-flex align-items-center my-2 gap-2">
+                                <hr class="flex-grow-1 m-0">
+                                <small class="text-muted px-1">หรือ</small>
+                                <hr class="flex-grow-1 m-0">
+                            </div>
+
+                            <!-- วิธีที่ 2: พิมพ์อีเมลโดยตรง -->
+                            <div class="small text-muted mb-1">
+                                <i class="bi bi-envelope me-1"></i>พิมพ์อีเมลโดยตรง
+                            </div>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                                <input type="email" class="form-control" id="assign_email_input"
+                                    placeholder="example@gmail.com">
+                                <button class="btn btn-outline-secondary" type="button" id="btnLookupEmail"
+                                    title="ค้นหาผู้ใช้จากอีเมล">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                            </div>
+                            <div id="emailLookupResult" class="mt-1 small"></div>
+
+                            <input type="hidden" id="assign_name">
+                            <input type="hidden" id="assign_email">
+                            <input type="hidden" id="assign_user_id">
+                            <input type="hidden" id="assign_photo">
                         </div>
 
                         <!-- ID range -->

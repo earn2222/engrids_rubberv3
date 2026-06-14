@@ -43,6 +43,8 @@ const initUser = async () => {
 
 /**
  * Show a selection modal for assignees before going to Reshape or Dashboard
+ * - worker: auto-navigate ตรงไปที่ assignment ของตัวเอง
+ * - admin: เห็นทุกคน เลือกได้ทุก assignment (ถ้ามีงานตัวเองจะมีปุ่ม "งานของฉัน" ด้วย)
  */
 async function showAssigneeSelect(event, tb, targetType) {
     if (event) event.preventDefault();
@@ -53,15 +55,36 @@ async function showAssigneeSelect(event, tb, targetType) {
         return;
     }
 
-    const modalEl = document.getElementById('selectionModal');
-    const listEl = document.getElementById('assigneeList');
-    if (!modalEl || !listEl) {
-        console.error('Selection Modal or list not found!');
+    const role = window.currentUser?.role || 'worker';
+    const subPath = targetType === 'reshape' ? 'reshape' : 'reclassdash';
+
+    // Worker: ดึง assignment ของตัวเองและ navigate ตรง ไม่ต้องเปิด modal
+    if (role === 'worker') {
+        try {
+            const res = await fetch(`/rub/api/my-assignment/${tb}`);
+            if (res.status === 401) {
+                alert('Session หมดอายุ กรุณา Login ใหม่อีกครั้ง');
+                window.location.reload();
+                return;
+            }
+            const { data } = await res.json();
+            if (data) {
+                window.location.href = `./${subPath}/index.html?tb=${tb}&id_from=${data.id_from}&id_to=${data.id_to}&assignee=${encodeURIComponent(data.assignee_name)}`;
+            } else {
+                alert('คุณยังไม่ได้รับมอบหมายงานในโครงการนี้\nกรุณาติดต่อ Admin');
+            }
+        } catch (e) {
+            alert('เกิดข้อผิดพลาดในการตรวจสอบงานที่ได้รับมอบหมาย');
+        }
         return;
     }
 
-    const modal = new bootstrap.Modal(modalEl);
+    // Admin: แสดง modal เลือก
+    const modalEl = document.getElementById('selectionModal');
+    const listEl = document.getElementById('assigneeList');
+    if (!modalEl || !listEl) return;
 
+    const modal = new bootstrap.Modal(modalEl);
     listEl.innerHTML = `
         <div class="text-center py-4">
             <div class="spinner-border text-primary spinner-border-sm" role="status"></div>
@@ -79,96 +102,110 @@ async function showAssigneeSelect(event, tb, targetType) {
                 <div class="alert alert-warning border-0 small mb-4" style="border-radius: 12px; background: rgba(255,193,7, 0.1);">
                     <i class="bi bi-exclamation-triangle-fill me-2"></i>โครงการนี้ยังไม่มีการมอบหมายงาน
                 </div>
-                <button class="btn btn-primary-premium rounded-pill w-100 py-2 shadow-sm" onclick="window.location.href='./${targetType === 'reshape' ? 'reshape' : 'reclassdash'}/index.html?tb=${tb}'">
-                    ไปต่อโดยไม่ระบุชื่อ (ดูทั้งหมด)
-                </button>
+                <button class="btn btn-primary-premium rounded-pill w-100 py-2 shadow-sm" onclick="window.location.href='./${subPath}/index.html?tb=${tb}'">ไปต่อโดยไม่ระบุชื่อ (ดูทั้งหมด)</button>
             `;
             return;
         }
 
         listEl.innerHTML = '';
-        const myName = document.getElementById('display-name')?.textContent || '';
+        const myEmail = (window.currentUser?.email || '').toLowerCase();
 
-        // Calculate total progress
         const totalDone = data.reduce((acc, item) => acc + (item.done || 0), 0);
         const totalTotal = data.reduce((acc, item) => acc + (item.total || 0), 0);
         const totalPct = totalTotal > 0 ? Math.round((totalDone / totalTotal) * 100) : 0;
 
-        // Added a "SEE ALL" option at top
+        // ถ้า admin มี assignment ของตัวเอง ให้แสดงปุ่ม "งานของฉัน" ก่อน
+        const myItem = myEmail ? data.find(item => item.assignee_email && item.assignee_email.toLowerCase() === myEmail) : null;
+        if (myItem) {
+            const myBtn = document.createElement('button');
+            myBtn.className = 'btn w-100 text-start d-flex align-items-center mb-2 px-3 py-2 border-0 shadow-sm';
+            myBtn.style.cssText = 'border-radius:15px; background:linear-gradient(135deg,#5ea36a,#4a7c59); box-shadow:0 4px 12px rgba(74,124,89,0.3);';
+            myBtn.innerHTML = `
+                <div class="rounded-circle d-flex align-items-center justify-content-center text-white me-3"
+                     style="width:42px;height:42px;background:rgba(255,255,255,0.2);">
+                    <i class="bi bi-person-fill" style="font-size:1.2rem;"></i>
+                </div>
+                <div class="flex-grow-1">
+                    <div class="fw-bold text-white" style="font-size:0.9rem;">งานของฉัน</div>
+                    <div class="text-white-50" style="font-size:0.72rem;">ID ${myItem.id_from}–${myItem.id_to} · ${myItem.done||0}/${myItem.total||0} แปลง · ${myItem.pct||0}%</div>
+                </div>
+                <i class="bi bi-chevron-right text-white ms-2" style="font-size:1.1rem;"></i>
+            `;
+            myBtn.onclick = () => {
+                modal.hide();
+                window.location.href = `./${subPath}/index.html?tb=${tb}&id_from=${myItem.id_from}&id_to=${myItem.id_to}&assignee=${encodeURIComponent(myItem.assignee_name)}`;
+            };
+            listEl.appendChild(myBtn);
+        }
+
+        // "ดูทั้งหมด" ปุ่ม
         const allOption = document.createElement('button');
-        allOption.className = `btn btn-item-premium w-100 text-start d-flex align-items-center mb-2 px-3 py-2 rounded-card-premium transition-all border-0 shadow-sm`;
-        allOption.style.borderRadius = '15px';
-        allOption.style.background = 'linear-gradient(135deg, #ffffff, #f9fbf9)';
+        allOption.className = `btn btn-item-premium w-100 text-start d-flex align-items-center mb-2 px-3 py-2 border-0 shadow-sm`;
+        allOption.style.cssText = 'border-radius:15px; background:linear-gradient(135deg,#ffffff,#f9fbf9);';
         allOption.innerHTML = `
             <div class="d-flex align-items-center w-100">
-                <div class="rounded-circle d-flex align-items-center justify-content-center text-white me-3" 
-                     style="width: 42px; height: 42px; background: linear-gradient(135deg, #6b9c75, #4a7c59); box-shadow: 0 4px 10px rgba(74, 124, 89, 0.2);">
-                    <i class="bi bi-people-fill" style="font-size: 1.2rem;"></i>
+                <div class="rounded-circle d-flex align-items-center justify-content-center text-white me-3"
+                     style="width:42px;height:42px;background:linear-gradient(135deg,#6b9c75,#4a7c59);">
+                    <i class="bi bi-people-fill" style="font-size:1.2rem;"></i>
                 </div>
                 <div class="flex-grow-1">
                     <div class="d-flex justify-content-between align-items-end">
-                        <div class="fw-bold" style="color: #2d3e2d;">ดูทั้งหมด</div>
-                        <div class="small fw-bold" style="color: #4a7c59; font-size: 0.85rem;">${totalPct}%</div>
+                        <div class="fw-bold" style="color:#2d3e2d;">ดูทั้งหมด</div>
+                        <div class="small fw-bold" style="color:#4a7c59;">${totalPct}%</div>
                     </div>
-                    <div class="progress mt-1 mb-1" style="height: 6px; border-radius: 10px; background-color: rgba(74, 124, 89, 0.1);">
-                        <div class="progress-bar" role="progressbar" style="width: ${totalPct}%; background: #5ea36a; border-radius: 10px;" 
-                             aria-valuenow="${totalPct}" aria-valuemin="0" aria-valuemax="100"></div>
+                    <div class="progress mt-1 mb-1" style="height:6px;border-radius:10px;background:rgba(74,124,89,0.1);">
+                        <div class="progress-bar" style="width:${totalPct}%;background:#5ea36a;border-radius:10px;"></div>
                     </div>
-                    <div class="small" style="color: #6a8c6a; font-size: 0.75rem;">ความคืบหน้าภาพรวม (${totalDone}/${totalTotal} แปลง)</div>
+                    <div class="small" style="color:#6a8c6a;font-size:0.75rem;">ภาพรวม (${totalDone}/${totalTotal} แปลง)</div>
                 </div>
             </div>
-            <i class="bi bi-chevron-right ms-2" style="color: #4a7c59; font-size: 1.1rem;"></i>
+            <i class="bi bi-chevron-right ms-2" style="color:#4a7c59;font-size:1.1rem;"></i>
         `;
-        allOption.onclick = () => {
-            modal.hide();
-            window.location.href = `./${targetType === 'reshape' ? 'reshape' : 'reclassdash'}/index.html?tb=${tb}&view=all`;
-        };
+        allOption.onclick = () => { modal.hide(); window.location.href = `./${subPath}/index.html?tb=${tb}&view=all`; };
         listEl.appendChild(allOption);
 
         data.forEach(item => {
-            const isMe = myName && item.assignee_name.toLowerCase().includes(myName.toLowerCase());
+            const isMe = myEmail && item.assignee_email && item.assignee_email.toLowerCase() === myEmail;
             const btn = document.createElement('button');
-            btn.className = `btn ${isMe ? 'btn-primary-premium' : 'btn-item-premium'} w-100 text-start d-flex align-items-center mb-2 px-3 py-2 rounded-card-premium transition-all border-0 shadow-sm`;
-            btn.style.borderRadius = '15px';
-            if (isMe) {
-                btn.style.background = 'linear-gradient(135deg, #5ea36a, #4a7c59)';
-                btn.style.boxShadow = '0 6px 15px rgba(74, 124, 89, 0.25)';
-            } else {
-                btn.style.background = '#ffffff';
-            }
+            btn.className = `btn w-100 text-start d-flex align-items-center mb-2 px-3 py-2 border-0 shadow-sm`;
+            btn.style.cssText = `border-radius:15px; background:${isMe ? 'linear-gradient(135deg,#5ea36a,#4a7c59)' : '#ffffff'}; ${isMe ? 'box-shadow:0 6px 15px rgba(74,124,89,0.25);' : ''}`;
 
             const avatarHtml = item.assignee_photo
-                ? `<img src="${item.assignee_photo}" referrerpolicy="no-referrer" class="rounded-circle me-3" style="width: 42px; height: 42px; object-fit: cover; border: 2px solid ${isMe ? 'rgba(255,255,255,0.6)' : '#f1f7f1'}" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(item.assignee_name)}&background=E9F5EC&color=2e7d32&rounded=true';">`
-                : `<img src="https://ui-avatars.com/api/?name=${encodeURIComponent(item.assignee_name)}&background=E9F5EC&color=2e7d32&rounded=true" class="rounded-circle me-3" style="width: 42px; height: 42px; object-fit: cover; border: 2px solid ${isMe ? 'rgba(255,255,255,0.6)' : '#f1f7f1'};">`;
+                ? `<img src="${item.assignee_photo}" referrerpolicy="no-referrer" class="rounded-circle me-3" style="width:42px;height:42px;object-fit:cover;border:2px solid ${isMe ? 'rgba(255,255,255,0.6)' : '#f1f7f1'}" onerror="this.onerror=null;this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(item.assignee_name)}&background=E9F5EC&color=2e7d32&rounded=true';">`
+                : `<img src="https://ui-avatars.com/api/?name=${encodeURIComponent(item.assignee_name)}&background=E9F5EC&color=2e7d32&rounded=true" class="rounded-circle me-3" style="width:42px;height:42px;object-fit:cover;border:2px solid ${isMe ? 'rgba(255,255,255,0.6)' : '#f1f7f1'};">`;
+
+            const emailLine = item.assignee_email
+                ? `<div class="small ${isMe ? 'text-white-50' : 'text-muted'}" style="font-size:0.68rem;">${item.assignee_email}</div>`
+                : '';
 
             btn.innerHTML = `
                 <div class="d-flex align-items-center w-100">
                     ${avatarHtml}
                     <div class="flex-grow-1">
                         <div class="d-flex justify-content-between align-items-center">
-                            <div class="fw-bold ${isMe ? 'text-white' : ''}" style="${!isMe ? 'color: #2d3e2d;' : ''}">
-                                ${item.assignee_name} 
-                                ${isMe ? '<span class="badge bg-white text-success ms-1" style="font-size: 0.65rem; vertical-align: middle; padding: 2px 6px; border-radius: 8px;">คุณ</span>' : ''}
+                            <div>
+                                <span class="fw-bold ${isMe ? 'text-white' : ''}" style="${!isMe ? 'color:#2d3e2d;' : ''}">
+                                    ${item.assignee_name}
+                                    ${isMe ? '<span class="badge bg-white text-success ms-1" style="font-size:0.65rem;padding:2px 6px;border-radius:8px;">คุณ</span>' : ''}
+                                </span>
+                                ${emailLine}
                             </div>
-                            <div class="small fw-bold ${isMe ? 'text-white' : ''}" style="${!isMe ? 'color: #4a7c59;' : ''} font-size: 0.85rem;">${item.pct || 0}%</div>
+                            <div class="small fw-bold ${isMe ? 'text-white' : ''}" style="${!isMe ? 'color:#4a7c59;' : ''}font-size:0.85rem;">${item.pct || 0}%</div>
                         </div>
-                        <div class="progress mt-1 mb-1" style="height: 4px; border-radius: 10px; background-color: ${isMe ? 'rgba(255,255,255,0.2)' : 'rgba(74, 124, 89, 0.08)'};">
-                            <div class="progress-bar" role="progressbar" style="width: ${item.pct || 0}%; background: ${isMe ? '#fff' : '#5ea36a'}; border-radius: 10px;" 
-                                 aria-valuenow="${item.pct || 0}" aria-valuemin="0" aria-valuemax="100"></div>
+                        <div class="progress mt-1 mb-1" style="height:4px;border-radius:10px;background:${isMe ? 'rgba(255,255,255,0.2)' : 'rgba(74,124,89,0.08)'};">
+                            <div class="progress-bar" style="width:${item.pct || 0}%;background:${isMe ? '#fff' : '#5ea36a'};border-radius:10px;"></div>
                         </div>
-                        <div class="d-flex justify-content-between small ${isMe ? 'text-white-50' : 'text-muted'}" style="font-size: 0.7rem;">
+                        <div class="d-flex justify-content-between small ${isMe ? 'text-white-50' : 'text-muted'}" style="font-size:0.7rem;">
                             <span>ID: ${item.id_from}-${item.id_to}</span>
                             <span>เสร็จแล้ว ${item.done || 0}/${item.total || 0}</span>
                         </div>
                     </div>
                 </div>
-                <i class="bi bi-chevron-right ms-2" style="${isMe ? 'color: rgba(255,255,255,0.8);' : 'color: #4a7c59;'} font-size: 1.1rem;"></i>
+                <i class="bi bi-chevron-right ms-2" style="${isMe ? 'color:rgba(255,255,255,0.8);' : 'color:#4a7c59;'}font-size:1.1rem;"></i>
             `;
             btn.onclick = () => {
                 modal.hide();
-                const url = targetType === 'reshape'
-                    ? `./reshape/index.html?tb=${tb}&id_from=${item.id_from}&id_to=${item.id_to}&assignee=${encodeURIComponent(item.assignee_name)}`
-                    : `./reclassdash/index.html?tb=${tb}&id_from=${item.id_from}&id_to=${item.id_to}&assignee=${encodeURIComponent(item.assignee_name)}`;
+                const url = `./${subPath}/index.html?tb=${tb}&id_from=${item.id_from}&id_to=${item.id_to}&assignee=${encodeURIComponent(item.assignee_name)}`;
                 window.location.href = url;
             };
             listEl.appendChild(btn);
@@ -484,6 +521,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const res = await fetch('/rub/auth/me');
         const { user } = await res.json();
 
+        window.currentUser = user || null;
         document.getElementById('chkLogin').value = user ? 'true' : 'false';
 
         if (user) {
@@ -497,6 +535,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 this.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName)}&background=E9F5EC&color=2e7d32&rounded=true`;
             };
             document.getElementById('display-name').textContent = user.displayName;
+
+            // แสดง role badge
+            const roleBadgeColors = { admin: '#dc3545', worker: '#198754' };
+            const roleEl = document.createElement('span');
+            roleEl.className = 'badge ms-2';
+            roleEl.style.cssText = `background:${roleBadgeColors[user.role] || '#198754'};font-size:0.65rem;vertical-align:middle;`;
+            roleEl.textContent = user.role || 'worker';
+            document.getElementById('display-name').after(roleEl);
 
             document.getElementById('logout-link').addEventListener('click', async (e) => {
                 e.preventDefault();

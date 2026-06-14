@@ -38,7 +38,7 @@ passport.serializeUser((user, done) => {
 passport.deserializeUser(async (id, done) => {
     try {
         const { rows } = await pool.query(
-            'SELECT id, google_id, display_name, email, photo FROM users WHERE id = $1',
+            'SELECT id, google_id, display_name, email, photo, role FROM users WHERE id = $1',
             [id]
         );
         done(null, rows[0] || null);
@@ -103,25 +103,44 @@ app.get('/auth/callback',
                 console.warn('[AUTH FAILED]', info);
                 return res.redirect('/rub/index.html');
             }
-            req.logIn(user, (loginErr) => {
+            req.logIn(user, async (loginErr) => {
                 if (loginErr) {
                     console.error('[LOGIN ERROR]', loginErr);
                     return res.status(500).send(`Login error: ${loginErr.message}`);
                 }
+                // Fetch latest role from DB (may have changed since last login)
+                const { rows: roleRows } = await pool.query(
+                    'SELECT role FROM users WHERE id = $1', [user.id]
+                );
+                const userRole = roleRows[0]?.role || 'worker';
                 req.session.user = {
                     id: user.id,
                     displayName: user.displayName,
                     email: user.email,
                     photo: user.photo,
+                    role: userRole,
                 };
+                // Auto-link task_assignments ที่ assign ด้วยอีเมลนี้ กับ user_id จริงๆ
+                if (user.email) {
+                    pool.query(
+                        `UPDATE task_assignments SET user_id = $1
+                         WHERE LOWER(assignee_email) = LOWER($2) AND user_id IS NULL`,
+                        [user.id, user.email]
+                    ).catch(e => console.error('[AUTOLINK]', e.message));
+                }
                 return res.redirect('/rub/index.html');
             });
         })(req, res, next);
     }
 );
 
-app.get('/auth/me', (req, res) => {
+app.get('/auth/me', async (req, res) => {
     if (!req.session.user) return res.json({ user: null });
+    // Always fetch latest role from DB so changes take effect immediately
+    try {
+        const { rows } = await pool.query('SELECT role FROM users WHERE id=$1', [req.session.user.id]);
+        if (rows[0]) req.session.user.role = rows[0].role;
+    } catch (_) {}
     res.json({ user: req.session.user });
 });
 

@@ -5,7 +5,10 @@
    3) "มอบหมายงาน"  → assign ID ranges to team members
 ================================================================ */
 
-/* ── Initialise logged-in users list ── */
+const ROLE_LABELS = { admin: 'Admin', worker: 'Worker' };
+const ROLE_COLORS = { admin: 'danger', worker: 'success' };
+
+/* ── Initialise logged-in users list with role management ── */
 const initUser = async () => {
     try {
         const response = await fetch(`/rub/api/users`);
@@ -15,9 +18,15 @@ const initUser = async () => {
         usersDiv.innerHTML = '';
 
         result.forEach(item => {
+            const panel = document.createElement('div');
+            panel.className = 'alert alert-success d-flex align-items-center justify-content-between mb-2 py-2';
+
+            const leftDiv = document.createElement('div');
+            leftDiv.className = 'd-flex align-items-center gap-2';
+
             const img = document.createElement('img');
-            img.className = 'rounded-circle me-2';
-            img.style = 'width: 32px; height: 32px; object-fit: cover';
+            img.className = 'rounded-circle';
+            img.style = 'width: 32px; height: 32px; object-fit: cover; flex-shrink: 0;';
             img.referrerPolicy = "no-referrer";
             img.src = item.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.display_name)}&background=E9F5EC&color=2e7d32&rounded=true`;
             img.onerror = function() {
@@ -25,14 +34,42 @@ const initUser = async () => {
                 this.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(item.display_name)}&background=E9F5EC&color=2e7d32&rounded=true`;
             };
 
-            const panel = document.createElement('div');
-            panel.className = 'alert alert-dismissible alert-success';
+            const infoDiv = document.createElement('div');
+            infoDiv.innerHTML = `
+                <div class="fw-bold" style="font-size:0.85rem;">${item.display_name}</div>
+                <div class="text-muted" style="font-size:0.72rem;">${item.email || ''}</div>
+            `;
 
-            const username = document.createElement('span');
-            username.innerHTML = `&nbsp;&nbsp;<strong>${item.display_name}</strong>`;
+            leftDiv.appendChild(img);
+            leftDiv.appendChild(infoDiv);
 
-            panel.appendChild(img);
-            panel.appendChild(username);
+            const roleSelect = document.createElement('select');
+            roleSelect.className = `form-select form-select-sm role-select`;
+            roleSelect.style = 'width: auto; font-size: 0.75rem;';
+            roleSelect.dataset.userId = item.id;
+            ['worker', 'admin'].forEach(r => {
+                const opt = document.createElement('option');
+                opt.value = r;
+                opt.textContent = ROLE_LABELS[r];
+                if (item.role === r) opt.selected = true;
+                roleSelect.appendChild(opt);
+            });
+            roleSelect.addEventListener('change', async function() {
+                const newRole = this.value;
+                try {
+                    const res = await fetch(`/rub/api/users/${item.id}/role`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ role: newRole })
+                    });
+                    const data = await res.json();
+                    if (!data.success) { alert('เปลี่ยน role ไม่สำเร็จ'); this.value = item.role; }
+                    else item.role = newRole;
+                } catch (e) { alert('เกิดข้อผิดพลาด'); this.value = item.role; }
+            });
+
+            panel.appendChild(leftDiv);
+            panel.appendChild(roleSelect);
             usersDiv.appendChild(panel);
         });
     } catch (error) {
@@ -681,32 +718,37 @@ async function openAssignModal(tb_name) {
     assignModal.show();
 }
 
-/* ── Render assignee picker จาก users table ── */
-function renderAssigneePicker(selectedName) {
+/* ── Render assignee picker จาก users table (ใช้ email เป็นตัวระบุ) ── */
+function renderAssigneePicker(selectedEmail) {
     const picker = document.getElementById('assigneePicker');
     picker.innerHTML = '';
 
     if (allUsers.length === 0) {
-        picker.innerHTML = '<small class="text-muted">ไม่มีผู้ใช้ในระบบ (ใช้ช่องพิมพ์ด้านล่างแทน)</small>';
+        picker.innerHTML = '<small class="text-muted">ยังไม่มีผู้ใช้ login เข้าระบบ</small>';
         return;
     }
 
     allUsers.forEach(u => {
         const chip = document.createElement('div');
         chip.className = 'assignee-chip';
-        if (selectedName === u.display_name) chip.classList.add('selected');
-        chip.dataset.name = u.display_name;
-        chip.dataset.photo = u.photo || '';
+        if (selectedEmail && u.email === selectedEmail) chip.classList.add('selected');
+        chip.dataset.email = u.email || '';
+        chip.dataset.userId = u.id;
+        const avatarSrc = u.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.display_name)}&background=E9F5EC&color=2e7d32&rounded=true`;
         chip.innerHTML = `
-            <img src="${u.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.display_name)}&background=E9F5EC&color=2e7d32&rounded=true`}" referrerpolicy="no-referrer" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(u.display_name)}&background=E9F5EC&color=2e7d32&rounded=true'">
-            <span>${u.display_name}</span>
+            <img src="${avatarSrc}" referrerpolicy="no-referrer" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(u.display_name)}&background=E9F5EC&color=2e7d32&rounded=true'">
+            <div style="line-height:1.2; text-align:center;">
+                <div style="font-size:0.78rem; font-weight:600;">${u.display_name}</div>
+                <div style="font-size:0.65rem; color:#6a8c6a;">${u.email || ''}</div>
+            </div>
         `;
         chip.addEventListener('click', () => {
             document.querySelectorAll('.assignee-chip').forEach(c => c.classList.remove('selected'));
             chip.classList.add('selected');
             document.getElementById('assign_name').value = u.display_name;
+            document.getElementById('assign_email').value = u.email || '';
+            document.getElementById('assign_user_id').value = u.id;
             document.getElementById('assign_photo').value = u.photo || '';
-            document.getElementById('assign_name_manual').value = '';
         });
         picker.appendChild(chip);
     });
@@ -716,15 +758,73 @@ function renderAssigneePicker(selectedName) {
 function resetAssignForm() {
     document.getElementById('assign_id').value = '';
     document.getElementById('assign_name').value = '';
+    document.getElementById('assign_email').value = '';
+    document.getElementById('assign_user_id').value = '';
     document.getElementById('assign_photo').value = '';
-    document.getElementById('assign_name_manual').value = '';
     document.getElementById('assign_id_from').value = '';
     document.getElementById('assign_id_to').value = '';
     document.getElementById('assign_note').value = '';
+    document.getElementById('assign_email_input').value = '';
+    document.getElementById('emailLookupResult').innerHTML = '';
     document.getElementById('assignFormTitle').innerHTML = '<i class="bi bi-plus-circle me-1"></i>เพิ่มการมอบหมายงานใหม่';
     document.getElementById('btnCancelAssignEdit').style.display = 'none';
     document.querySelectorAll('.assignee-chip').forEach(c => c.classList.remove('selected'));
 }
+
+/* ── ฟังก์ชัน: เลือก assignee จาก email (ทั้ง lookup และ manual) ── */
+function selectAssigneeByEmail(email) {
+    const resultEl = document.getElementById('emailLookupResult');
+    if (!email) { resultEl.innerHTML = ''; return; }
+
+    // ค้นหาใน allUsers ก่อน
+    const found = allUsers.find(u => u.email && u.email.toLowerCase() === email.toLowerCase());
+
+    if (found) {
+        // มีใน DB → เลือก chip + fill hidden fields
+        document.querySelectorAll('.assignee-chip').forEach(c => c.classList.remove('selected'));
+        const chip = document.querySelector(`.assignee-chip[data-email="${found.email}"]`);
+        if (chip) chip.classList.add('selected');
+
+        document.getElementById('assign_name').value = found.display_name;
+        document.getElementById('assign_email').value = found.email;
+        document.getElementById('assign_user_id').value = found.id;
+        document.getElementById('assign_photo').value = found.photo || '';
+
+        resultEl.innerHTML = `
+            <span class="text-success">
+                <i class="bi bi-check-circle-fill me-1"></i>พบในระบบ: <strong>${found.display_name}</strong>
+            </span>`;
+    } else {
+        // ยังไม่เคย Login → ใช้อีเมลเป็นชื่อ (จะ link ตอน Login ครั้งแรก)
+        document.querySelectorAll('.assignee-chip').forEach(c => c.classList.remove('selected'));
+        const namePart = email.split('@')[0];
+        document.getElementById('assign_name').value = namePart;
+        document.getElementById('assign_email').value = email;
+        document.getElementById('assign_user_id').value = '';
+        document.getElementById('assign_photo').value = '';
+
+        resultEl.innerHTML = `
+            <span class="text-warning">
+                <i class="bi bi-exclamation-circle-fill me-1"></i>ยังไม่เคย Login — จะใช้ชื่อ <strong>${namePart}</strong> และ link อัตโนมัติเมื่อ Login ครั้งแรก
+            </span>`;
+    }
+}
+
+/* ── Event: กดปุ่ม Lookup ── */
+document.getElementById('btnLookupEmail').addEventListener('click', () => {
+    const email = document.getElementById('assign_email_input').value.trim();
+    if (!email) { document.getElementById('emailLookupResult').innerHTML = '<span class="text-danger">กรุณากรอกอีเมล</span>'; return; }
+    selectAssigneeByEmail(email);
+});
+
+/* ── Event: กด Enter ในช่อง email ── */
+document.getElementById('assign_email_input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        const email = e.target.value.trim();
+        if (email) selectAssigneeByEmail(email);
+    }
+});
 
 /* ── แสดงรายการ assignments ── */
 async function renderAssignmentList(tb_name) {
@@ -860,8 +960,9 @@ async function renderAssignmentList(tb_name) {
 
                 document.getElementById('assign_id').value = d.id;
                 document.getElementById('assign_name').value = d.assignee_name;
+                document.getElementById('assign_email').value = d.assignee_email || '';
+                document.getElementById('assign_user_id').value = d.user_id || '';
                 document.getElementById('assign_photo').value = d.assignee_photo || '';
-                document.getElementById('assign_name_manual').value = '';
                 document.getElementById('assign_id_from').value = d.id_from;
                 document.getElementById('assign_id_to').value = d.id_to;
                 document.getElementById('assign_note').value = d.note || '';
@@ -869,8 +970,8 @@ async function renderAssignmentList(tb_name) {
                     '<i class="bi bi-pencil-fill me-1"></i>แก้ไขการมอบหมายงาน';
                 document.getElementById('btnCancelAssignEdit').style.display = 'inline-flex';
 
-                // Highlight chip
-                renderAssigneePicker(d.assignee_name);
+                // Highlight chip by email
+                renderAssigneePicker(d.assignee_email || null);
 
                 // Scroll to form
                 document.getElementById('assignFormCard').scrollIntoView({ behavior: 'smooth' });
@@ -909,17 +1010,22 @@ async function renderAssignmentList(tb_name) {
 document.getElementById('btnSaveAssign').addEventListener('click', async () => {
     const assignId = document.getElementById('assign_id').value;
     const tb_name = document.getElementById('assign_tb_name').value;
-    let name = document.getElementById('assign_name').value.trim();
-    const nameManual = document.getElementById('assign_name_manual').value.trim();
+    const name = document.getElementById('assign_name').value.trim();
+    const email = document.getElementById('assign_email').value.trim();
+    const userId = document.getElementById('assign_user_id').value.trim();
     const photo = document.getElementById('assign_photo').value.trim();
     const id_from = document.getElementById('assign_id_from').value;
     const id_to = document.getElementById('assign_id_to').value;
     const note = document.getElementById('assign_note').value.trim();
 
-    // ถ้าพิมพ์ชื่อเองให้ใช้
-    if (!name && nameManual) name = nameManual;
-
-    if (!name) { alert('กรุณาเลือกหรือพิมพ์ชื่อผู้รับผิดชอบ'); return; }
+    // ถ้ายังไม่ได้เลือก → ลองดึงจากช่องพิมพ์อีเมลก่อน save
+    if (!email) {
+        const typedEmail = document.getElementById('assign_email_input').value.trim();
+        if (typedEmail) { selectAssigneeByEmail(typedEmail); }
+    }
+    const finalName = document.getElementById('assign_name').value.trim();
+    const finalEmail = document.getElementById('assign_email').value.trim();
+    if (!finalName || !finalEmail) { alert('กรุณาเลือกผู้รับผิดชอบ หรือพิมพ์อีเมลแล้วกดค้นหา'); return; }
     if (!id_from || !id_to) { alert('กรุณากรอก ID เริ่มต้น และ ID สิ้นสุด'); return; }
     if (parseInt(id_from) > parseInt(id_to)) { alert('ID เริ่มต้นต้องไม่มากกว่า ID สิ้นสุด'); return; }
 
@@ -929,19 +1035,21 @@ document.getElementById('btnSaveAssign').addEventListener('click', async () => {
 
     try {
         let res;
+        const finalUserId = document.getElementById('assign_user_id').value.trim();
+        const finalPhoto = document.getElementById('assign_photo').value.trim();
+        const payload = { assignee_name: finalName, assignee_email: finalEmail, assignee_photo: finalPhoto,
+                          user_id: finalUserId || null, id_from, id_to, note };
         if (assignId) {
-            // Update
             res = await fetch(`/rub/api/task-assignments/${assignId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ assignee_name: name, assignee_photo: photo, id_from, id_to, note })
+                body: JSON.stringify(payload)
             });
         } else {
-            // Create
             res = await fetch(`/rub/api/task-assignments`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ tb_name, assignee_name: name, assignee_photo: photo, id_from, id_to, note })
+                body: JSON.stringify({ tb_name, ...payload })
             });
         }
         const result = await res.json();
@@ -1347,36 +1455,45 @@ ${tableHtml}
     win.document.close();
 });
 
-/* ── Bootstrap DOMContentLoaded: auth check → init ── */
+/* ── Bootstrap DOMContentLoaded: auth check → role guard → init ── */
 document.addEventListener('DOMContentLoaded', async () => {
     try {
         const res = await fetch('/rub/auth/me');
         const { user } = await res.json();
 
-        document.getElementById('chkLogin').value = user ? 'true' : 'false';
-
-        if (user) {
-            document.getElementById('google-login-link').style.display = 'none';
-            document.getElementById('profile-section').style.display = 'flex';
-            const profileImg = document.getElementById('profile-image');
-            profileImg.referrerPolicy = "no-referrer";
-            profileImg.src = user.photo;
-            profileImg.onerror = function() {
-                this.onerror = null;
-                this.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName)}&background=E9F5EC&color=2e7d32&rounded=true`;
-            };
-            document.getElementById('display-name').textContent = user.displayName;
-
-            document.getElementById('logout-link').addEventListener('click', async (e) => {
-                e.preventDefault();
-                try {
-                    await fetch('/rub/auth/logout');
-                    window.location.reload();
-                } catch (err) {
-                    console.error('Logout failed:', err);
-                }
-            });
+        if (!user) {
+            alert('กรุณา Login ก่อนเข้าใช้งานหน้า Admin');
+            window.location.href = '/rub/index.html';
+            return;
         }
+
+        if (user.role !== 'admin') {
+            alert(`คุณไม่มีสิทธิ์เข้าถึงหน้านี้ (Role: ${user.role || 'worker'})\nหน้านี้สำหรับ Admin เท่านั้น`);
+            window.location.href = '/rub/index.html';
+            return;
+        }
+
+        document.getElementById('chkLogin').value = 'true';
+        document.getElementById('google-login-link').style.display = 'none';
+        document.getElementById('profile-section').style.display = 'flex';
+        const profileImg = document.getElementById('profile-image');
+        profileImg.referrerPolicy = "no-referrer";
+        profileImg.src = user.photo;
+        profileImg.onerror = function() {
+            this.onerror = null;
+            this.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName)}&background=E9F5EC&color=2e7d32&rounded=true`;
+        };
+        document.getElementById('display-name').textContent = user.displayName;
+
+        document.getElementById('logout-link').addEventListener('click', async (e) => {
+            e.preventDefault();
+            try {
+                await fetch('/rub/auth/logout');
+                window.location.href = '/rub/index.html';
+            } catch (err) {
+                console.error('Logout failed:', err);
+            }
+        });
 
         await loadUsersCache();
         await initApp();

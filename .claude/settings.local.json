@@ -30,7 +30,12 @@
       "PowerShell(docker exec rub_postgis psql -U postgres -d rub2 -c \"SELECT indexname, indexdef FROM pg_indexes WHERE tablename='shpall';\" 2>&1)",
       "PowerShell($r = Invoke-WebRequest -Uri \"http://localhost:3400/rub/api/shpall/test?bbox=100.1,16.8,100.5,17.2\" -UseBasicParsing -TimeoutSec 30; $data = $r.Content | ConvertFrom-Json; Write-Host \"success=$\\($data.success\\) features=$\\($data.features.Count\\)\")",
       "Bash(Remove-Item \"f:\\\\file_D\\\\Kanyapat\\\\web_yang\\\\new_engrids_rubberv2\\\\engrids_rubber\\\\backup\\\\entrypoint.sh\" -ErrorAction SilentlyContinue)",
-      "Bash(curl -s -o /dev/null -w \"%{redirect_url}\" \"http://localhost:3400/rub/auth/google\")"
+      "Bash(curl -s -o /dev/null -w \"%{redirect_url}\" \"http://localhost:3400/rub/auth/google\")",
+      "Bash(python -m json.tool)",
+      "Bash(docker-compose down *)",
+      "Bash(docker-compose up *)",
+      "Bash(docker-compose logs *)",
+      "Bash(docker restart *)"
     ]
   }
 }

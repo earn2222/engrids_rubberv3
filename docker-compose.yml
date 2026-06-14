@@ -7,7 +7,7 @@ services:
     environment:
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
-      - POSTGRES_DB=postgres
+      - POSTGRES_DB=${DB_NAME}
     ports:
       - "${DB_PORT}:5432"
     volumes:
@@ -36,13 +36,12 @@ services:
     depends_on:
       - postgis
     volumes:
-      - ./nodejs:/usr/src/app
-      - /usr/src/app/node_modules
+      - uploads_data:/usr/src/app/uploads
     ports:
       - "3400:3000"
     networks:
       - rub-network
-    command: sh -c "npm i -g nodemon && npm install && nodemon server.js"
+    command: sh -c "nodemon server.js"
 
   backup:
     build: ./backup
@@ -75,3 +74,4 @@ networks:
 
 volumes:
   pgdata:
+  uploads_data:
