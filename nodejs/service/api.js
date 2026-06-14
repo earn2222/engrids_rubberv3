@@ -3370,5 +3370,55 @@ app.get('/api/worker-summary/:tb', async (req, res) => {
     }
 });
 
+/* GET /api/checker-summary/:tb
+   สรุปงานตรวจ (reviewer) ต่อคนใน table เดียว */
+app.get('/api/checker-summary/:tb', async (req, res) => {
+    try {
+        const tb = req.params.tb.toLowerCase();
+        if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tb)) {
+            return res.status(400).json({ error: 'Invalid table name' });
+        }
+
+        const usersRes = await pool.query(`SELECT display_name, photo FROM users`);
+        const photoMap = {};
+        usersRes.rows.forEach(u => { photoMap[u.display_name] = u.photo; });
+
+        const reclassExists = await pool.query(
+            `SELECT EXISTS(SELECT 1 FROM information_schema.tables
+              WHERE table_schema='public' AND table_name=$1)`,
+            [`reclass_${tb}`]
+        );
+        if (!reclassExists.rows[0].exists) {
+            return res.json({ success: true, data: [] });
+        }
+
+        await ensureReclassReviewColumns(tb);
+
+        const { rows } = await pool.query(`
+            SELECT reviewer,
+                COUNT(*) AS sub_plot_count,
+                COUNT(DISTINCT id) AS farmer_count,
+                ROUND(COALESCE(SUM(shpsplit_sqm), 0)::numeric, 2) AS total_sqm
+            FROM reclass_${tb}
+            WHERE reviewer IS NOT NULL AND reviewer != ''
+            GROUP BY reviewer
+            ORDER BY total_sqm DESC
+        `);
+
+        const data = rows.map(r => ({
+            reviewer: r.reviewer,
+            photo: photoMap[r.reviewer] || null,
+            sub_plot_count: parseInt(r.sub_plot_count),
+            farmer_count: parseInt(r.farmer_count),
+            ...toAreaObj(r.total_sqm)
+        }));
+
+        res.json({ success: true, data });
+    } catch (err) {
+        console.error('[CHECKER-SUMMARY]', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 module.exports = app;
 

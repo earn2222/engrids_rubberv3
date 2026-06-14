@@ -1079,6 +1079,23 @@ a:hover {
     color: #fff !important;
 }
 
+.btn-checker-pay {
+    background: linear-gradient(135deg, #29b6f6, #0277bd) !important;
+    border: none !important;
+    color: #fff !important;
+    font-weight: 600;
+    font-size: 0.82rem;
+    border-radius: 8px;
+    padding: 6px 14px;
+    transition: all 0.22s ease;
+}
+.btn-checker-pay:hover {
+    background: linear-gradient(135deg, #4fc3f7, #01579b) !important;
+    box-shadow: 0 4px 14px rgba(2, 119, 189, 0.3) !important;
+    transform: translateY(-1px);
+    color: #fff !important;
+}
+
 /* Rate bar */
 .payment-rate-bar {
     background: linear-gradient(135deg, #fff8e1, #fff3e0);

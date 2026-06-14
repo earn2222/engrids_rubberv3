@@ -228,6 +228,8 @@ body {
     font-weight: 800;
     color: #1a1a1a;
     line-height: 1;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .current-val small {
@@ -280,6 +282,8 @@ body {
 
 .x-small {
     font-size: 0.75rem;
+    min-width: 0;
+    word-break: break-word;
 }
 
 /* ===== Buttons ===== */

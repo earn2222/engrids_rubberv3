@@ -377,6 +377,52 @@
         </div>
     </div>
 
+    <!-- ═══════════════════════════════════════════════════════
+         MODAL 6: คำนวณค่าจ้างคนตรวจ (Checker Payment per layer)
+    ═══════════════════════════════════════════════════════ -->
+    <div class="modal fade" id="checkerPaymentModal" tabindex="-1" aria-labelledby="checkerPaymentModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header" style="background:linear-gradient(135deg,#0288d1,#01579b); color:#fff;">
+                    <h5 class="modal-title f" id="checkerPaymentModalLabel">
+                        <i class="bi bi-shield-check me-2"></i>สรุปค่าจ้างคนตรวจ (Checker)
+                        <span class="ms-2 badge bg-light text-dark" id="checkerPayModalTbBadge"></span>
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Rate setting -->
+                    <div class="payment-rate-bar d-flex align-items-center gap-2 flex-wrap mb-4" style="background:linear-gradient(135deg,#e1f5fe,#b3e5fc); border-color:#81d4fa;">
+                        <i class="bi bi-shield-check payment-rate-icon" style="color:#0288d1;"></i>
+                        <label class="fw-bold mb-0" style="white-space:nowrap;">อัตราค่าตรวจ</label>
+                        <input type="number" id="chk_rate_rai" class="form-control payment-rate-input"
+                            value="1" min="0" step="0.01" placeholder="1">
+                        <select id="chk_unit" class="form-select form-select-sm" style="max-width:160px;">
+                            <option value="rai">บาท / ไร่</option>
+                            <option value="plot">บาท / แปลง (ID)</option>
+                            <option value="subplot">บาท / รายการ (sub_id)</option>
+                        </select>
+                        <button class="btn btn-primary btn-sm" id="btnCalcChecker" style="background:#0288d1; border-color:#0288d1;">
+                            <i class="bi bi-calculator me-1"></i>คำนวณ
+                        </button>
+                    </div>
+                    <!-- Summary table -->
+                    <div id="checkerPayTableWrap">
+                        <div class="text-center text-muted py-4">
+                            <div class="spinner-border spinner-border-sm me-2"></div>กำลังโหลดข้อมูล...
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-between">
+                    <button class="btn btn-outline-secondary btn-sm" id="btnPrintChecker">
+                        <i class="bi bi-printer me-1"></i>พิมพ์รายงาน
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Bootstrap JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
         integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"

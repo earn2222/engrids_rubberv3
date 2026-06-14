@@ -84,15 +84,18 @@
                     <div class="collapse show" id="workerQuickCollapse">
                         <div class="card-body pt-1 px-2 pb-2">
                             <!-- Navigation: prev / counter / next ID (hidden until data loads) -->
-                            <div class="d-flex align-items-center gap-1 mb-2" id="workerNavBar" style="display:none !important;">
-                                <button class="btn btn-outline-secondary btn-sm px-2" id="btn-worker-prev" title="ID ก่อนหน้า">
+                            <div class="d-flex align-items-center gap-1 mb-2" id="workerNavBar"
+                                style="display:none !important;">
+                                <button class="btn btn-outline-secondary btn-sm px-2" id="btn-worker-prev"
+                                    title="ID ก่อนหน้า">
                                     <i class="bi bi-chevron-left"></i>
                                 </button>
                                 <span id="worker-nav-count" class="badge bg-light text-dark border px-2 py-1"
                                     style="font-size:0.73rem; min-width:60px; text-align:center; font-family:monospace;">
                                     0 / 0
                                 </span>
-                                <button class="btn btn-outline-secondary btn-sm px-2" id="btn-worker-next" title="ID ถัดไป">
+                                <button class="btn btn-outline-secondary btn-sm px-2" id="btn-worker-next"
+                                    title="ID ถัดไป">
                                     <i class="bi bi-chevron-right"></i>
                                 </button>
                                 <span class="text-muted ms-1" style="font-size:0.72rem;">เลื่อน ID</span>
@@ -104,7 +107,8 @@
                                     <div class="flex-grow-1">
                                         <div class="d-flex align-items-center gap-1 flex-wrap">
                                             <span class="badge bg-primary" id="worker-sel-subid">-</span>
-                                            <span class="text-muted" id="worker-sel-id" style="font-size:0.72rem;"></span>
+                                            <span class="text-muted" id="worker-sel-id"
+                                                style="font-size:0.72rem;"></span>
                                         </div>
                                         <div id="worker-sel-classtype" style="font-size:0.75rem; margin-top:2px;"></div>
                                     </div>
@@ -114,7 +118,8 @@
                                 <textarea class="form-control form-control-sm" id="worker-sel-remark" rows="2"
                                     placeholder="พิมพ์หมายเหตุ หรือแจ้งการแก้ไข..."></textarea>
                                 <div class="d-flex justify-content-end gap-2 mt-1">
-                                    <button class="btn btn-sm btn-outline-danger" id="worker-sel-delete" data-subid="" title="ลบหมายเหตุ">
+                                    <button class="btn btn-sm btn-outline-danger" id="worker-sel-delete" data-subid=""
+                                        title="ลบหมายเหตุ">
                                         <i class="bi bi-trash3-fill"></i>
                                     </button>
                                     <button class="btn btn-sm btn-primary" id="worker-sel-save" data-subid="">
@@ -195,7 +200,7 @@
                                 <div class="row g-2 mb-3">
                                     <div class="col-6">
                                         <div class="area-comparison-card land" style="padding-bottom: 5px;">
-                                            <div class="card-label"><i class="bi bi-geo-alt-fill"></i> ข้อมูลระดับโฉนด
+                                            <div class="card-label"><i class="bi bi-geo-alt-fill"></i> ข้อมูลโฉนด
                                             </div>
                                             <div class="d-flex justify-content-between align-items-end mt-1">
                                                 <span class="x-small fw-bold text-muted">เนื้อที่เป้าหมายโฉนด:</span>
@@ -213,15 +218,15 @@
                                         <div class="area-comparison-card rubber" style="padding-bottom: 5px;">
                                             <div class="card-label" id="rubber-card-label"><i
                                                     class="bi bi-tree-fill"></i> ข้อมูลที่คลาส</div>
-                                            <div class="d-flex justify-content-between align-items-end mt-1"
-                                                id="rubber-target-row" style="display: none !important;">
+                                            <div class="d-flex justify-content-between align-items-end mt-1 d-none"
+                                                id="rubber-target-row">
                                                 <span class="x-small fw-bold text-muted"
                                                     id="rubber-card-target-label">เนื้อที่เป้าหมายยางพารา:</span>
                                                 <div class="current-val m-0"><span id="target-rubber-sqm"
                                                         style="font-size: 1rem;">0</span> <small>m²</small></div>
                                             </div>
-                                            <div class="d-flex justify-content-between align-items-end mt-1"
-                                                id="rubber-current-row" style="display: none !important;">
+                                            <div class="d-flex justify-content-between align-items-end mt-1 d-none"
+                                                id="rubber-current-row">
                                                 <span class="x-small fw-bold text-muted">เนื้อที่ขณะนี้:</span>
                                                 <div class="current-val m-0 text-success"><span id="curr-area-sqm"
                                                         style="font-size: 1rem;">0</span> <small>m²</small></div>
@@ -258,11 +263,14 @@
                                         </div>
 
                                         <!-- Batch actions -->
-                                        <div class="d-flex gap-2 mb-2" id="id-batch-actions" style="display:none !important;">
-                                            <button class="btn btn-outline-success btn-sm flex-grow-1" id="btn-batch-pass">
+                                        <div class="d-flex gap-2 mb-2" id="id-batch-actions"
+                                            style="display:none !important;">
+                                            <button class="btn btn-outline-success btn-sm flex-grow-1"
+                                                id="btn-batch-pass">
                                                 <i class="bi bi-check-all"></i> ผ่านทั้งหมด
                                             </button>
-                                            <button class="btn btn-outline-danger btn-sm flex-grow-1" id="btn-batch-fail">
+                                            <button class="btn btn-outline-danger btn-sm flex-grow-1"
+                                                id="btn-batch-fail">
                                                 <i class="bi bi-x-lg"></i> ไม่ผ่านทั้งหมด
                                             </button>
                                         </div>
@@ -270,7 +278,8 @@
                                         <!-- Shared remark -->
                                         <div class="mb-2" id="id-remark-section" style="display:none;">
                                             <label class="xs-label">หมายเหตุ / ความเห็น</label>
-                                            <textarea class="form-control form-control-sm" id="id-checker-remark" rows="2"
+                                            <textarea class="form-control form-control-sm" id="id-checker-remark"
+                                                rows="2"
                                                 placeholder="พิมพ์ความเห็น (ใช้กับทุก sub_id ของ ID นี้)..."></textarea>
                                         </div>
 
@@ -285,7 +294,8 @@
                                         </div>
 
                                         <!-- Save button -->
-                                        <button class="btn btn-success btn-sm w-100 mt-2" id="btn-save-id-review" style="display:none;">
+                                        <button class="btn btn-success btn-sm w-100 mt-2" id="btn-save-id-review"
+                                            style="display:none;">
                                             <i class="bi bi-floppy-fill me-1"></i> บันทึกผลการตรวจ
                                         </button>
                                     </div>
@@ -297,7 +307,8 @@
                                             <div class="section-title-sm" style="color: #1565c0;">
                                                 <i class="bi bi-chat-dots-fill"></i> ผู้ใช้งาน (User)
                                             </div>
-                                            <span id="user-dirty-badge" class="draft-badge draft-badge-blue" style="display:none;">
+                                            <span id="user-dirty-badge" class="draft-badge draft-badge-blue"
+                                                style="display:none;">
                                                 <i class="bi bi-pencil-fill"></i> ยังไม่บันทึก
                                             </span>
                                         </div>
@@ -388,12 +399,14 @@
             <div class="modal-content">
                 <div class="modal-header" style="background:#0dcaf0; color:#fff;">
                     <h6 class="modal-title">
-                        <i class="bi bi-clock-history me-2"></i>ประวัติการตรวจสอบ — แปลง ID: <span id="history-plot-id">-</span>
+                        <i class="bi bi-clock-history me-2"></i>ประวัติการตรวจสอบ — แปลง ID: <span
+                            id="history-plot-id">-</span>
                     </h6>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-3" id="history-modal-body">
-                    <div class="text-center py-3"><span class="spinner-border spinner-border-sm"></span> กำลังโหลด...</div>
+                    <div class="text-center py-3"><span class="spinner-border spinner-border-sm"></span> กำลังโหลด...
+                    </div>
                 </div>
                 <div class="modal-footer py-2">
                     <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">ปิด</button>
@@ -410,7 +423,8 @@
                     <h6 class="modal-title" id="notePopupTitle">หมายเหตุ</h6>
                     <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body" id="notePopupBody" style="font-size: 0.9rem; word-break: break-word; overflow-wrap: break-word;"></div>
+                <div class="modal-body" id="notePopupBody"
+                    style="font-size: 0.9rem; word-break: break-word; overflow-wrap: break-word;"></div>
                 <div class="modal-footer py-2">
                     <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">ปิด</button>
                 </div>

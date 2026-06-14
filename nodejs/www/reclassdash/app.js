@@ -280,7 +280,6 @@ const focusPlot = (rowData) => {
     // Highlight the newly focused polygon with its classtype color (persistent)
     const layer = findLayerBySubId(subId);
     if (layer) {
-        if (typeof layer.openPopup === 'function') layer.openPopup();
         if (typeof layer.setStyle === 'function') {
             const originalStyle = getFeatureStyle({ properties: rowData });
             _focusedLayer = { layer, originalStyle };
@@ -352,6 +351,49 @@ const _updateWorkerSelectedBanner = (rowData) => {
         const uniqueIds = [...new Set(dt.rows().data().toArray().map(r => String(r.id)))];
         const idx = uniqueIds.indexOf(_currentReviewId);
         $('#worker-nav-count').text(`${idx >= 0 ? idx + 1 : '-'} / ${uniqueIds.length}`);
+    }
+};
+
+// Update only the area info cards (left + right) without rebuilding the checker box
+const _updateAreaCards = (rowData) => {
+    if (!rowData) return;
+
+    const labelMapFull = {
+        'rubber': 'ยางพาราที่ลงทะเบียน', 'not-rubber': 'ยางพาราที่ไม่ได้ลงทะเบียน',
+        'Other': 'ไม่ใช่ยางพารา', 'ex_age_rubber': 'พื้นที่กันออก (ยางพาราต่างอายุ)',
+        'ex_building': 'พื้นที่กันออก (สิ่งปลูกสร้าง)', 'ex_pond': 'พื้นที่กันออก (บ่อน้ำ)',
+        'ex_cr_area': 'พื้นที่กันออก (ถนนคอนกรีต)',
+        'ex_ar_area': 'พื้นที่กันออก (ถนนลาดยาง)',
+        'ex_other': 'พื้นที่กันออก (เพิ่มเติม)'
+    };
+    const colorMapFull = {
+        'rubber': '#006d2c', 'not-rubber': '#9900ff', 'Other': '#ff0004',
+        'ex_age_rubber': '#00ff0d', 'ex_building': '#ff00d4', 'ex_pond': '#00fff2',
+        'ex_cr_area': '#ffff00', 'ex_ar_area': '#00008b', 'ex_other': '#ff9800'
+    };
+    const rdLabel = labelMapFull[rowData.classtype] || 'อื่นๆ';
+    const rdColor = colorMapFull[rowData.classtype] || '#6c757d';
+
+    // Left card: deed data
+    $('#target-land-sqm').text(Number(rowData.deed_sqm || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 }));
+    $('#curr-land-sqm').text(Number(rowData.current_sqm || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 }));
+
+    // Right card: current area
+    $('#curr-area-sqm').text(Number(rowData.shpsplit_sqm || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 }));
+
+    // Classtype badge
+    $('#display-classtype').html(`<span class="classtype-badge w-100 text-center" style="background:${rdColor}15; color:#000; border:1px solid ${rdColor}40; font-weight: 500;">${rdLabel}</span>`);
+
+    // Rubber card layout
+    $('#rubber-target-row, #rubber-current-row').removeClass('d-none');
+    if (rowData.classtype === 'rubber') {
+        $('#rubber-card-label').html(`<i class="bi bi-tree-fill"></i> ข้อมูล${rdLabel}`);
+        $('#rubber-card-target-label').text('เนื้อที่เป้าหมายยางพารา:');
+        $('#target-rubber-sqm').text(Number(rowData.rubr_sqm || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 }));
+        $('#target-rubber-sqm').next('small').show();
+    } else {
+        $('#rubber-card-label').html(`<i class="bi bi-tag-fill"></i> ${rdLabel}`);
+        $('#rubber-target-row').addClass('d-none');
     }
 };
 
@@ -516,20 +558,18 @@ const showFeaturePanel = (feature, layer) => {
     $('#display-classtype').html(`<span class="classtype-badge w-100 text-center" style="background:${color}15; color:#000; border:1px solid ${color}40; font-weight: 500;">${label}</span>`);
 
     // Update Rubber Card Layout based on class
-    // Show the data rows that are hidden by default
-    $('#rubber-target-row, #rubber-current-row').attr('style', '');
+    // Show/hide right card rows based on classtype
+    $('#rubber-target-row, #rubber-current-row').removeClass('d-none');
 
     const isRubber = (props.classtype === 'rubber');
     if (isRubber) {
         $('#rubber-card-label').html(`<i class="bi bi-tree-fill"></i> ข้อมูล${label}`);
         $('#rubber-card-target-label').text('เนื้อที่เป้าหมายยางพารา:');
-        $('#target-rubber-sqm').text(targetRubberSqm.toLocaleString('th-TH', { maximumFractionDigits: 0 }))
-            .css({ 'font-family': '', 'font-weight': '', 'font-size': '1rem' });
+        $('#target-rubber-sqm').text(targetRubberSqm.toLocaleString('th-TH', { maximumFractionDigits: 0 }));
         $('#target-rubber-sqm').next('small').show();
     } else {
         $('#rubber-card-label').html(`<i class="bi bi-tag-fill"></i> ${label}`);
-        // Hide the redundant "ข้อมูล: <label>" row — card header already shows the class name
-        $('#rubber-target-row').hide();
+        $('#rubber-target-row').addClass('d-none');
     }
 
     // ── User remark ──
@@ -547,14 +587,7 @@ const showFeaturePanel = (feature, layer) => {
             const dt = $('#featureTable').DataTable();
             const allSubs = dt.rows().data().toArray().filter(r => String(r.id) === parentId);
 
-            // Zoom map to combined bounds of all sub_ids & highlight them
-            const boundsArr = allSubs.map(r => {
-                try { return L.geoJSON(r.geom).getBounds(); } catch (_) { return null; }
-            }).filter(b => b && b.isValid());
-            if (boundsArr.length > 0) {
-                const combined = boundsArr.reduce((acc, b) => acc.extend(b), boundsArr[0]);
-                map.flyToBounds(combined, { padding: [40, 40], maxZoom: 22, duration: 0.8 });
-            }
+            // Highlight all sub_ids of this parent ID (no auto-zoom when clicking polygon on map)
             allSubs.forEach(r => {
                 const lyr = findLayerBySubId(r.sub_id);
                 if (lyr && typeof lyr.setStyle === 'function') {
@@ -716,8 +749,6 @@ const getFeatureStyle = (feature) => {
 
 
 const onEachFeature = (feature, layer) => {
-    layer.bindPopup(`${feature.properties.id}`);
-
     layer.on('click', () => {
         // Restore previous focused polygon style
         if (_focusedLayer) {
@@ -726,10 +757,24 @@ const onEachFeature = (feature, layer) => {
             _focusedSubId = null;
         }
 
-        map.fitBounds(layer.getBounds());
         _currentReviewId = null;
-        showFeaturePanel(feature, layer);
+
+        // Use full rowData from DataTable so deed_sqm / current_sqm / rubr_sqm are populated
+        const _clickedSubId = feature.properties.sub_id;
+        let _fullFeature = feature;
+        if ($.fn.DataTable.isDataTable('#featureTable')) {
+            const _dtRow = $('#featureTable').DataTable().rows().data().toArray()
+                .find(r => String(r.sub_id) === String(_clickedSubId));
+            if (_dtRow) _fullFeature = { properties: _dtRow };
+        }
+        showFeaturePanel(_fullFeature, layer);
         selectedLayer = layer;
+
+        // Highlight the matching sub-review-row in checker box
+        $('#id-sub-list .sub-review-row').removeClass('active-sub');
+        const $activeSubRow = $(`#id-sub-list .sub-review-row[data-subid="${_clickedSubId}"]`);
+        $activeSubRow.addClass('active-sub');
+        $activeSubRow[0]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
         // Highlight clicked polygon with bright border + stronger fill
         if (typeof layer.setStyle === 'function') {
@@ -857,8 +902,9 @@ const loadGeoData = async () => {
                             reclassUrl += `&id_from=${id_from}&id_to=${id_to}&assignee=${encodeURIComponent(assignee)}`;
                         }
 
-                        return `<a class="btn btn-success btn-sm map-btn" 
-                                    data-refid="${row.id}" 
+                        return `<a class="btn btn-success btn-sm map-btn"
+                                    data-refid="${row.id}"
+                                    data-subid="${row.sub_id}"
                                     data-geojson='${_geojson}'
                                     href="#"><i class="bi bi-zoom-in"></i> ซูม</a>
                                 <a class="btn btn-warning btn-sm mt-1" 
@@ -1109,7 +1155,7 @@ const loadGeoData = async () => {
             });
         });
 
-        // ── Click sub_id row → zoom to that polygon on map ──
+        // ── Click sub_id row → zoom to polygon + update area cards ──
         $('#id-sub-list').on('click', '.sub-review-row', function (e) {
             if ($(e.target).is('select')) return;
             const subId = String($(this).data('subid'));
@@ -1125,14 +1171,15 @@ const loadGeoData = async () => {
                 } catch (_) {}
             }
 
-            // Highlight the clicked polygon with classtype color (brighter, solid border)
+            // Highlight the clicked polygon
             const lyr = findLayerBySubId(subId);
             if (lyr && typeof lyr.setStyle === 'function') {
-                const rdActive = $('#featureTable').DataTable().rows().data().toArray().find(r => String(r.sub_id) === subId);
-                const activeStyle = rdActive ? getFeatureStyle({ properties: rdActive }) : { color: '#FFD600', fillColor: '#ff5722' };
-                // Active polygon: yellow border so it's clearly visible
+                const activeStyle = getFeatureStyle({ properties: rowData });
                 lyr.setStyle({ color: '#FFD600', fillColor: activeStyle.fillColor, weight: 5, opacity: 1, fillOpacity: 0.7, dashArray: null });
             }
+
+            // Update area info cards to reflect this sub_id's classtype + area
+            _updateAreaCards(rowData);
 
             // Mark active row
             $('#id-sub-list .sub-review-row').removeClass('active-sub');
@@ -1429,12 +1476,17 @@ const loadGeoData = async () => {
 
         $('#featureTable tbody').on('click', '.map-btn', function (e) {
             e.stopPropagation();
-            const refId = String($(this).data('refid'));
+            const subId = String($(this).data('subid'));
             const dt = $('#featureTable').DataTable();
-            const rowData = dt.rows().data().toArray().find(r => String(r.id) === refId);
+            const rowData = dt.rows().data().toArray().find(r => String(r.sub_id) === subId);
             if (rowData) {
                 _currentReviewId = null;
                 focusPlot(rowData);
+                // Mark the clicked sub_id as active in the checker box
+                $('#id-sub-list .sub-review-row').removeClass('active-sub');
+                const $activeRow = $(`#id-sub-list .sub-review-row[data-subid="${subId}"]`);
+                $activeRow.addClass('active-sub');
+                $activeRow[0]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }
         });
 

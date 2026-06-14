@@ -181,6 +181,9 @@ const initApp = async () => {
                         <button class="btn btn-payment layer-btn payBtn mt-1" data-tb="${tb_name}" title="คำนวณค่าจ้าง">
                             <i class="bi bi-calculator-fill me-1"></i>คำนวณค่าจ้าง
                         </button>
+                        <button class="btn btn-checker-pay layer-btn checkerPayBtn mt-1" data-tb="${tb_name}" title="คำนวณค่าจ้างคนตรวจ">
+                            <i class="bi bi-shield-check me-1"></i>ค่าคนตรวจ
+                        </button>
                         <button class="btn btn-danger layer-btn deleteBtn mt-1" data-tb="${tb_name}" title="ลบ layer">
                             <i class="bi bi-trash3-fill"></i>
                         </button>
@@ -320,6 +323,15 @@ const initApp = async () => {
                 e.preventDefault();
                 const tb = this.getAttribute('data-tb');
                 openPaymentModal(tb);
+            });
+        });
+
+        /* ── คำนวณค่าคนตรวจ ── */
+        document.querySelectorAll('.checkerPayBtn').forEach(btn => {
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                const tb = this.getAttribute('data-tb');
+                openCheckerPaymentModal(tb);
             });
         });
 
@@ -1449,6 +1461,154 @@ document.getElementById('btnPrintPayment').addEventListener('click', () => {
 <body>
 <h4 style="color:#4a7c59">สรุปค่าจ้างทีมงาน – ${tb}</h4>
 <p class="text-muted mb-3">อัตราค่าจ้าง: <strong>${rate} บาท/ไร่</strong> &nbsp;|&nbsp; วันที่พิมพ์: ${new Date().toLocaleDateString('th-TH', {day:'2-digit',month:'long',year:'numeric'})}</p>
+${tableHtml}
+<script>window.onload=()=>window.print();<\/script>
+</body></html>`);
+    win.document.close();
+});
+
+/* ═════════════════════════════════════════════════════════════
+   MODAL 6 – คำนวณค่าจ้างคนตรวจ (Checker Payment per Layer)
+═════════════════════════════════════════════════════════════ */
+
+let checkerPaymentModal = null;
+let checkerWorkerData = [];
+
+function openCheckerPaymentModal(tb_name) {
+    if (!checkerPaymentModal) {
+        checkerPaymentModal = new bootstrap.Modal(document.getElementById('checkerPaymentModal'));
+    }
+    document.getElementById('checkerPayModalTbBadge').textContent = tb_name;
+    document.getElementById('checkerPayTableWrap').innerHTML = `
+        <div class="text-center text-muted py-4">
+            <div class="spinner-border spinner-border-sm me-2"></div>กำลังโหลดข้อมูล...
+        </div>`;
+    checkerPaymentModal.show();
+
+    fetch(`/rub/api/checker-summary/${tb_name}`)
+        .then(r => r.json())
+        .then(({ data }) => {
+            checkerWorkerData = data || [];
+            renderCheckerPaymentTable();
+        })
+        .catch(() => {
+            document.getElementById('checkerPayTableWrap').innerHTML =
+                '<div class="alert alert-danger">โหลดข้อมูลไม่สำเร็จ</div>';
+        });
+}
+
+function renderCheckerPaymentTable() {
+    const rate = parseFloat(document.getElementById('chk_rate_rai').value) || 0;
+    const unit = document.getElementById('chk_unit').value;
+    const data = checkerWorkerData;
+    const wrap = document.getElementById('checkerPayTableWrap');
+
+    if (!data || data.length === 0) {
+        wrap.innerHTML = `<div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            ยังไม่มีข้อมูลการตรวจใน table นี้
+        </div>`;
+        return;
+    }
+
+    const unitLabel = { rai: 'บาท/ไร่', plot: 'บาท/แปลง (ID)', subplot: 'บาท/รายการ (sub_id)' };
+
+    const rows = data.map((r, i) => {
+        let pay = 0;
+        if (unit === 'rai')     pay = (r.area_rai_decimal || 0) * rate;
+        if (unit === 'plot')    pay = (r.farmer_count || 0) * rate;
+        if (unit === 'subplot') pay = (r.sub_plot_count || 0) * rate;
+
+        const avatar = r.photo
+            ? `<img src="${r.photo}" class="pay-avatar" referrerpolicy="no-referrer"
+                onerror="this.onerror=null;this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(r.reviewer)}&background=e1f5fe&color=0277bd&rounded=true'">`
+            : `<img src="https://ui-avatars.com/api/?name=${encodeURIComponent(r.reviewer)}&background=e1f5fe&color=0277bd&rounded=true" class="pay-avatar">`;
+
+        return `<tr>
+            <td class="text-center align-middle">${i + 1}</td>
+            <td class="align-middle">
+                <div class="d-flex align-items-center gap-2">
+                    ${avatar}
+                    <span class="fw-bold">${r.reviewer}</span>
+                </div>
+            </td>
+            <td class="text-center align-middle">${(r.sub_plot_count || 0).toLocaleString()} รายการ</td>
+            <td class="text-center align-middle">${(r.farmer_count || 0).toLocaleString()} แปลง</td>
+            <td class="text-center align-middle">
+                <div class="pay-area-badge">${fmtRai(r.total_sqm || 0)}</div>
+                <div class="pay-area-sub">${Math.round(r.total_sqm || 0).toLocaleString('th-TH')} ตร.ม.</div>
+            </td>
+            <td class="text-end fw-bold align-middle pay-amount">${pay.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})} บาท</td>
+        </tr>`;
+    }).join('');
+
+    const totalSubplot = data.reduce((s, r) => s + (r.sub_plot_count || 0), 0);
+    const totalPlot    = data.reduce((s, r) => s + (r.farmer_count || 0), 0);
+    const totalSqm     = data.reduce((s, r) => s + (r.total_sqm || 0), 0);
+    let totalPay = 0;
+    if (unit === 'rai')     totalPay = (totalSqm / 1600) * rate;
+    if (unit === 'plot')    totalPay = totalPlot * rate;
+    if (unit === 'subplot') totalPay = totalSubplot * rate;
+
+    wrap.innerHTML = `
+    <div class="table-responsive">
+        <table class="table table-hover payment-table">
+            <thead style="background:#e1f5fe !important;">
+                <tr>
+                    <th class="text-center align-middle" style="width:40px">#</th>
+                    <th class="align-middle">ชื่อผู้ตรวจ</th>
+                    <th class="text-center">รายการที่ตรวจ<br><small class="fw-normal text-muted">sub_id</small></th>
+                    <th class="text-center">แปลงที่ตรวจ<br><small class="fw-normal text-muted">ID</small></th>
+                    <th class="text-center">พื้นที่ที่ตรวจ<br><small class="fw-normal text-muted">ไร่ / ตร.ม.</small></th>
+                    <th class="text-end align-middle">ค่าตรวจ<br><small class="fw-normal text-muted">(${unitLabel[unit]})</small></th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+            <tfoot>
+                <tr class="payment-total-row">
+                    <td colspan="2" class="fw-bold align-middle">รวมทั้งหมด</td>
+                    <td class="text-center align-middle fw-bold">${totalSubplot.toLocaleString()} รายการ</td>
+                    <td class="text-center align-middle fw-bold">${totalPlot.toLocaleString()} แปลง</td>
+                    <td class="text-center">
+                        <div class="pay-area-badge">${fmtRai(totalSqm)}</div>
+                        <div class="pay-area-sub">${Math.round(totalSqm).toLocaleString('th-TH')} ตร.ม.</div>
+                    </td>
+                    <td class="text-end fw-bold align-middle pay-total-amount">${totalPay.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})} บาท</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>`;
+}
+
+document.getElementById('btnCalcChecker').addEventListener('click', renderCheckerPaymentTable);
+
+document.getElementById('btnPrintChecker').addEventListener('click', () => {
+    const tb   = document.getElementById('checkerPayModalTbBadge').textContent;
+    const rate = document.getElementById('chk_rate_rai').value;
+    const unit = document.getElementById('chk_unit').options[document.getElementById('chk_unit').selectedIndex].text;
+    const tableHtml = document.getElementById('checkerPayTableWrap').innerHTML;
+    const win = window.open('', '_blank');
+    win.document.write(`<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>สรุปค่าจ้างคนตรวจ – ${tb}</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css">
+<style>
+  body { font-family: "Noto Sans Thai", sans-serif; padding: 20px; }
+  .pay-avatar { width:28px; height:28px; border-radius:50%; object-fit:cover; }
+  .pay-area-badge { font-size:0.85rem; font-weight:600; color:#01579b; }
+  .pay-area-sub { font-size:0.72rem; color:#78909c; }
+  .pay-amount { color:#01579b; }
+  .pay-total-amount { color:#006064; font-size:1.1rem; }
+  .payment-total-row { background:#e1f5fe !important; }
+  @media print { button { display:none; } }
+</style>
+</head>
+<body>
+<h4 style="color:#01579b">สรุปค่าจ้างคนตรวจ – ${tb}</h4>
+<p class="text-muted mb-3">อัตราค่าตรวจ: <strong>${rate} ${unit}</strong> &nbsp;|&nbsp; วันที่พิมพ์: ${new Date().toLocaleDateString('th-TH', {day:'2-digit',month:'long',year:'numeric'})}</p>
 ${tableHtml}
 <script>window.onload=()=>window.print();<\/script>
 </body></html>`);
