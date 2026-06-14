@@ -66,7 +66,7 @@ ALTER TABLE public.users OWNER TO postgres;
 CREATE OR REPLACE FUNCTION public.set_admin_email_role()
 RETURNS TRIGGER AS $$
 BEGIN
-    IF LOWER(NEW.email) IN ('daungjai.16002@gmail.com') THEN
+    IF LOWER(NEW.email) IN ('engrids2025@gmail.com') THEN
         NEW.role := 'admin';
     END IF;
     RETURN NEW;
