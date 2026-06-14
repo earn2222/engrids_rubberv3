@@ -120,12 +120,13 @@ app.get('/auth/callback',
                     photo: user.photo,
                     role: userRole,
                 };
-                // Auto-link task_assignments ที่ assign ด้วยอีเมลนี้ กับ user_id จริงๆ
+                // Auto-link task_assignments: update user_id + photo + name on every login
                 if (user.email) {
                     pool.query(
-                        `UPDATE task_assignments SET user_id = $1
-                         WHERE LOWER(assignee_email) = LOWER($2) AND user_id IS NULL`,
-                        [user.id, user.email]
+                        `UPDATE task_assignments
+                         SET user_id = $1, assignee_photo = $2, assignee_name = $3
+                         WHERE LOWER(assignee_email) = LOWER($4)`,
+                        [user.id, user.photo, user.displayName, user.email]
                     ).catch(e => console.error('[AUTOLINK]', e.message));
                 }
                 return res.redirect('/rub/index.html');
