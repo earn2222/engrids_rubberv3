@@ -53,6 +53,8 @@ $.fn.dataTable.ext.search.push(function (settings, data, dataIndex) {
             case 'none': return !rowData.check_area && !rowData.check_shape;
             case 'pass': return rowData.check_area === 'ผ่าน' && rowData.check_shape === 'ผ่าน';
             case 'fail': return rowData.check_area === 'ไม่ผ่าน' || rowData.check_shape === 'ไม่ผ่าน';
+            case 'mixed': return (rowData.check_area === 'ผ่าน' && rowData.check_shape === 'ไม่ผ่าน') ||
+                                 (rowData.check_area === 'ไม่ผ่าน' && rowData.check_shape === 'ผ่าน');
             case 'remark': return !!(rowData.remark || rowData.user_remark);
             default: return true;
         }
@@ -525,11 +527,9 @@ const showFeaturePanel = (feature, layer) => {
             .css({ 'font-family': '', 'font-weight': '', 'font-size': '1rem' });
         $('#target-rubber-sqm').next('small').show();
     } else {
-        $('#rubber-card-label').html(`<i class="bi bi-tag-fill"></i> ข้อมูล${label}`);
-        $('#rubber-card-target-label').text('ข้อมูล:');
-        $('#target-rubber-sqm').text(label)
-            .css({ 'font-family': '"Noto Sans Thai", sans-serif', 'font-weight': '600', 'font-size': '0.95rem' });
-        $('#target-rubber-sqm').next('small').hide();
+        $('#rubber-card-label').html(`<i class="bi bi-tag-fill"></i> ${label}`);
+        // Hide the redundant "ข้อมูล: <label>" row — card header already shows the class name
+        $('#rubber-target-row').hide();
     }
 
     // ── User remark ──
