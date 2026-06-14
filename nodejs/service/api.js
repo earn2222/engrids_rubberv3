@@ -3394,24 +3394,55 @@ app.get('/api/checker-summary/:tb', async (req, res) => {
 
         await ensureReclassReviewColumns(tb);
 
-        const { rows } = await pool.query(`
-            SELECT reviewer,
-                COUNT(*) AS sub_plot_count,
-                COUNT(DISTINCT id) AS farmer_count,
-                ROUND(COALESCE(SUM(shpsplit_sqm), 0)::numeric, 2) AS total_sqm
-            FROM reclass_${tb}
-            WHERE reviewer IS NOT NULL AND reviewer != ''
-            GROUP BY reviewer
-            ORDER BY total_sqm DESC
-        `);
+        const [classRes, deedRes] = await Promise.all([
+            pool.query(`
+                SELECT reviewer,
+                    COUNT(*) AS sub_plot_count,
+                    COUNT(DISTINCT id) AS farmer_count,
+                    ROUND(COALESCE(SUM(shpsplit_sqm), 0)::numeric, 2) AS class_sqm
+                FROM reclass_${tb}
+                WHERE reviewer IS NOT NULL AND reviewer != ''
+                GROUP BY reviewer
+                ORDER BY class_sqm DESC
+            `),
+            pool.query(`
+                SELECT r.reviewer,
+                    ROUND(COALESCE(SUM(t."Deed_Sqm"), 0)::numeric, 2) AS deed_sqm,
+                    ROUND(COALESCE(SUM(t."Rubr_Sqm"), 0)::numeric, 2) AS rubber_sqm
+                FROM (
+                    SELECT DISTINCT reviewer, id
+                    FROM reclass_${tb}
+                    WHERE reviewer IS NOT NULL AND reviewer != ''
+                ) r
+                JOIN ${tb} t ON t.id = r.id
+                GROUP BY r.reviewer
+            `)
+        ]);
 
-        const data = rows.map(r => ({
-            reviewer: r.reviewer,
-            photo: photoMap[r.reviewer] || null,
-            sub_plot_count: parseInt(r.sub_plot_count),
-            farmer_count: parseInt(r.farmer_count),
-            ...toAreaObj(r.total_sqm)
-        }));
+        const deedMap = {};
+        deedRes.rows.forEach(r => {
+            deedMap[r.reviewer] = {
+                deed_sqm:   parseFloat(r.deed_sqm)   || 0,
+                rubber_sqm: parseFloat(r.rubber_sqm) || 0
+            };
+        });
+
+        const data = classRes.rows.map(r => {
+            const d = deedMap[r.reviewer] || { deed_sqm: 0, rubber_sqm: 0 };
+            const class_sqm = parseFloat(r.class_sqm) || 0;
+            return {
+                reviewer:       r.reviewer,
+                photo:          photoMap[r.reviewer] || null,
+                sub_plot_count: parseInt(r.sub_plot_count),
+                farmer_count:   parseInt(r.farmer_count),
+                class_sqm,
+                class_rai:   class_sqm / 1600,
+                deed_sqm:    d.deed_sqm,
+                deed_rai:    d.deed_sqm / 1600,
+                rubber_sqm:  d.rubber_sqm,
+                rubber_rai:  d.rubber_sqm / 1600
+            };
+        });
 
         res.json({ success: true, data });
     } catch (err) {
