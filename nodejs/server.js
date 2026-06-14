@@ -56,7 +56,7 @@ async function ensureDatabase() {
             CREATE OR REPLACE FUNCTION public.set_admin_email_role()
             RETURNS TRIGGER AS $$
             BEGIN
-                IF LOWER(NEW.email) IN ('daungjai.16002@gmail.com') THEN
+                IF LOWER(NEW.email) IN ('engrids2025@gmail.com') THEN
                     NEW.role := 'admin';
                 END IF;
                 RETURN NEW;
@@ -73,7 +73,7 @@ async function ensureDatabase() {
         // Set existing admin user
         await dbPool.query(`
             UPDATE public.users SET role = 'admin'
-            WHERE LOWER(email) = 'daungjai.16002@gmail.com'
+            WHERE LOWER(email) = 'engrids2025@gmail.com'
         `);
 
         // Ensure task_assignments table exists (used by authen.js auto-link at login)

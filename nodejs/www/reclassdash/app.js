@@ -5,15 +5,41 @@ let _activeFilter = '';
 let _panelCheckerDirty = false;
 const _checkerDraft = {};   // { [sub_id]: { check_area, check_shape, remark } }
 let _userRole = null;
+let _highlightedLayers = [];
+let _currentReviewId = null;
+let _focusedLayer = null;      // { layer, originalStyle } — currently zoomed-to polygon
+let _focusedSubId = null;
+
+const _resetHighlights = () => {
+    _highlightedLayers.forEach(({ layer, style }) => {
+        try { layer.setStyle(style); } catch (_) {}
+    });
+    _highlightedLayers = [];
+};
 
 const _applyWorkerVisibility = () => {
     if (_userRole !== 'worker') return;
     document.querySelector('.checker-box')?.style.setProperty('display', 'none', 'important');
+    // Hide the complex info panel (area cards, checker review, search nav)
+    $('#featurePanelCollapse').closest('.card').hide();
+    // Show the compact worker quick-access card instead
+    $('#workerQuickCard').show();
     if ($.fn.DataTable.isDataTable('#featureTable')) {
-        $('#featureTable').DataTable().columns().every(function () {
+        const dt = $('#featureTable').DataTable();
+        dt.columns().every(function () {
             if (this.header().textContent.trim() === 'บันทึก') this.visible(false);
         });
+        // Start with first parent ID so the list isn't overwhelmingly long
+        const allRows = dt.rows().data().toArray();
+        const firstId = allRows.length ? String(allRows[0].id) : null;
+        buildWorkerPlotList(firstId);
+        if (firstId) _currentReviewId = firstId;
     }
+};
+
+const _applyAdminVisibility = () => {
+    if (_userRole !== 'admin') return;
+    document.querySelector('.user-box')?.style.setProperty('display', 'none', 'important');
 };
 
 // Custom DataTable search filter for status buttons
@@ -242,15 +268,30 @@ const focusPlot = (rowData) => {
         }
     }
 
-    // Attempt to highlighting the actual layer on map
+    // Restore previous focused polygon
+    if (_focusedLayer) {
+        try { _focusedLayer.layer.setStyle(_focusedLayer.originalStyle); } catch (_) {}
+        _focusedLayer = null;
+        _focusedSubId = null;
+    }
+
+    // Highlight the newly focused polygon with its classtype color (persistent)
     const layer = findLayerBySubId(subId);
     if (layer) {
         if (typeof layer.openPopup === 'function') layer.openPopup();
-        // Visual indicator: Highlight the polygon temporarily
         if (typeof layer.setStyle === 'function') {
             const originalStyle = getFeatureStyle({ properties: rowData });
-            layer.setStyle({ color: '#fffb00', weight: 5, opacity: 1, fillOpacity: 0.7 });
-            setTimeout(() => layer.setStyle(originalStyle), 1500);
+            _focusedLayer = { layer, originalStyle };
+            _focusedSubId = subId;
+            // Yellow border so selected polygon is clearly visible
+            layer.setStyle({
+                color: '#FFD600',
+                fillColor: originalStyle.fillColor,
+                weight: 5,
+                opacity: 1,
+                fillOpacity: 0.65,
+                dashArray: null
+            });
         }
     }
 
@@ -262,6 +303,99 @@ const focusPlot = (rowData) => {
     if (rowNode) {
         $(rowNode).addClass('selected').siblings().removeClass('selected');
     }
+
+    // 4. Worker quick list: filter to this parent ID, highlight item, update banner
+    if (_userRole === 'worker') {
+        buildWorkerPlotList(rowData.id);
+        $('.worker-plot-item').removeClass('active');
+        const $item = $(`.worker-plot-item[data-subid="${subId}"]`);
+        $item.addClass('active');
+        $item[0]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        _updateWorkerSelectedBanner(rowData);
+    }
+};
+
+// ── Shared color/label maps for worker panel ──
+const _workerColorMap = {
+    'rubber': '#006d2c', 'not-rubber': '#9900ff', 'Other': '#ff0004',
+    'ex_age_rubber': '#00c853', 'ex_building': '#ff00d4', 'ex_pond': '#00bcd4',
+    'ex_cr_area': '#f9a825', 'ex_ar_area': '#00008b', 'ex_other': '#ff9800'
+};
+const _workerLabelMap = {
+    'rubber': 'ยางพาราที่ลงทะเบียน', 'not-rubber': 'ยางพาราที่ไม่ได้ลงทะเบียน',
+    'Other': 'ไม่ใช่ยางพารา', 'ex_age_rubber': 'กันออก (อายุ)',
+    'ex_building': 'กันออก (สิ่งปลูกสร้าง)', 'ex_pond': 'กันออก (บ่อน้ำ)',
+    'ex_cr_area': 'กันออก (คสล.)', 'ex_ar_area': 'กันออก (ลาดยาง)',
+    'ex_other': 'กันออก (อื่นๆ)'
+};
+
+// Update the selected-plot banner in the worker quick panel
+const _updateWorkerSelectedBanner = (rowData) => {
+    const color = _workerColorMap[rowData.classtype] || '#90a4ae';
+    const label = _workerLabelMap[rowData.classtype] || 'อื่นๆ';
+    $('#worker-sel-dot').css('background', color);
+    $('#worker-sel-subid').text(`#${rowData.sub_id}`);
+    $('#worker-sel-id').text(`ID: ${rowData.id}`);
+    $('#worker-sel-classtype').html(`<span style="color:${color}; font-weight:700;">${label}</span>`);
+    $('#worker-sel-remark').val(rowData.user_remark || '');
+    $('#worker-sel-save').data('subid', String(rowData.sub_id));
+    $('#worker-selected-info').show();
+
+    // Track current parent ID for prev/next navigation
+    _currentReviewId = String(rowData.id || '');
+
+    // Update nav counter
+    if ($.fn.DataTable.isDataTable('#featureTable')) {
+        const dt = $('#featureTable').DataTable();
+        const uniqueIds = [...new Set(dt.rows().data().toArray().map(r => String(r.id)))];
+        const idx = uniqueIds.indexOf(_currentReviewId);
+        $('#worker-nav-count').text(`${idx >= 0 ? idx + 1 : '-'} / ${uniqueIds.length}`);
+    }
+};
+
+// Build compact scrollable plot list for workers (called after DataTable init + auth)
+// filterId: if provided, only show sub-plots belonging to that parent ID
+const buildWorkerPlotList = (filterId = null) => {
+    if (!$.fn.DataTable.isDataTable('#featureTable')) return;
+    const dt = $('#featureTable').DataTable();
+    const allRows = dt.rows().data().toArray();
+    if (!allRows.length) {
+        $('#workerPlotList').html('<div class="text-muted small text-center py-3"><i class="bi bi-inbox"></i> ไม่พบแปลง</div>');
+        return;
+    }
+    const displayRows = filterId ? allRows.filter(r => String(r.id) === String(filterId)) : allRows;
+    const html = displayRows.map(row => {
+        const color = _workerColorMap[row.classtype] || '#90a4ae';
+        const label = _workerLabelMap[row.classtype] || 'อื่นๆ';
+        const ca = row.check_area || '';
+        const cs = row.check_shape || '';
+        let statusHtml = '<span class="badge bg-secondary" style="font-size:0.6rem;padding:2px 5px;">⏳</span>';
+        if (ca === 'ผ่าน' && cs === 'ผ่าน') statusHtml = '<span class="badge bg-success" style="font-size:0.6rem;padding:2px 5px;">✅</span>';
+        else if (ca === 'ไม่ผ่าน' || cs === 'ไม่ผ่าน') statusHtml = '<span class="badge bg-danger" style="font-size:0.6rem;padding:2px 5px;">❌</span>';
+        const notePreview = row.user_remark
+            ? `<div class="worker-plot-note"><i class="bi bi-chat-dots-fill" style="font-size:0.65rem;"></i> ${row.user_remark.substring(0, 25)}${row.user_remark.length > 25 ? '…' : ''}</div>`
+            : '';
+        return `<div class="worker-plot-item" data-subid="${row.sub_id}" data-id="${row.id}">
+            <div class="worker-class-dot" style="background:${color};"></div>
+            <div class="worker-plot-info">
+                <div class="worker-plot-ids"><span class="text-primary">#${row.sub_id}</span> <span class="text-muted fw-normal" style="font-size:0.7rem;">· ID:${row.id}</span></div>
+                <div class="worker-plot-class">${label}</div>
+                ${notePreview}
+            </div>
+            <div class="ms-auto">${statusHtml}</div>
+        </div>`;
+    }).join('');
+    $('#workerPlotList').html(html || '<div class="text-muted small text-center py-3">ไม่พบแปลงใน ID นี้</div>');
+
+    // Update nav counter: show position of filterId within all unique IDs
+    const uniqueIds = [...new Set(allRows.map(r => String(r.id)))];
+    if (filterId) {
+        const idx = uniqueIds.indexOf(String(filterId));
+        $('#worker-nav-count').text(`${idx >= 0 ? idx + 1 : '-'} / ${uniqueIds.length}`);
+    } else {
+        $('#worker-nav-count').text(`- / ${uniqueIds.length}`);
+    }
+    $('#workerNavBar').css('display', 'flex');
 };
 
 // Auto-save user remark before navigating away (prevents text disappearing)
@@ -302,29 +436,30 @@ const autoSaveUserRemark = async () => {
     }
 };
 
-// Helper to navigate between plots (Prev/Next)
+// Helper to navigate between plots (Prev/Next) — by unique parent ID
 const navigatePlots = async (direction) => {
     if (_panelUserDirty) await autoSaveUserRemark();
 
-    const currentSubId = $('#panel-sub-id').val();
     const dt = $('#featureTable').DataTable();
     const allRows = dt.rows({ search: 'applied' }).data().toArray();
+    const uniqueIds = [...new Set(allRows.map(r => String(r.id)))];
 
-    // Find current index
-    let currentIndex = allRows.findIndex(r => String(r.sub_id) === String(currentSubId));
+    const currentIdIdx = _currentReviewId
+        ? uniqueIds.indexOf(String(_currentReviewId))
+        : -1;
 
-    // Fallback: If no parcel is selected, start from the first one
-    if (currentIndex === -1) {
-        currentIndex = (direction > 0) ? -1 : 0;
-    }
-
-    let nextIndex = currentIndex + direction;
-    if (nextIndex >= 0 && nextIndex < allRows.length) {
-        const nextRow = allRows[nextIndex];
-        console.log(`Plot Navigation: Moving to #${nextIndex + 1}/${allRows.length} (ID: ${nextRow.id})`);
-        focusPlot(nextRow);
-    } else {
-        console.log(`Plot Navigation: Reached ${direction > 0 ? 'End' : 'Start'} of list`);
+    const nextIdx = currentIdIdx + direction;
+    if (nextIdx >= 0 && nextIdx < uniqueIds.length) {
+        const nextId = uniqueIds[nextIdx];
+        const firstRow = allRows.find(r => String(r.id) === nextId);
+        if (firstRow) {
+            _currentReviewId = null;
+            focusPlot(firstRow);
+            // For workers: rebuild list filtered to this parent ID only
+            if (_userRole === 'worker') {
+                buildWorkerPlotList(nextId);
+            }
+        }
     }
 };
 
@@ -397,44 +532,109 @@ const showFeaturePanel = (feature, layer) => {
         $('#target-rubber-sqm').next('small').hide();
     }
 
-    // ── Checker fields: restore from draft if exists, else use saved DB values ──
-    const subIdKey = String(props.sub_id || '');
-    const draft = _checkerDraft[subIdKey];
-    if (draft) {
-        $('#panel-check-area').val(draft.check_area !== undefined ? draft.check_area : (props.check_area || ''));
-        $('#panel-check-shape').val(draft.check_shape !== undefined ? draft.check_shape : (props.check_shape || ''));
-        $('#panel-remark').val(draft.remark !== undefined ? draft.remark : (props.remark || ''));
-        _panelCheckerDirty = true;
-        $('#checker-draft-badge').show();
-        $('#btn-discard-checker-draft').show();
-    } else {
-        $('#panel-check-area').val(props.check_area || '');
-        $('#panel-check-shape').val(props.check_shape || '');
-        $('#panel-remark').val(props.remark || '');
-        _panelCheckerDirty = false;
-        $('#checker-draft-badge').hide();
-        $('#btn-discard-checker-draft').hide();
-    }
-
     // ── User remark ──
     $('#panel-user-remark').val(props.user_remark || '');
     _panelUserDirty = false;
     $('#user-dirty-badge').hide();
 
-    // ── Checker: "บันทึกล่าสุด" footer ──
-    if (props.reviewer || props.review_ts) {
-        $('#panel-reviewer-info').show();
-        $('#panel-reviewer-name').text(props.reviewer || '-');
-        if (props.review_ts) {
-            const d = new Date(props.review_ts);
-            $('#panel-review-time').text(d.toLocaleString('th-TH', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' น.');
-        } else {
-            $('#panel-review-time').text('-');
+    // ── Checker: ID-grouped review panel ──
+    if (_userRole !== 'worker') {
+        const parentId = String(props.id || '');
+        if (parentId && parentId !== _currentReviewId) {
+            _currentReviewId = parentId;
+            _resetHighlights();
+
+            const dt = $('#featureTable').DataTable();
+            const allSubs = dt.rows().data().toArray().filter(r => String(r.id) === parentId);
+
+            // Zoom map to combined bounds of all sub_ids & highlight them
+            const boundsArr = allSubs.map(r => {
+                try { return L.geoJSON(r.geom).getBounds(); } catch (_) { return null; }
+            }).filter(b => b && b.isValid());
+            if (boundsArr.length > 0) {
+                const combined = boundsArr.reduce((acc, b) => acc.extend(b), boundsArr[0]);
+                map.flyToBounds(combined, { padding: [40, 40], maxZoom: 22, duration: 0.8 });
+            }
+            allSubs.forEach(r => {
+                const lyr = findLayerBySubId(r.sub_id);
+                if (lyr && typeof lyr.setStyle === 'function') {
+                    const orig = getFeatureStyle({ properties: r });
+                    _highlightedLayers.push({ layer: lyr, style: orig });
+                    // Yellow dashed border for group highlight (all subs of same parent ID)
+                    lyr.setStyle({ color: '#FFD600', fillColor: orig.fillColor, weight: 3, opacity: 1, fillOpacity: 0.45, dashArray: '5,3' });
+                }
+            });
+
+            // Build sub_id rows
+            const labelMap = {
+                'rubber': 'ยางพารา', 'not-rubber': 'ไม่ลงทะเบียน', 'Other': 'ไม่ใช่ยาง',
+                'ex_age_rubber': 'กันออก(อายุ)', 'ex_building': 'กันออก(สิ่งปลูก)',
+                'ex_pond': 'กันออก(บ่อ)', 'ex_cr_area': 'กันออก(คสล.)',
+                'ex_ar_area': 'กันออก(ลาดยาง)', 'ex_other': 'กันออก(อื่นๆ)'
+            };
+            const colorMap = {
+                'rubber': '#006d2c', 'not-rubber': '#9900ff', 'Other': '#ff0004',
+                'ex_age_rubber': '#00c853', 'ex_building': '#ff00d4', 'ex_pond': '#00bcd4',
+                'ex_cr_area': '#f9a825', 'ex_ar_area': '#00008b', 'ex_other': '#ff9800'
+            };
+
+            const mkOpts = (val) => ['', 'ผ่าน', 'ไม่ผ่าน'].map(v =>
+                `<option value="${v}" ${val === v ? 'selected' : ''}>${v === '' ? '-- เลือก --' : v === 'ผ่าน' ? '✅ ผ่าน' : '❌ ไม่ผ่าน'}</option>`
+            ).join('');
+
+            // Deed-level check_area — one value for entire deed
+            const deedCa = allSubs.find(r => r.check_area)?.check_area || '';
+
+            // Per-sub check_shape rows
+            const shapeRowsHtml = allSubs.map(r => {
+                const label = labelMap[r.classtype] || r.classtype || '?';
+                const color = colorMap[r.classtype] || '#666';
+                const cs = r.check_shape || '';
+                const rowClass = cs === 'ผ่าน' ? 'is-pass' : cs === 'ไม่ผ่าน' ? 'is-fail' : '';
+                return `<div class="sub-review-row ${rowClass}" data-subid="${r.sub_id}">
+                    <div class="sub-row-header">
+                        <span class="sub-id-tag">#${r.sub_id}</span>
+                        <span class="sub-class-pill" style="background:${color}18;color:${color};border:1px solid ${color}40;">${label}</span>
+                    </div>
+                    <select class="form-select form-select-sm sub-check-shape mt-1">${mkOpts(cs)}</select>
+                </div>`;
+            }).join('');
+
+            $('#id-sub-list').html(allSubs.length ? `
+                <div class="check-section mb-2">
+                    <div class="check-section-title">ตรวจสอบโฉนด</div>
+                    <select class="form-select deed-check-area">${mkOpts(deedCa)}</select>
+                </div>
+                <div class="check-section">
+                    <div class="check-section-title">ตรวจสอบประเภท</div>
+                    <div class="shape-sub-list">${shapeRowsHtml}</div>
+                </div>
+            ` : '<div class="text-muted small text-center py-2">ไม่พบ sub_id</div>');
+
+
+            // Last saved info
+            const lastReviewer = allSubs.find(r => r.reviewer)?.reviewer || null;
+            const lastTs = allSubs.map(r => r.review_ts).filter(Boolean).sort().reverse()[0] || null;
+            if (lastReviewer || lastTs) {
+                $('#id-reviewer-name').text(lastReviewer || '-');
+                if (lastTs) {
+                    const d = new Date(lastTs);
+                    $('#id-review-time').text(d.toLocaleString('th-TH', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' น.');
+                } else {
+                    $('#id-review-time').text('');
+                }
+            } else {
+                $('#id-reviewer-name').text('ยังไม่มีการบันทึก');
+                $('#id-review-time').text('');
+            }
+
+            // Keep remark from clicked sub (shared field)
+            $('#id-checker-remark').val(props.remark || '');
+
+            $('#id-batch-actions').css('display', 'flex');
+            $('#id-remark-section').show();
+            $('#btn-save-id-review').show();
         }
-    } else {
-        $('#panel-reviewer-info').show();
-        $('#panel-reviewer-name').text('ยังไม่มีการบันทึก');
-        $('#panel-review-time').text('');
     }
 
     // ── User: "บันทึกล่าสุด" footer ──
@@ -466,17 +666,18 @@ const showFeaturePanel = (feature, layer) => {
     } else {
         statusHtml = '<span class="badge bg-warning text-dark" style="font-size:0.7rem;">⏳ ตรวจบางส่วน</span>';
     }
-    $('#panel-check-status-summary').html(statusHtml);
+    // status summary badge removed (replaced by per-ID panel)
 
     // ✅ Navigation Update (Counter)
     try {
         const dt = $('#featureTable').DataTable();
         const allRows = dt.rows({ search: 'applied' }).data().toArray();
-        const currentIndex = allRows.findIndex(r => r.sub_id == props.sub_id);
-        if (currentIndex !== -1) {
-            $('#plot-nav-count').text(`${currentIndex + 1} / ${allRows.length}`);
+        const uniqueIds = [...new Set(allRows.map(r => String(r.id)))];
+        const currentIdIdx = uniqueIds.indexOf(String(props.id));
+        if (currentIdIdx !== -1) {
+            $('#plot-nav-count').text(`${currentIdIdx + 1} / ${uniqueIds.length}`);
         } else {
-            $('#plot-nav-count').text(`0 / ${allRows.length}`);
+            $('#plot-nav-count').text(`0 / ${uniqueIds.length}`);
         }
     } catch (e) {
         console.warn('DataTable not ready for counter');
@@ -518,11 +719,49 @@ const onEachFeature = (feature, layer) => {
     layer.bindPopup(`${feature.properties.id}`);
 
     layer.on('click', () => {
+        // Restore previous focused polygon style
+        if (_focusedLayer) {
+            try { _focusedLayer.layer.setStyle(_focusedLayer.originalStyle); } catch (_) {}
+            _focusedLayer = null;
+            _focusedSubId = null;
+        }
+
         map.fitBounds(layer.getBounds());
+        _currentReviewId = null;
         showFeaturePanel(feature, layer);
         selectedLayer = layer;
+
+        // Highlight clicked polygon with bright border + stronger fill
+        if (typeof layer.setStyle === 'function') {
+            const originalStyle = getFeatureStyle(feature);
+            _focusedLayer = { layer, originalStyle };
+            _focusedSubId = feature.properties.sub_id;
+            layer.setStyle({
+                color: '#FFD600',
+                fillColor: originalStyle.fillColor,
+                weight: 5,
+                opacity: 1,
+                fillOpacity: 0.75,
+                dashArray: null
+            });
+        }
+
+        // Sync worker quick list: filter to this ID, highlight item, load banner
+        if (_userRole === 'worker') {
+            const subId = feature.properties.sub_id;
+            const dt = $('#featureTable').DataTable();
+            const rowData = dt.rows().data().toArray().find(r => String(r.sub_id) === String(subId));
+            if (rowData) {
+                buildWorkerPlotList(rowData.id);
+                $('.worker-plot-item').removeClass('active');
+                const $item = $(`.worker-plot-item[data-subid="${subId}"]`);
+                $item.addClass('active');
+                $item[0]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                _updateWorkerSelectedBanner(rowData);
+            }
+        }
     });
-}
+};
 
 const loadGeoData = async () => {
     try {
@@ -600,7 +839,7 @@ const loadGeoData = async () => {
         const dataTable = $('#featureTable').DataTable({
             data: tableData,
             scrollX: true,
-            initComplete: function () { _applyWorkerVisibility(); },
+            initComplete: function () { _applyWorkerVisibility(); _applyAdminVisibility(); },
             columns: [
                 {
                     data: null,
@@ -859,127 +1098,140 @@ const loadGeoData = async () => {
             $('#user-dirty-badge').show();
         });
 
-        // ── Checker draft: save to memory whenever checker fields change ──
-        $('#panel-check-area, #panel-check-shape').off('change.draft').on('change.draft', function () {
-            const subId = String($('#panel-sub-id').val() || '');
-            if (!subId) return;
-            if (!_checkerDraft[subId]) _checkerDraft[subId] = {};
-            _checkerDraft[subId].check_area = $('#panel-check-area').val();
-            _checkerDraft[subId].check_shape = $('#panel-check-shape').val();
-            _checkerDraft[subId].remark = $('#panel-remark').val();
-            _panelCheckerDirty = true;
-            $('#checker-draft-badge').show();
-            $('#btn-discard-checker-draft').show();
+        // ── Batch pass / fail all sub_ids of current ID ──
+        $('#btn-batch-pass, #btn-batch-fail').on('click', function () {
+            const val = $(this).is('#btn-batch-pass') ? 'ผ่าน' : 'ไม่ผ่าน';
+            $('#id-sub-list .deed-check-area').val(val);
+            $('#id-sub-list .sub-review-row').each(function () {
+                $(this).find('.sub-check-shape').val(val);
+                $(this).removeClass('is-pass is-fail is-partial');
+                $(this).addClass(val === 'ผ่าน' ? 'is-pass' : 'is-fail');
+            });
         });
 
-        $('#panel-remark').off('input.draft').on('input.draft', function () {
-            const subId = String($('#panel-sub-id').val() || '');
-            if (!subId) return;
-            if (!_checkerDraft[subId]) _checkerDraft[subId] = {};
-            _checkerDraft[subId].check_area = $('#panel-check-area').val();
-            _checkerDraft[subId].check_shape = $('#panel-check-shape').val();
-            _checkerDraft[subId].remark = $('#panel-remark').val();
-            _panelCheckerDirty = true;
-            $('#checker-draft-badge').show();
-            $('#btn-discard-checker-draft').show();
-        });
-
-        // ── Discard checker draft: revert to last saved values ──
-        $('#btn-discard-checker-draft').off('click.discard').on('click.discard', function () {
-            const subId = String($('#panel-sub-id').val() || '');
-            if (!subId) return;
+        // ── Click sub_id row → zoom to that polygon on map ──
+        $('#id-sub-list').on('click', '.sub-review-row', function (e) {
+            if ($(e.target).is('select')) return;
+            const subId = String($(this).data('subid'));
             const dt = $('#featureTable').DataTable();
             const rowData = dt.rows().data().toArray().find(r => String(r.sub_id) === subId);
-            if (rowData) {
-                delete _checkerDraft[subId];
-                _panelCheckerDirty = false;
-                $('#panel-check-area').val(rowData.check_area || '');
-                $('#panel-check-shape').val(rowData.check_shape || '');
-                $('#panel-remark').val(rowData.remark || '');
-                $('#checker-draft-badge').hide();
-                $('#btn-discard-checker-draft').hide();
+            if (!rowData) return;
+
+            // Zoom to this polygon
+            if (rowData.geom) {
+                try {
+                    const b = L.geoJSON(rowData.geom).getBounds();
+                    if (b.isValid()) map.flyToBounds(b, { padding: [50, 50], maxZoom: 22, duration: 0.6 });
+                } catch (_) {}
             }
+
+            // Highlight the clicked polygon with classtype color (brighter, solid border)
+            const lyr = findLayerBySubId(subId);
+            if (lyr && typeof lyr.setStyle === 'function') {
+                const rdActive = $('#featureTable').DataTable().rows().data().toArray().find(r => String(r.sub_id) === subId);
+                const activeStyle = rdActive ? getFeatureStyle({ properties: rdActive }) : { color: '#FFD600', fillColor: '#ff5722' };
+                // Active polygon: yellow border so it's clearly visible
+                lyr.setStyle({ color: '#FFD600', fillColor: activeStyle.fillColor, weight: 5, opacity: 1, fillOpacity: 0.7, dashArray: null });
+            }
+
+            // Mark active row
+            $('#id-sub-list .sub-review-row').removeClass('active-sub');
+            $(this).addClass('active-sub');
         });
 
-        // Auto-fill reviewer name when changing status
-        $('#featureTable tbody').on('change', '.review-check-area, .review-check-shape', function () {
-            const row = $(this).closest('tr');
-            const reviewerInputEl = row.find('.review-reviewer');
-            const displayName = document.getElementById('display-name')?.textContent || '';
-            if (displayName && !reviewerInputEl.val()) {
-                reviewerInputEl.val(displayName);
-            }
+        // ── Update row highlight when check_shape changes ──
+        $('#id-sub-list').on('change', '.sub-check-shape', function () {
+            const row = $(this).closest('.sub-review-row');
+            const cs = $(this).val();
+            row.removeClass('is-pass is-fail');
+            if (cs === 'ผ่าน') row.addClass('is-pass');
+            else if (cs === 'ไม่ผ่าน') row.addClass('is-fail');
         });
 
-        // Panel Save Checker Button Handler
-        $('#panel-btn-save-checker').on('click', async function () {
-            const subId = $('#panel-sub-id').val();
+        // ── Save all sub_ids of current ID ──
+        $('#btn-save-id-review').on('click', async function () {
             const tb = $('#tb').val();
-            if (!subId) { alert('กรุณาเลือกข้อมูลก่อน'); return; }
+            const remark = $('#id-checker-remark').val();
+            const displayName = document.getElementById('display-name')?.textContent || '';
+            const rows = $('#id-sub-list .sub-review-row');
+            if (!rows.length) { alert('กรุณาเลือกแปลงก่อน'); return; }
+
+            // Deed-level check_area shared across all sub_ids
+            const deedCheckArea = $('#id-sub-list .deed-check-area').val();
 
             const btn = $(this);
-            const checkArea = $('#panel-check-area').val();
-            const checkShape = $('#panel-check-shape').val();
-            const remark = $('#panel-remark').val();
-            const displayName = document.getElementById('display-name')?.textContent || '';
-
             btn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i> กำลังบันทึก...');
 
-            try {
-                const res = await fetch(`/rub/api/update_review/${tb}`, {
+            const saves = [];
+            rows.each(function () {
+                const subId = $(this).data('subid');
+                const checkArea = deedCheckArea;
+                const checkShape = $(this).find('.sub-check-shape').val();
+                saves.push(fetch(`/rub/api/update_review/${tb}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        sub_id: subId,
-                        check_area: checkArea,
-                        check_shape: checkShape,
-                        remark: remark,
-                        reviewer: displayName
-                    })
+                    body: JSON.stringify({ sub_id: subId, check_area: checkArea, check_shape: checkShape, remark, reviewer: displayName })
+                }).then(r => r.json()).then(data => ({ subId, checkArea, checkShape, data })));
+            });
+
+            try {
+                const results = await Promise.all(saves);
+                const dataTable = $('#featureTable').DataTable();
+                let allOk = true;
+
+                // For rejected sub_ids, also clear user_remark
+                const clearSaves = [];
+                results.forEach(({ subId, checkArea, checkShape, data }) => {
+                    if (!data.success) { allOk = false; return; }
+                    const isRejected = checkArea === 'ไม่ผ่าน' || checkShape === 'ไม่ผ่าน';
+                    if (isRejected) {
+                        clearSaves.push(
+                            fetch(`/rub/api/update_user_remark/${tb}`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ sub_id: subId, user_remark: '', user_name: '' })
+                            }).then(r => r.json()).then(() => subId).catch(() => subId)
+                        );
+                    }
+                });
+                if (clearSaves.length) await Promise.all(clearSaves);
+
+                results.forEach(({ subId, checkArea, checkShape, data }) => {
+                    if (!data.success) return;
+                    const isRejected = checkArea === 'ไม่ผ่าน' || checkShape === 'ไม่ผ่าน';
+                    const tableRow = dataTable.row((idx, d) => String(d.sub_id) === String(subId));
+                    if (tableRow.any()) {
+                        const rd = tableRow.data();
+                        rd.check_area = checkArea; rd.check_shape = checkShape;
+                        rd.remark = remark; rd.reviewer = displayName;
+                        rd.review_ts = data.data?.[0]?.review_ts || new Date().toISOString();
+                        if (isRejected) {
+                            rd.user_remark = '';
+                            rd.user_remark_ts = '';
+                            rd.user_name = '';
+                        }
+                        tableRow.data(rd).draw(false);
+                        const node = tableRow.node();
+                        if (node) {
+                            $(node).removeClass('row-checked-pass row-checked-fail');
+                            if (checkArea === 'ผ่าน' && checkShape === 'ผ่าน') $(node).addClass('row-checked-pass');
+                            else if (isRejected) $(node).addClass('row-checked-fail');
+                        }
+                    }
                 });
 
-                const data = await res.json();
-                if (data.success) {
-                    btn.html('<i class="bi bi-check-circle-fill"></i> เรียบร้อย').removeClass('btn-success').addClass('btn-primary');
-                    // Clear draft after successful save
-                    delete _checkerDraft[String(subId)];
-                    _panelCheckerDirty = false;
-                    $('#checker-draft-badge').hide();
-                    $('#btn-discard-checker-draft').hide();
+                // Update saved-by footer
+                const now = new Date();
+                $('#id-reviewer-name').text(displayName || '-');
+                $('#id-review-time').text(now.toLocaleString('th-TH', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' น.');
+                // id-reviewer-info always visible
 
-                    const dataTable = $('#featureTable').DataTable();
-                    const tableRow = dataTable.row((idx, d) => d.sub_id == subId);
+                btn.html('<i class="bi bi-check-circle-fill"></i> บันทึกแล้ว').removeClass('btn-success').addClass('btn-primary');
+                setTimeout(() => btn.html('<i class="bi bi-floppy-fill me-1"></i> บันทึกผลการตรวจ').removeClass('btn-primary').addClass('btn-success').prop('disabled', false), 2000);
 
-                    if (tableRow.any()) {
-                        const rowData = tableRow.data();
-                        rowData.check_area = checkArea;
-                        rowData.check_shape = checkShape;
-                        rowData.remark = remark;
-                        rowData.reviewer = displayName;
-                        rowData.review_ts = data.data && data.data[0] ? data.data[0].review_ts : new Date().toISOString();
-                        // Preserve current panel user_remark (may be unsaved)
-                        rowData.user_remark = $('#panel-user-remark').val();
-                        tableRow.data(rowData).draw(false);
-
-                        // Update row color after checker save
-                        const rowNode = tableRow.node();
-                        if (rowNode) {
-                            $(rowNode).removeClass('row-checked-pass row-checked-fail');
-                            if (checkArea === 'ผ่าน' && checkShape === 'ผ่าน') $(rowNode).addClass('row-checked-pass');
-                            else if (checkArea === 'ไม่ผ่าน' || checkShape === 'ไม่ผ่าน') $(rowNode).addClass('row-checked-fail');
-                        }
-                        showFeaturePanel({ properties: rowData });
-                    }
-
-                    setTimeout(() => {
-                        btn.html('<i class="bi bi-floppy-fill me-1"></i> บันทึกผลการตรวจ').removeClass('btn-primary').addClass('btn-success').prop('disabled', false);
-                    }, 2000);
-                } else {
-                    alert('บันทึกไม่สำเร็จ: ' + (data.error || 'Unknown error'));
-                    btn.prop('disabled', false).html('<i class="bi bi-floppy-fill me-1"></i> บันทึกผลการตรวจ');
-                }
+                if (!allOk) alert('บางรายการบันทึกไม่สำเร็จ');
             } catch (err) {
-                console.error('Checker Save Error:', err);
+                console.error('Save ID review error:', err);
                 alert('เกิดข้อผิดพลาดในการเชื่อมต่อ');
                 btn.prop('disabled', false).html('<i class="bi bi-floppy-fill me-1"></i> บันทึกผลการตรวจ');
             }
@@ -1058,6 +1310,8 @@ const loadGeoData = async () => {
             if (_panelUserDirty) await autoSaveUserRemark();
             const data = $('#featureTable').DataTable().row(this).data();
             if (data) {
+                // Reset ID cache so new click always refreshes the panel
+                _currentReviewId = null;
                 showFeaturePanel({ properties: data });
             }
         });
@@ -1130,10 +1384,10 @@ const loadGeoData = async () => {
         $('#btn-plot-prev').on('click', () => navigatePlots(-1));
         $('#btn-plot-next').on('click', () => navigatePlots(1));
         $('#plot-nav-count').css('cursor', 'pointer').on('click', () => {
-            const currentSubId = $('#panel-sub-id').val();
+            if (!_currentReviewId) return;
             const dt = $('#featureTable').DataTable();
-            const rowData = dt.rows().data().toArray().find(r => String(r.sub_id) === String(currentSubId));
-            if (rowData) focusPlot(rowData);
+            const rowData = dt.rows().data().toArray().find(r => String(r.id) === String(_currentReviewId));
+            if (rowData) { _currentReviewId = null; focusPlot(rowData); }
         });
 
         const updateMap = () => {
@@ -1174,19 +1428,13 @@ const loadGeoData = async () => {
         updateMap();
 
         $('#featureTable tbody').on('click', '.map-btn', function (e) {
-            try {
-                e.stopPropagation();
-                const geojson = $(this).data('geojson');
-                const layer = L.geoJSON(geojson)
-
-                const bounds = layer.getBounds();
-                map.fitBounds(bounds, {
-                    padding: [20, 20],
-                    // maxZoom: 16         
-                });
-                selectedLayer = layer;
-            } catch (error) {
-                console.error('Failed to parse GeoJSON:', error);
+            e.stopPropagation();
+            const refId = String($(this).data('refid'));
+            const dt = $('#featureTable').DataTable();
+            const rowData = dt.rows().data().toArray().find(r => String(r.id) === refId);
+            if (rowData) {
+                _currentReviewId = null;
+                focusPlot(rowData);
             }
         });
 
@@ -1462,6 +1710,18 @@ const loadGeoData = async () => {
                     btn.html('<i class="bi bi-check-lg"></i> สำเร็จ').addClass('btn-review-saved');
                     const updatedTs = data.data && data.data[0] ? data.data[0].review_ts : new Date().toISOString();
 
+                    // If rejected → clear user_remark so worker must write a fresh note
+                    const isRejected = checkArea === 'ไม่ผ่าน' || checkShape === 'ไม่ผ่าน';
+                    if (isRejected) {
+                        try {
+                            await fetch(`/rub/api/update_user_remark/${tb}`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ sub_id: subId, user_remark: '', user_name: '' })
+                            });
+                        } catch (_) {}
+                    }
+
                     // Update reviewer input and timestamp in the row
                     if (reviewerToSave) {
                         let dateStr = '';
@@ -1479,21 +1739,31 @@ const loadGeoData = async () => {
                         }
                     }
 
-                    // Update internal DataTable data so next save compares correctly against these new values
+                    // Update internal DataTable data
                     rowData.check_area = checkArea;
                     rowData.check_shape = checkShape;
                     rowData.remark = remark;
-                    rowData.user_remark = userRemark;
                     rowData.reviewer = reviewerToSave;
                     rowData.review_ts = updatedTs;
+                    if (isRejected) {
+                        rowData.user_remark = '';
+                        rowData.user_remark_ts = '';
+                        rowData.user_name = '';
+                        // Clear the input in the table row visually
+                        row.find('.user-remark').val('');
+                        row.find('.user-remark-time').remove();
+                        row.find('.btn-clear-user-remark').hide();
+                    } else {
+                        rowData.user_remark = userRemark;
+                    }
                     dataTable.row(row).data(rowData);
 
                     // Update row color based on new check status
                     $(row).removeClass('row-checked-pass row-checked-fail');
                     if (checkArea === 'ผ่าน' && checkShape === 'ผ่าน') $(row).addClass('row-checked-pass');
-                    else if (checkArea === 'ไม่ผ่าน' || checkShape === 'ไม่ผ่าน') $(row).addClass('row-checked-fail');
+                    else if (isRejected) $(row).addClass('row-checked-fail');
 
-                    // Sync panel status badge if this row is shown
+                    // Sync panel if this row is shown
                     const panelSubId = $('#panel-sub-id').val();
                     if (String(panelSubId) === String(subId)) {
                         showFeaturePanel({ properties: rowData });
@@ -1851,6 +2121,110 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
 
+// ── Worker quick panel: delete (clear) remark for selected plot ──
+$(document).on('click', '#worker-sel-delete', async function () {
+    const subId = String($('#worker-sel-save').data('subid'));
+    const tb = $('#tb').val();
+    if (!subId || subId === 'undefined') return;
+    if (!confirm('ลบหมายเหตุสำหรับแปลงนี้?')) return;
+
+    const displayName = document.getElementById('display-name')?.textContent || '';
+    const btn = $(this);
+    btn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i>');
+
+    try {
+        const res = await fetch(`/rub/api/update_user_remark/${tb}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sub_id: subId, user_remark: '', user_name: displayName })
+        });
+        const data = await res.json();
+        if (data.success) {
+            $('#worker-sel-remark').val('');
+            // Update DataTable row
+            if ($.fn.DataTable.isDataTable('#featureTable')) {
+                const dt = $('#featureTable').DataTable();
+                const tableRow = dt.row((idx, d) => String(d.sub_id) === subId);
+                if (tableRow.any()) {
+                    const rd = tableRow.data();
+                    rd.user_remark = ''; rd.user_name = ''; rd.user_remark_ts = '';
+                    tableRow.data(rd).draw(false);
+                }
+            }
+            // Remove note preview from worker list item
+            $(`.worker-plot-item[data-subid="${subId}"] .worker-plot-note`).remove();
+        }
+    } catch (e) { console.error(e); }
+    finally { btn.prop('disabled', false).html('<i class="bi bi-trash3-fill"></i>'); }
+});
+
+// ── Worker quick panel: prev / next ID navigation ──
+$(document).on('click', '#btn-worker-prev', () => navigatePlots(-1));
+$(document).on('click', '#btn-worker-next', () => navigatePlots(1));
+
+// ── Worker quick panel: click plot item → zoom + highlight + load banner ──
+$(document).on('click', '.worker-plot-item', function () {
+    const subId = String($(this).data('subid'));
+    if (!$.fn.DataTable.isDataTable('#featureTable')) return;
+    const dt = $('#featureTable').DataTable();
+    const rowData = dt.rows().data().toArray().find(r => String(r.sub_id) === subId);
+    if (!rowData) return;
+    _currentReviewId = null;
+    focusPlot(rowData);
+});
+
+// ── Worker quick panel: save remark for currently selected plot ──
+$(document).on('click', '#worker-sel-save', async function () {
+    const subId = String($(this).data('subid'));
+    const tb = $('#tb').val();
+    if (!subId || subId === 'undefined') { alert('กรุณาเลือกแปลงก่อน'); return; }
+    const remark = $('#worker-sel-remark').val();
+    const displayName = document.getElementById('display-name')?.textContent || '';
+    const btn = $(this);
+    btn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i> กำลังบันทึก...');
+    try {
+        const res = await fetch(`/rub/api/update_user_remark/${tb}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sub_id: subId, user_remark: remark, user_name: displayName })
+        });
+        const data = await res.json();
+        if (data.success) {
+            const updatedTs = data.data?.[0]?.user_remark_ts || new Date().toISOString();
+            // Update DataTable row
+            if ($.fn.DataTable.isDataTable('#featureTable')) {
+                const dt = $('#featureTable').DataTable();
+                const tableRow = dt.row((idx, d) => String(d.sub_id) === subId);
+                if (tableRow.any()) {
+                    const rd = tableRow.data();
+                    rd.user_remark = remark; rd.user_name = displayName; rd.user_remark_ts = updatedTs;
+                    tableRow.data(rd).draw(false);
+                }
+            }
+            // Update note preview in the worker list item
+            const $item = $(`.worker-plot-item[data-subid="${subId}"]`);
+            const $noteDiv = $item.find('.worker-plot-note');
+            const preview = remark ? remark.substring(0, 25) + (remark.length > 25 ? '…' : '') : '';
+            if (preview && $noteDiv.length) {
+                $noteDiv.html(`<i class="bi bi-chat-dots-fill" style="font-size:0.65rem;"></i> ${preview}`);
+            } else if (preview) {
+                $item.find('.worker-plot-info').append(
+                    `<div class="worker-plot-note"><i class="bi bi-chat-dots-fill" style="font-size:0.65rem;"></i> ${preview}</div>`
+                );
+            } else {
+                $noteDiv.remove();
+            }
+            btn.html('<i class="bi bi-check-circle-fill"></i> บันทึกแล้ว!');
+            setTimeout(() => btn.html('<i class="bi bi-send-fill me-1"></i> บันทึกหมายเหตุ').prop('disabled', false), 2000);
+        } else {
+            alert('บันทึกไม่สำเร็จ'); btn.prop('disabled', false).html('<i class="bi bi-send-fill me-1"></i> บันทึกหมายเหตุ');
+        }
+    } catch (e) {
+        console.error(e);
+        btn.prop('disabled', false).html('<i class="bi bi-send-fill me-1"></i> บันทึกหมายเหตุ');
+    }
+});
+
 document.addEventListener('DOMContentLoaded', async () => {
     try {
         const res = await fetch('/rub/auth/me');
@@ -1872,6 +2246,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             _userRole = user.role || 'worker';
             _applyWorkerVisibility();
+            _applyAdminVisibility();
 
             // Re-load progress with correct user identity after login
             const urlParams = new URLSearchParams(window.location.search);

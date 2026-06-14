@@ -95,6 +95,18 @@
                     <div class="card-body">
                         <div class="section-title"><i class="bi bi-layers"></i> ข้อมูลแปลง</div>
                         <div id="featurePanel">
+                            <!-- Rejection notice — shown when admin marked ไม่ผ่าน -->
+                            <div id="rejection-notice" style="display:none;" class="rejection-notice mb-3">
+                                <div class="rejection-header">
+                                    <i class="bi bi-exclamation-triangle-fill"></i> ถูก Reject โดย Admin
+                                </div>
+                                <div class="rejection-checks">
+                                    <span>โฉนด: <strong id="rj-check-area">-</strong></span>
+                                    <span>คลาส: <strong id="rj-check-shape">-</strong></span>
+                                </div>
+                                <div id="rj-remark" class="rejection-remark"></div>
+                                <div class="rejection-by" id="rj-reviewer"></div>
+                            </div>
                             <div>
                                 <strong>ID</strong>
                                 <input class="form-control" id="id" disabled>

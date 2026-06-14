@@ -183,18 +183,26 @@ function featureStyleFn(feature, _resolution) {
     const sel = feature.get('selected');
     const merge = feature.get('mergeSelected');
     const color = getColor(ct);
-    
+    const isRejected = feature.get('check_area') === 'ไม่ผ่าน' || feature.get('check_shape') === 'ไม่ผ่าน';
+
     const isBaseSelected = sel && !editMode;
-    
+
     const styles = [];
-    
+
+    // Extra outer red glow for rejected
+    if (isRejected && !sel && !merge) {
+        styles.unshift(new ol.style.Style({
+            stroke: new ol.style.Stroke({ color: 'rgba(229,57,53,0.35)', width: 7 })
+        }));
+    }
+
     // Polygon base style
     styles.push(new ol.style.Style({
         fill: new ol.style.Fill({ color: hexToRgba(color, merge ? 0.45 : isBaseSelected ? 0.35 : 0.2) }),
         stroke: new ol.style.Stroke({
-            color: merge ? '#ffff00' : (sel && editMode) ? '#ff7043' : sel ? '#0ccbf0' : '#ffffff',
-            width: merge ? 4 : (sel && editMode) ? 3 : sel ? 5 : 2,
-            lineDash: merge ? undefined : (sel && editMode) ? [6, 4] : sel ? undefined : [4, 3]
+            color: merge ? '#ffff00' : (sel && editMode) ? '#ff7043' : sel ? '#0ccbf0' : isRejected ? '#e53935' : '#ffffff',
+            width: merge ? 4 : (sel && editMode) ? 3 : sel ? 5 : isRejected ? 3 : 2,
+            lineDash: merge ? undefined : (sel && editMode) ? [6, 4] : sel ? undefined : isRejected ? [6, 3] : [4, 3]
         })
     }));
 
@@ -373,6 +381,10 @@ const loadGeoData = async (id, shouldFit = true) => {
                 shpsplit_sqm: item.shpsplit_sqm,
                 Rubr_Area: item['Rubr_Area'],
                 classtype: item.classtype,
+                check_area: item.check_area || '',
+                check_shape: item.check_shape || '',
+                remark: item.remark || '',
+                reviewer: item.reviewer || '',
                 selected: false,
                 mergeSelected: false
             });
@@ -418,13 +430,31 @@ function showFeaturePanel(feature) {
     document.getElementById('sub_id').value = feature.get('sub_id') || '';
     document.getElementById('xls_id_farmer').value = feature.get('Farmer_ID') || '';
     document.getElementById('rubr_sqm').value = Number(feature.get('Rubr_Sqm') || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
-    
-    // Also set current_sqm
+
     const currentArea = feature.get('shpsplit_sqm');
     document.getElementById('current_sqm').value = currentArea ? Math.round(currentArea).toLocaleString('th-TH') : '';
     const ct = feature.get('classtype');
     document.getElementById('classtype').value = ct ? ct : '';
     updateClasstypeColor(ct);
+
+    // ── Rejection notice ──
+    const ca = feature.get('check_area') || '';
+    const cs = feature.get('check_shape') || '';
+    const isRejected = ca === 'ไม่ผ่าน' || cs === 'ไม่ผ่าน';
+    const notice = document.getElementById('rejection-notice');
+    if (isRejected) {
+        document.getElementById('rj-check-area').textContent = ca === 'ไม่ผ่าน' ? '❌ ไม่ผ่าน' : '✅ ผ่าน';
+        document.getElementById('rj-check-shape').textContent = cs === 'ไม่ผ่าน' ? '❌ ไม่ผ่าน' : '✅ ผ่าน';
+        const remark = feature.get('remark') || '';
+        const remarkEl = document.getElementById('rj-remark');
+        remarkEl.textContent = remark || '';
+        remarkEl.style.display = remark ? 'block' : 'none';
+        const reviewer = feature.get('reviewer') || '';
+        document.getElementById('rj-reviewer').textContent = reviewer ? `โดย: ${reviewer}` : '';
+        notice.style.display = 'block';
+    } else {
+        notice.style.display = 'none';
+    }
 }
 
 // ── 11. Map click → select polygon ───────────────────────

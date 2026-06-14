@@ -73,6 +73,65 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Worker Quick Access — compact scrollable plot list (shown only for workers) -->
+                <div class="card mb-2 shadow-sm" id="workerQuickCard" style="display:none;">
+                    <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center cursor-pointer py-2"
+                        data-bs-toggle="collapse" data-bs-target="#workerQuickCollapse" aria-expanded="true">
+                        <div class="section-title mb-0"><i class="bi bi-list-check"></i> รายการแปลงของคุณ</div>
+                        <i class="bi bi-chevron-down toggle-icon"></i>
+                    </div>
+                    <div class="collapse show" id="workerQuickCollapse">
+                        <div class="card-body pt-1 px-2 pb-2">
+                            <!-- Navigation: prev / counter / next ID (hidden until data loads) -->
+                            <div class="d-flex align-items-center gap-1 mb-2" id="workerNavBar" style="display:none !important;">
+                                <button class="btn btn-outline-secondary btn-sm px-2" id="btn-worker-prev" title="ID ก่อนหน้า">
+                                    <i class="bi bi-chevron-left"></i>
+                                </button>
+                                <span id="worker-nav-count" class="badge bg-light text-dark border px-2 py-1"
+                                    style="font-size:0.73rem; min-width:60px; text-align:center; font-family:monospace;">
+                                    0 / 0
+                                </span>
+                                <button class="btn btn-outline-secondary btn-sm px-2" id="btn-worker-next" title="ID ถัดไป">
+                                    <i class="bi bi-chevron-right"></i>
+                                </button>
+                                <span class="text-muted ms-1" style="font-size:0.72rem;">เลื่อน ID</span>
+                            </div>
+                            <!-- Selected plot banner — appears after clicking a plot item -->
+                            <div id="worker-selected-info" class="worker-sel-banner mb-2" style="display:none;">
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <div class="worker-sel-dot" id="worker-sel-dot"></div>
+                                    <div class="flex-grow-1">
+                                        <div class="d-flex align-items-center gap-1 flex-wrap">
+                                            <span class="badge bg-primary" id="worker-sel-subid">-</span>
+                                            <span class="text-muted" id="worker-sel-id" style="font-size:0.72rem;"></span>
+                                        </div>
+                                        <div id="worker-sel-classtype" style="font-size:0.75rem; margin-top:2px;"></div>
+                                    </div>
+                                    <i class="bi bi-geo-alt-fill text-success" style="font-size:0.9rem;"></i>
+                                </div>
+                                <label class="xs-label">หมายเหตุสำหรับแปลงนี้</label>
+                                <textarea class="form-control form-control-sm" id="worker-sel-remark" rows="2"
+                                    placeholder="พิมพ์หมายเหตุ หรือแจ้งการแก้ไข..."></textarea>
+                                <div class="d-flex justify-content-end gap-2 mt-1">
+                                    <button class="btn btn-sm btn-outline-danger" id="worker-sel-delete" data-subid="" title="ลบหมายเหตุ">
+                                        <i class="bi bi-trash3-fill"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-primary" id="worker-sel-save" data-subid="">
+                                        <i class="bi bi-send-fill me-1"></i> บันทึกหมายเหตุ
+                                    </button>
+                                </div>
+                            </div>
+                            <!-- Scrollable compact plot list -->
+                            <div id="workerPlotList" class="worker-plot-scroll">
+                                <div class="text-muted small text-center py-3">
+                                    <span class="spinner-border spinner-border-sm me-1"></span> กำลังโหลด...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="card mb-2 shadow-sm">
                     <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center cursor-pointer py-3"
                         data-bs-toggle="collapse" data-bs-target="#featurePanelCollapse" aria-expanded="true">
@@ -183,68 +242,52 @@
                                 <!-- Review Section -->
                                 <div class="review-section-container">
 
-                                    <!-- ═══ Box สำหรับเจ้าหน้าที่ (Checker) ═══ -->
+                                    <!-- ═══ Box สำหรับเจ้าหน้าที่ (Checker) — ตรวจทีละ ID ═══ -->
                                     <div class="review-box checker-box mb-3">
-                                        <!-- Header row -->
                                         <div class="d-flex align-items-center justify-content-between mb-2">
                                             <div class="section-title-sm">
                                                 <i class="bi bi-shield-check"></i> เจ้าหน้าที่ (Checker)
                                             </div>
-                                            <div class="d-flex align-items-center gap-1">
-                                                <span id="checker-draft-badge" class="draft-badge" style="display:none;">
-                                                    <i class="bi bi-pencil-fill"></i> ร่าง
-                                                </span>
-                                                <div id="panel-check-status-summary"></div>
+                                        </div>
+
+                                        <!-- Sub-id list — filled by JS -->
+                                        <div id="id-sub-list" class="id-sub-list mb-2">
+                                            <div class="text-muted small text-center py-3">
+                                                <i class="bi bi-hand-index-thumb"></i> เลือกแปลงจากแผนที่หรือตาราง
                                             </div>
                                         </div>
 
-                                        <!-- Check selects -->
-                                        <div class="row g-2 mb-2">
-                                            <div class="col-6">
-                                                <label class="xs-label">ตรวจสอบโฉนด</label>
-                                                <select class="form-select form-select-sm" id="panel-check-area">
-                                                    <option value="">-- เลือก --</option>
-                                                    <option value="ผ่าน">✅ ผ่าน</option>
-                                                    <option value="ไม่ผ่าน">❌ ไม่ผ่าน</option>
-                                                </select>
-                                            </div>
-                                            <div class="col-6">
-                                                <label class="xs-label">การจำแนกประเภท</label>
-                                                <select class="form-select form-select-sm" id="panel-check-shape">
-                                                    <option value="">-- เลือก --</option>
-                                                    <option value="ผ่าน">✅ ผ่าน</option>
-                                                    <option value="ไม่ผ่าน">❌ ไม่ผ่าน</option>
-                                                </select>
-                                            </div>
+                                        <!-- Batch actions -->
+                                        <div class="d-flex gap-2 mb-2" id="id-batch-actions" style="display:none !important;">
+                                            <button class="btn btn-outline-success btn-sm flex-grow-1" id="btn-batch-pass">
+                                                <i class="bi bi-check-all"></i> ผ่านทั้งหมด
+                                            </button>
+                                            <button class="btn btn-outline-danger btn-sm flex-grow-1" id="btn-batch-fail">
+                                                <i class="bi bi-x-lg"></i> ไม่ผ่านทั้งหมด
+                                            </button>
                                         </div>
 
-                                        <!-- Remark textarea -->
-                                        <div class="mb-2">
+                                        <!-- Shared remark -->
+                                        <div class="mb-2" id="id-remark-section" style="display:none;">
                                             <label class="xs-label">หมายเหตุ / ความเห็น</label>
-                                            <textarea class="form-control form-control-sm" id="panel-remark" rows="2"
-                                                placeholder="พิมพ์ความเห็นผู้ตรวจสอบ..."></textarea>
+                                            <textarea class="form-control form-control-sm" id="id-checker-remark" rows="2"
+                                                placeholder="พิมพ์ความเห็น (ใช้กับทุก sub_id ของ ID นี้)..."></textarea>
                                         </div>
 
-                                        <!-- Last saved info — always visible -->
-                                        <div class="saved-info-footer" id="panel-reviewer-info">
+                                        <!-- Last saved info -->
+                                        <div class="saved-info-footer" id="id-reviewer-info">
                                             <i class="bi bi-check-circle-fill saved-icon"></i>
                                             <div class="saved-info-text">
                                                 <span class="saved-label">บันทึกล่าสุดโดย</span>
-                                                <span id="panel-reviewer-name" class="saved-name">-</span>
-                                                <span id="panel-review-time" class="saved-time"></span>
+                                                <span id="id-reviewer-name" class="saved-name">ยังไม่มีการบันทึก</span>
+                                                <span id="id-review-time" class="saved-time"></span>
                                             </div>
                                         </div>
 
-                                        <!-- Action buttons -->
-                                        <div class="d-flex gap-2 mt-2">
-                                            <button class="btn btn-success btn-sm flex-grow-1" id="panel-btn-save-checker">
-                                                <i class="bi bi-floppy-fill me-1"></i> บันทึกผลการตรวจ
-                                            </button>
-                                            <button class="btn btn-outline-secondary btn-sm" id="btn-discard-checker-draft"
-                                                title="ยกเลิกร่าง คืนค่าเดิม" style="display:none;">
-                                                <i class="bi bi-arrow-counterclockwise"></i>
-                                            </button>
-                                        </div>
+                                        <!-- Save button -->
+                                        <button class="btn btn-success btn-sm w-100 mt-2" id="btn-save-id-review" style="display:none;">
+                                            <i class="bi bi-floppy-fill me-1"></i> บันทึกผลการตรวจ
+                                        </button>
                                     </div>
 
                                     <!-- ═══ Box สำหรับผู้ใช้งาน (User) ═══ -->
