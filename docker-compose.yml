@@ -69,7 +69,8 @@ services:
       nodejs:
         condition: service_healthy
     volumes:
-      - ./backups:/backups
+      - backups_data:/backups
+      - ./backups:/backup-host
     ports:
       - "8100:8100"
     networks:
@@ -82,3 +83,4 @@ networks:
 volumes:
   pgdata:
   uploads_data:
+  backups_data:

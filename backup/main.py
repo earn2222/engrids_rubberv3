@@ -1,4 +1,5 @@
 import os
+import shutil
 import subprocess
 from datetime import datetime
 from pathlib import Path
@@ -15,6 +16,7 @@ PG_USER     = os.getenv("POSTGRES_USER", "postgres")
 PG_PASSWORD = os.getenv("POSTGRES_PASSWORD", "rub1234")
 PG_DB       = os.getenv("POSTGRES_DB", "rub2")
 BACKUP_DIR  = Path(os.getenv("BACKUP_DIR", "/backups"))
+HOST_DIR    = Path("/backup-host")          # bind-mount → Windows ./backups folder
 INTERVAL_H  = float(os.getenv("BACKUP_INTERVAL_HOURS", "24"))
 KEEP_DAYS   = int(os.getenv("BACKUP_KEEP_DAYS", "7"))
 # ─────────────────────────────────────────────────────────────────────────────
@@ -53,6 +55,7 @@ def _do_backup() -> Path:
             "--if-exists",
             "--create",
             "--encoding", "UTF8",
+            "--exclude-table=public.shpall",   # shpall is static ref data; restore from shpall.sql
             PG_DB,
         ],
         capture_output=True,
@@ -65,6 +68,15 @@ def _do_backup() -> Path:
         raise RuntimeError(result.stderr.strip())
 
     out.write_text(result.stdout, encoding="utf-8")
+
+    # Also copy to Windows host folder if bind-mounted
+    if HOST_DIR.exists():
+        try:
+            HOST_DIR.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(out, HOST_DIR / out.name)
+        except Exception as e:
+            print(f"[WARN] Could not copy to host folder: {e}")
+
     return out
 
 

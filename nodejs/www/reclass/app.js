@@ -1138,8 +1138,12 @@ map.getViewport().addEventListener('contextmenu', (evt) => {
             const idx = findNearestVertexIndex(open, coord, TOLERANCE);
             if (idx !== -1) {
                 if (open.length <= 3) {
+                    // Too few vertices to remain a polygon — remove the whole feature
                     isReverting = false;
-                    showToast('ไม่สามารถลบได้ — polygon ต้องมีอย่างน้อย 3 จุด', 'error');
+                    stopEditMode();
+                    vectorSource.removeFeature(selectedFeature);
+                    selectedFeature = null;
+                    showToast('ลบ polygon แล้ว', 'info');
                     return;
                 }
                 open.splice(idx, 1);
@@ -1156,8 +1160,12 @@ map.getViewport().addEventListener('contextmenu', (evt) => {
                 const idx = findNearestVertexIndex(open, coord, TOLERANCE);
                 if (idx !== -1) {
                     if (open.length <= 3) {
+                        // Too few vertices to remain a polygon — remove the whole feature
                         isReverting = false;
-                        showToast('ไม่สามารถลบได้ — polygon ต้องมีอย่างน้อย 3 จุด', 'error');
+                        stopEditMode();
+                        vectorSource.removeFeature(selectedFeature);
+                        selectedFeature = null;
+                        showToast('ลบ polygon แล้ว', 'info');
                         return;
                     }
                     open.splice(idx, 1);
