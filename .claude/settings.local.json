@@ -35,7 +35,11 @@
       "Bash(docker-compose down *)",
       "Bash(docker-compose up *)",
       "Bash(docker-compose logs *)",
-      "Bash(docker restart *)"
+      "Bash(docker restart *)",
+      "Bash(docker volume *)",
+      "Bash(docker compose *)",
+      "Bash(docker stop *)",
+      "Bash(docker rm *)"
     ]
   }
 }

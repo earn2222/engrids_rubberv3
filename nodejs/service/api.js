@@ -83,9 +83,32 @@ async function _saveHistoryRows(tb, rows, reason) {
     }
 }
 
+async function ensureReclassReviewColumns(tb) {
+    const cols = [
+        { name: 'check_area',     type: 'text' },
+        { name: 'check_shape',    type: 'text' },
+        { name: 'remark',         type: 'text' },
+        { name: 'reviewer',       type: 'text' },
+        { name: 'review_ts',      type: 'timestamp without time zone' },
+        { name: 'user_remark',    type: 'text' },
+        { name: 'user_remark_ts', type: 'timestamp without time zone' },
+        { name: 'user_name',      type: 'text' },
+        { name: '"Rubr_Area"',    type: 'numeric' },
+    ];
+    for (const col of cols) {
+        await pool.query(`
+            DO $$ BEGIN
+                ALTER TABLE reclass_${tb} ADD COLUMN ${col.name} ${col.type};
+            EXCEPTION WHEN duplicate_column THEN NULL;
+            END $$;
+        `).catch(() => {});
+    }
+}
+
 async function saveReviewHistoryById(_, tb, id, reason) {
     try {
         await ensureReviewHistoryTable();
+        await ensureReclassReviewColumns(tb);
         const { rows } = await pool.query(
             `SELECT id, sub_id, check_area, check_shape, reviewer, review_ts
              FROM reclass_${tb}
@@ -102,6 +125,7 @@ async function saveReviewHistoryById(_, tb, id, reason) {
 async function saveReviewHistoryBySubId(_, tb, sub_id, reason) {
     try {
         await ensureReviewHistoryTable();
+        await ensureReclassReviewColumns(tb);
         const { rows } = await pool.query(
             `SELECT id, sub_id, check_area, check_shape, reviewer, review_ts
              FROM reclass_${tb}

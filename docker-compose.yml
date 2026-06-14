@@ -7,7 +7,7 @@ services:
     environment:
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
-      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_DB=postgres
     ports:
       - "${DB_PORT}:5432"
     volumes:
@@ -19,7 +19,8 @@ services:
       test: [ "CMD-SHELL", "pg_isready -U ${DB_USER} -d postgres" ]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 20
+      start_period: 10s
 
   nodejs:
     build: ./nodejs
@@ -34,7 +35,8 @@ services:
       - DB_HOST=postgis
       - DB_PORT=5432
     depends_on:
-      - postgis
+      postgis:
+        condition: service_healthy
     volumes:
       - uploads_data:/usr/src/app/uploads
     ports:
@@ -42,6 +44,12 @@ services:
     networks:
       - rub-network
     command: sh -c "nodemon server.js"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:3000/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
 
   backup:
     build: ./backup
@@ -59,7 +67,7 @@ services:
       - BACKUP_KEEP_DAYS=7
       - BACKUP_DIR=/backups
     depends_on:
-      postgis:
+      nodejs:
         condition: service_healthy
     volumes:
       - ./backups:/backups

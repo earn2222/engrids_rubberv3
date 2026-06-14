@@ -1,5 +1,5 @@
 --
--- PostgreSQL database dump for rub2
+-- PostgreSQL database init for rub2
 --
 
 SET statement_timeout = 0;
@@ -14,7 +14,7 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
--- Name: rub2; Type: DATABASE; Schema: -; Owner: postgres
+-- Name: rub2; Type: DATABASE
 --
 
 CREATE DATABASE rub2 WITH TEMPLATE = template0 ENCODING = 'UTF8' LOCALE_PROVIDER = libc LOCALE = 'C';
@@ -34,45 +34,60 @@ SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
 
---
--- Name: public; Type: SCHEMA; Schema: -; Owner: postgres
---
-
 ALTER SCHEMA public OWNER TO postgres;
 
 --
--- Name: postgis; Type: EXTENSION; Schema: -; Owner: -
+-- Extensions
 --
 
 CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA public;
-
-COMMENT ON EXTENSION postgis IS 'PostGIS geometry and geography spatial types and functions';
+CREATE EXTENSION IF NOT EXISTS postgis_topology;
 
 --
 -- Users table for Google OAuth authentication
 --
 
 CREATE TABLE IF NOT EXISTS public.users (
-    id SERIAL PRIMARY KEY,
-    google_id text UNIQUE NOT NULL,
-    display_name text,
-    email text,
-    photo text,
-    created_at timestamp DEFAULT NOW()
+    id           SERIAL PRIMARY KEY,
+    google_id    TEXT UNIQUE,
+    display_name TEXT,
+    email        TEXT,
+    photo        TEXT,
+    role         TEXT NOT NULL DEFAULT 'worker',
+    created_at   TIMESTAMP DEFAULT NOW()
 );
 
 ALTER TABLE public.users OWNER TO postgres;
 
 --
--- LayerList table to keep track of all layers
+-- Trigger: auto-set admin role for designated admin emails
 --
 
-CREATE TABLE public.layerlist (
-    id SERIAL PRIMARY KEY,
-    tb_name text UNIQUE,
-    remark text,
-    created_at timestamp DEFAULT NOW(),
-    updated_at timestamp DEFAULT NOW()
+CREATE OR REPLACE FUNCTION public.set_admin_email_role()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF LOWER(NEW.email) IN ('daungjai.16002@gmail.com') THEN
+        NEW.role := 'admin';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_admin_email_role
+BEFORE INSERT OR UPDATE ON public.users
+FOR EACH ROW
+EXECUTE FUNCTION public.set_admin_email_role();
+
+--
+-- LayerList table
+--
+
+CREATE TABLE IF NOT EXISTS public.layerlist (
+    id         SERIAL PRIMARY KEY,
+    tb_name    TEXT UNIQUE,
+    remark     TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
 );
 
 ALTER TABLE public.layerlist OWNER TO postgres;
