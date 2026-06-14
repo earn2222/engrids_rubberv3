@@ -39,7 +39,14 @@
       "Bash(docker volume *)",
       "Bash(docker compose *)",
       "Bash(docker stop *)",
-      "Bash(docker rm *)"
+      "Bash(docker rm *)",
+      "PowerShell(\\(Get-Item \"g:\\\\file_D\\\\Kanyapat\\\\web_yang\\\\new_engrids_rubberv2\\\\engrids_rubber\\\\postgis\\\\shpall.sql\"\\).Length / 1MB)",
+      "PowerShell(docker exec rub_postgis psql -U postgres -f /docker-entrypoint-initdb.d/shpall.sql 2>&1)",
+      "PowerShell(docker exec rub_postgis ls /docker-entrypoint-initdb.d/ 2>&1)",
+      "PowerShell(docker exec rub_postgis ls -la /docker-entrypoint-initdb.d/ 2>&1)",
+      "PowerShell(Write-Host \"Copying shpall.sql to container \\(676MB\\)...\"; docker cp \"g:\\\\file_D\\\\Kanyapat\\\\web_yang\\\\new_engrids_rubberv2\\\\engrids_rubber\\\\postgis\\\\shpall.sql\" rub_postgis:/tmp/shpall.sql 2>&1; Write-Host \"Copy done, exit=$LASTEXITCODE\")",
+      "PowerShell(Write-Host \"Importing shpall.sql \\(this will take several minutes\\)...\"; docker exec rub_postgis psql -U postgres -f /tmp/shpall.sql 2>&1 | Select-Object -Last 15; Write-Host \"Import done, exit=$LASTEXITCODE\")",
+      "PowerShell(docker exec rub_postgis rm /tmp/shpall.sql 2>&1)"
     ]
   }
 }

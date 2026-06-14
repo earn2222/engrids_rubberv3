@@ -1,7 +1,7 @@
 services:
   postgis:
     platform: linux/amd64
-    image: postgis/postgis:latest
+    build: ./postgis
     container_name: rub_postgis
     restart: always
     environment:
@@ -11,7 +11,6 @@ services:
     ports:
       - "${DB_PORT}:5432"
     volumes:
-      - ./postgis:/docker-entrypoint-initdb.d
       - pgdata:/var/lib/postgresql/data
     networks:
       - rub-network
@@ -20,7 +19,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
-      start_period: 10s
+      start_period: 30s
 
   nodejs:
     build: ./nodejs

@@ -928,27 +928,21 @@ app.delete('/api/delete_reclass_feature/:tb/:sub_id', async (req, res) => {
 app.get('/api/shpall/:tb', async (req, res) => {
     try {
         const bboxStr = req.query.bbox;
-        let sql, params;
-
-        if (bboxStr) {
-            const parts = bboxStr.split(',').map(Number);
-            if (parts.length === 4 && parts.every(n => !isNaN(n))) {
-                // Use PostGIS GIST index: geom && ST_MakeEnvelope(minX,minY,maxX,maxY,4326)
-                sql = `
-                    SELECT ST_AsGeoJSON(geom) AS geom_json
-                    FROM public.shpall
-                    WHERE geom && ST_MakeEnvelope($1, $2, $3, $4, 4326)
-                    LIMIT 5000
-                `;
-                params = parts;
-            }
-        }
-
-        if (!sql) {
+        if (!bboxStr) {
             return res.status(400).json({ success: false, error: 'bbox query param required: ?bbox=minX,minY,maxX,maxY' });
         }
+        const parts = bboxStr.split(',').map(Number);
+        if (parts.length !== 4 || parts.some(n => isNaN(n))) {
+            return res.status(400).json({ success: false, error: 'invalid bbox' });
+        }
 
-        const result = await pool.query(sql, params);
+        const sql = `
+            SELECT ST_AsGeoJSON(geom) AS geom_json
+            FROM public.shpall
+            WHERE geom && ST_MakeEnvelope($1, $2, $3, $4, 4326)
+            LIMIT 5000
+        `;
+        const result = await pool.query(sql, parts);
         const features = result.rows
             .filter(row => row.geom_json)
             .map(row => ({ type: 'Feature', geometry: JSON.parse(row.geom_json), properties: {} }));
