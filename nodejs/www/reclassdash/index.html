@@ -83,26 +83,23 @@
                     </div>
                     <div class="collapse show" id="workerQuickCollapse">
                         <div class="card-body pt-1 px-2 pb-2">
-                            <!-- Navigation: search / prev / counter / next ID (hidden until data loads) -->
-                            <div class="d-flex align-items-center gap-1 mb-2 flex-wrap" id="workerNavBar"
-                                style="display:none !important;">
-                                <input type="text" id="worker-id-search"
-                                    class="form-control form-control-sm"
-                                    style="width:80px; font-size:0.72rem;"
-                                    placeholder="🔎 ID...">
-                                <button class="btn btn-outline-secondary btn-sm px-2" id="btn-worker-prev"
-                                    title="ID ก่อนหน้า">
-                                    <i class="bi bi-chevron-left"></i>
-                                </button>
-                                <span id="worker-nav-count" class="badge bg-light text-dark border px-2 py-1"
-                                    style="font-size:0.73rem; min-width:60px; text-align:center; font-family:monospace;">
-                                    0 / 0
-                                </span>
-                                <button class="btn btn-outline-secondary btn-sm px-2" id="btn-worker-next"
-                                    title="ID ถัดไป">
-                                    <i class="bi bi-chevron-right"></i>
-                                </button>
-                                <span class="text-muted ms-1" style="font-size:0.72rem;">เลื่อน ID</span>
+                            <!-- Navigation: search + prev/next ID (hidden until data loads) -->
+                            <div id="workerNavBar" class="worker-nav-bar" style="display:none !important;">
+                                <div class="input-group input-group-sm worker-nav-search">
+                                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                    <input type="text" id="worker-id-search" class="form-control"
+                                        placeholder="ค้นหา ID...">
+                                </div>
+                                <div class="worker-nav-controls">
+                                    <button class="btn btn-outline-secondary btn-sm worker-nav-btn" id="btn-worker-prev" title="ID ก่อนหน้า">
+                                        <i class="bi bi-chevron-left"></i>
+                                    </button>
+                                    <span id="worker-nav-count" class="worker-nav-count">0 / 0</span>
+                                    <button class="btn btn-outline-secondary btn-sm worker-nav-btn" id="btn-worker-next" title="ID ถัดไป">
+                                        <i class="bi bi-chevron-right"></i>
+                                    </button>
+                                    <span class="worker-nav-label">เลื่อน ID</span>
+                                </div>
                             </div>
                             <!-- Status filter tabs -->
                             <div class="worker-status-grid mb-2" id="workerStatusFilter">

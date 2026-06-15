@@ -335,9 +335,9 @@ const focusPlot = (rowData) => {
         $(rowNode).addClass('selected').siblings().removeClass('selected');
     }
 
-    // 4. Worker quick list: filter to this parent ID, highlight item, update banner
+    // 4. Worker quick list: show only this parent ID's items
     if (_userRole === 'worker') {
-        buildWorkerPlotList(_workerStatusFilter === 'all' ? rowData.id : null);
+        buildWorkerPlotList(rowData.id);
         $('.worker-plot-item').removeClass('active');
         const $item = $(`.worker-plot-item[data-subid="${subId}"]`);
         $item.addClass('active');
@@ -437,12 +437,14 @@ const buildWorkerPlotList = (filterId = null) => {
         $('#workerPlotList').html('<div class="text-muted small text-center py-3"><i class="bi bi-inbox"></i> ไม่พบแปลง</div>');
         return;
     }
-    // Counts always from ALL rows (entire worker's dataset, not filtered by ID)
-    const cntAll = allRows.length;
-    const cntUnchecked = allRows.filter(r => !r.check_area && !r.check_shape).length;
-    const cntPass = allRows.filter(r => r.check_area === 'ผ่าน' && r.check_shape === 'ผ่าน').length;
-    const cntFail = allRows.filter(r => r.check_area === 'ไม่ผ่าน' || r.check_shape === 'ไม่ผ่าน').length;
-    const cntPartial = cntAll - cntUnchecked - cntPass - cntFail;
+    // Counts = number of unique parent IDs in each status (always global, not per-ID)
+    const allUniqueIds = [...new Set(allRows.map(r => String(r.id)))];
+    const getSubsOf = id => allRows.filter(r => String(r.id) === id);
+    const cntAll      = allUniqueIds.length;
+    const cntUnchecked = allUniqueIds.filter(id => getSubsOf(id).every(r => !r.check_area && !r.check_shape)).length;
+    const cntPass      = allUniqueIds.filter(id => getSubsOf(id).every(r => r.check_area === 'ผ่าน' && r.check_shape === 'ผ่าน')).length;
+    const cntFail      = allUniqueIds.filter(id => getSubsOf(id).some(r => r.check_area === 'ไม่ผ่าน' || r.check_shape === 'ไม่ผ่าน')).length;
+    const cntPartial   = cntAll - cntUnchecked - cntPass - cntFail;
     $('#wfc-all').text(cntAll);
     $('#wfc-unchecked').text(cntUnchecked);
     $('#wfc-pass').text(cntPass);
@@ -647,9 +649,6 @@ const navigatePlots = async (direction) => {
         if (firstRow) {
             _currentReviewId = null;
             focusPlot(firstRow);
-            if (_userRole === 'worker') {
-                buildWorkerPlotList(nextId);
-            }
         }
     }
 };
@@ -2453,16 +2452,15 @@ $(document).on('click', '#workerStatusFilter .worker-status-card', function () {
     _workerStatusFilter = $(this).data('filter');
     $('#workerStatusFilter .worker-status-card').removeClass('active');
     $(this).addClass('active');
-    // เมื่อเลือก filter สถานะ ให้แสดงทุก ID (ไม่จำกัดแค่ ID ปัจจุบัน)
-    // เมื่อกลับมา "ทั้งหมด" จึงกลับไปแสดง ID ปัจจุบัน
-    const filterId = _workerStatusFilter === 'all' ? (_currentReviewId || null) : null;
-    buildWorkerPlotList(filterId);
+    // filter ภายใน ID ที่เลือกอยู่เสมอ (ถ้ายังไม่เลือก ID จึงแสดงทั้งหมด)
+    buildWorkerPlotList(_currentReviewId || null);
 });
 
 // ── Worker ID search input ──
 $(document).on('input', '#worker-id-search', function () {
-    const filterId = _workerStatusFilter === 'all' ? (_currentReviewId || null) : null;
-    buildWorkerPlotList(filterId);
+    const searchVal = $(this).val().trim();
+    // ค้นหาข้ามทุก ID เมื่อพิมพ์, กลับ ID ปัจจุบันเมื่อล้าง
+    buildWorkerPlotList(searchVal ? null : (_currentReviewId || null));
 });
 
 // ── Worker quick panel: click plot item → zoom + highlight + load banner ──

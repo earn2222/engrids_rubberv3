@@ -1136,6 +1136,64 @@ table.dataTable tbody tr.selected > * {
     transform: translateX(2px);
 }
 
+/* ── Worker Nav Bar ── */
+.worker-nav-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 8px;
+    padding: 8px 10px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+}
+.worker-nav-search .input-group-text {
+    background: #fff;
+    border-color: #cbd5e1;
+    color: #64748b;
+    font-size: 0.8rem;
+}
+.worker-nav-search .form-control {
+    border-color: #cbd5e1;
+    font-size: 0.82rem;
+}
+.worker-nav-search .form-control:focus {
+    border-color: #4ade80;
+    box-shadow: 0 0 0 3px rgba(74,222,128,0.15);
+}
+.worker-nav-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.worker-nav-btn {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+.worker-nav-count {
+    flex: 1;
+    text-align: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    font-family: monospace;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 4px 8px;
+    color: #334155;
+}
+.worker-nav-label {
+    font-size: 0.72rem;
+    color: #94a3b8;
+    white-space: nowrap;
+}
+
 .worker-id-group {
     margin-bottom: 4px;
 }
