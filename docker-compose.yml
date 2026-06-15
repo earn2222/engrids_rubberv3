@@ -2,7 +2,7 @@ services:
   postgis:
     platform: linux/amd64
     build: ./postgis
-    container_name: rub_postgis
+    container_name: rub_postgis_v3
     restart: always
     environment:
       - POSTGRES_USER=${DB_USER}
@@ -11,9 +11,9 @@ services:
     ports:
       - "${DB_PORT}:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata_v3:/var/lib/postgresql/data
     networks:
-      - rub-network
+      - rub-network-v3
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${DB_USER} -d postgres" ]
       interval: 5s
@@ -23,7 +23,7 @@ services:
 
   nodejs:
     build: ./nodejs
-    container_name: rub_nodejs
+    container_name: rub_nodejs_v3
     restart: always
     working_dir: /usr/src/app
     env_file:
@@ -37,11 +37,11 @@ services:
       postgis:
         condition: service_healthy
     volumes:
-      - uploads_data:/usr/src/app/uploads
+      - uploads_data_v3:/usr/src/app/uploads
     ports:
-      - "3499:3000"
+      - "4400:3000"
     networks:
-      - rub-network
+      - rub-network-v3
     command: sh -c "nodemon server.js"
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O- http://localhost:3000/health || exit 1"]
@@ -52,7 +52,7 @@ services:
 
   backup:
     build: ./backup
-    container_name: rub_backup
+    container_name: rub_backup_v3
     restart: always
     env_file:
       - .env
@@ -69,18 +69,18 @@ services:
       nodejs:
         condition: service_healthy
     volumes:
-      - backups_data:/backups
+      - backups_data_v3:/backups
       - ./backups:/backup-host
     ports:
-      - "8199:8100"
+      - "9100:8100"
     networks:
-      - rub-network
+      - rub-network-v3
 
 networks:
-  rub-network:
+  rub-network-v3:
     driver: bridge
 
 volumes:
-  pgdata:
-  uploads_data:
-  backups_data:
+  pgdata_v3:
+  uploads_data_v3:
+  backups_data_v3:

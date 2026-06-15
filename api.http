@@ -18,11 +18,11 @@ Content-Type: application/json
 }
 
 ###
-GET http://localhost:3499/rub/api/users
+GET http://localhost:4400/rub/api/users
 
 
 ###
-POST http://localhost:3499/rub/api/layerlist
+POST http://localhost:4400/rub/api/layerlist
 Content-Type: application/json
 
 {
@@ -76,7 +76,7 @@ Accept: application/json
 Cookie: _ga=GA1.1.1019945317.1745203012; cookiesession1=678B2867F76490B74EAF42C2D1820121; incap_ses_297_3228816=lRCBMRCeFCVTNafP+CcfBNz8SGgAAAAAxSECWicWdW+k+IggiQqg/g==; visid_incap_3228816=xKJ5JaI9StOp2c9SoncI6tz8SGgAAAAAQkIPAAAAAACAJfO8Acoc+ynQiOJNGo+BXCVwMMj6RbiB; _ga_6X36FRLQTC=GS2.1.s1749613800$o8$g1$t1749614093$j46$l0$h0; _ga_SLMHW2S3XN=GS2.1.s1749613796$o7$g1$t1749614144$j60$l0$h0
 
 ###
-GET http://localhost:3499/rub/api/ldd_getpacelbypacelnumber/32/05/30980
+GET http://localhost:4400/rub/api/ldd_getpacelbypacelnumber/32/05/30980
 
 ###
 GET https://landsmaps.dol.go.th/apiService/LandsMaps/GetParcelByLatLon/10.677941234615663/99.05967593193054
@@ -87,7 +87,7 @@ GET https://landsmaps.dol.go.th/geoserver/LANDSMAPS/wms?viewparams=utmmap%3A5638
 
 
 ###
-GET http://localhost:3499/rub/api/ldd_getpacelbylatlng/10.449831007673284/99.16521549224855
+GET http://localhost:4400/rub/api/ldd_getpacelbylatlng/10.449831007673284/99.16521549224855
 
 ###
 GET https://landsmaps.dol.go.th/apiService/LandsMaps/GetParcelByParcelNo/86/01/92651
@@ -106,7 +106,7 @@ GET https://landsmaps.dol.go.th/geoserver/LANDSMAPS/wms?viewparams=utmmap%3A5638
 
 
 ###
-POST http://localhost:3499/rub/api/area
+POST http://localhost:4400/rub/api/area
 Content-Type: application/json
 
 {
@@ -117,11 +117,11 @@ Content-Type: application/json
 }
 
 ###
-GET http://localhost:3499/rub/api/
+GET http://localhost:4400/rub/api/
 
 
 ###
-PUT http://localhost:3499/rub/api/update_ownerlanduse/rayong_point_v3
+PUT http://localhost:4400/rub/api/update_ownerlanduse/rayong_point_v3
 Content-Type: application/json
 {
   "id": 1,
@@ -131,7 +131,7 @@ Content-Type: application/json
 }
 
 ### post sub id
-POST http://localhost:3499/rub/api/collected_feat
+POST http://localhost:4400/rub/api/collected_feat
 Content-Type: application/json
 
 {
@@ -141,7 +141,7 @@ Content-Type: application/json
 
 
 ### get test
-GET http://localhost:3499/rub/api/test
+GET http://localhost:4400/rub/api/test
 
 ###
 collected_feat
