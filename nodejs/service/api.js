@@ -207,13 +207,11 @@ app.get('/api/getfeatures/:tb/:fid', async (req, res) => {
                         r.check_shape,
                         r.remark,
                         r.reviewer,
-                        t."Deed_Sqm",
-                        t."Deed_Area",
-                        t."Rubr_Sqm",
-                        t."Rubr_total",
-                        t."Deed_ID",
-                        t."Full_nam",
+                        t."Sqm_Rechac",
+                        t."Rai_Rechac",
                         t."Farmer_ID",
+                        t."Name",
+                        t."Surname",
                         ST_ASGeoJSON(r.geom) AS geom,
                         ST_ASGeoJSON(st_makepoint(100, 18)) AS geom_point
                     FROM ${reclassTableName} r
@@ -225,14 +223,12 @@ app.get('/api/getfeatures/:tb/:fid', async (req, res) => {
             sql = `SELECT t.id,
                         t.id AS sub_id,
                         NULL AS classtype,
-                        t."Sqm_Deed" AS shpsplit_sqm,
-                        t."Deed_Sqm",
-                        t."Deed_Area",
-                        t."Rubr_Sqm",
-                        t."Rubr_total",
-                        t."Deed_ID",
-                        t."Full_nam",
+                        t."Sqm_Rechac" AS shpsplit_sqm,
+                        t."Sqm_Rechac",
+                        t."Rai_Rechac",
                         t."Farmer_ID",
+                        t."Name",
+                        t."Surname",
                         ST_ASGeoJSON(t.geom) AS geom,
                         ST_ASGeoJSON(st_makepoint(100, 18)) AS geom_point
                     FROM ${tb} t
@@ -272,19 +268,17 @@ app.get('/api/getfeaturesv3/:tb', async (req, res) => {
 
         const sql = `
             SELECT id,
-                "F_name",
-                "L_name",
-                "Para_Age",
+                "Name"       AS name,
+                "Surname"    AS surname,
+                "Old_Year"   AS old_year,
                 refinal,
-                "Farmer_ID",
-                "Deed_Sqm",
-                "Deed_Area",
-                "Deed_total",
-                "Deed_ID",
-                "Rubr_Sqm",
-                "Rubr_total",
-                "Full_nam",
-                "Sqm_Deed",
+                "Farmer_ID"  AS farmer_id,
+                "Sqm_Rechac" AS sqm_rechac,
+                "Rai_Rechac" AS rai_rechac,
+                "Area_SqM"   AS area_sqm,
+                "Rai_Area"   AS rai_area,
+                "Land_ID"    AS land_id,
+                "Zone"       AS zone,
                 classified,
                 ST_AsGeoJSON(geom) AS geom,
                 ${geomPointSelect}
@@ -373,12 +367,12 @@ app.put('/api/restorefeatures/:tb/:id', async (req, res) => {
 
                 let updateSql, updateResult;
                 if (isPoint) {
-                    // ── Point: reset geom → NULL, restore geom_point ต้นฉบับ + Sqm_Deed ──
+                    // ── Point: reset geom → NULL, restore geom_point ต้นฉบับ + Sqm_Rechac ──
                     updateResult = await pool.query(`
                         UPDATE ${tb} AS t
-                        SET geom         = NULL,
-                            geom_point   = b.geom_point,
-                            "Sqm_Deed"   = b."Sqm_Deed"
+                        SET geom           = NULL,
+                            geom_point     = b.geom_point,
+                            "Sqm_Rechac"   = b."Sqm_Rechac"
                         FROM backup_${tb} AS b
                         WHERE t.id = $1 AND b.id = $1
                         RETURNING t.*
@@ -407,9 +401,9 @@ app.put('/api/restorefeatures/:tb/:id', async (req, res) => {
 
                     updateResult = await pool.query(`
                         UPDATE ${tb} AS t
-                        SET geom         = b.geom,
-                            geom_point   = b.geom_point,
-                            "Sqm_Deed"   = b."Sqm_Deed"
+                        SET geom           = b.geom,
+                            geom_point     = b.geom_point,
+                            "Sqm_Rechac"   = b."Sqm_Rechac"
                         FROM backup_${tb} AS b
                         WHERE t.id = $1 AND b.id = $1
                         RETURNING t.*
@@ -437,14 +431,14 @@ app.put('/api/restorefeatures/:tb/:id', async (req, res) => {
                             WHERE reclass_${tb}.id = $2
                               AND b.id = $2
                               AND (reclass_${tb}.sub_id = $3 OR reclass_${tb}.sub_id = $2::text)
-                        `, [bk['Sqm_Deed'], featureId, featureId.toString()]);
+                        `, [bk['Sqm_Rechac'], featureId, featureId.toString()]);
                     } else {
                         // Polygon: sync shpsplit_sqm เท่านั้น
                         await pool.query(`
                             UPDATE reclass_${tb}
                             SET shpsplit_sqm = $1, "Rubr_Area" = ROUND(($1::numeric / 1600.0), 2)
                             WHERE id = $2 AND (sub_id = $3 OR sub_id = $2::text)
-                        `, [bk['Sqm_Deed'], featureId, featureId.toString()]);
+                        `, [bk['Sqm_Rechac'], featureId, featureId.toString()]);
                     }
 
                     // Save review history before resetting
@@ -515,7 +509,7 @@ app.put('/api/restorefeatures/:tb/:id', async (req, res) => {
             sql = `
                 UPDATE ${tb} AS t
                 SET geom        = r.geom,
-                    "Sqm_Deed"  = ST_Area(ST_Transform(r.geom, ${epsg}))
+                    "Sqm_Rechac" = ST_Area(ST_Transform(r.geom, ${epsg}))
                 FROM reclass_${tb} AS r
                 WHERE t.id = $1 AND r.id = $1
                 RETURNING t.*
@@ -624,32 +618,32 @@ app.post('/api/updatefeatures/:tb', async (req, res) => {
                     area = areaResult.rows[0].area;
                     console.log(`Geometry changed for ID ${id}, recalculating area: ${area}`);
                 } else {
-                    // ✅ ใช้ค่าจากฐานข้อมูลเดิม ไม่คำนวณใหม่ (ดึงจาก Sqm_Deed ซึ่งเก็บ m²)
-                    const existingRes = await client.query(`SELECT "Sqm_Deed" FROM ${tb} WHERE id = $1`, [id]);
-                    area = existingRes.rows[0]?.['Sqm_Deed'] || currentShpareaSq || 0;
+                    // ✅ ใช้ค่าจากฐานข้อมูลเดิม ไม่คำนวณใหม่ (ดึงจาก Sqm_Rechac ซึ่งเก็บ m²)
+                    const existingRes = await client.query(`SELECT "Sqm_Rechac" FROM ${tb} WHERE id = $1`, [id]);
+                    area = existingRes.rows[0]?.['Sqm_Rechac'] || currentShpareaSq || 0;
                     console.log(`Geometry unchanged for ID ${id}, preserving area: ${area}`);
                 }
 
                 // ✅ บันทึกลงฐานข้อมูล
-                // Sqm_Deed = เนื้อที่ขณะนี้ (m²), Deed_Area = เนื้อที่ขณะนี้ (ไร่)
+                // Sqm_Rechac = เนื้อที่ขณะนี้ (m²), Rai_Rechac = เนื้อที่ขณะนี้ (ไร่)
                 const areaRai = area / 1600.0;
                 await client.query(`
                     UPDATE ${tb}
-                    SET 
-                        geom = CASE 
-                            WHEN ST_GeometryType(ST_SetSRID(ST_GeomFromGeoJSON($1), 4326)) IN ('ST_Polygon', 'ST_MultiPolygon') 
+                    SET
+                        geom = CASE
+                            WHEN ST_GeometryType(ST_SetSRID(ST_GeomFromGeoJSON($1), 4326)) IN ('ST_Polygon', 'ST_MultiPolygon')
                             THEN ST_Multi(ST_SetSRID(ST_GeomFromGeoJSON($1), 4326))
-                            ELSE geom 
+                            ELSE geom
                         END,
-                        geom_point = CASE 
-                            WHEN ST_GeometryType(ST_SetSRID(ST_GeomFromGeoJSON($1), 4326)) = 'ST_Point' 
+                        geom_point = CASE
+                            WHEN ST_GeometryType(ST_SetSRID(ST_GeomFromGeoJSON($1), 4326)) = 'ST_Point'
                             THEN ST_SetSRID(ST_GeomFromGeoJSON($1), 4326)
                             WHEN ST_GeometryType(ST_SetSRID(ST_GeomFromGeoJSON($1), 4326)) IN ('ST_Polygon', 'ST_MultiPolygon')
                             THEN ST_Centroid(ST_SetSRID(ST_GeomFromGeoJSON($1), 4326))
                             ELSE geom_point
                         END,
-                        "Sqm_Deed"  = $3,
-                        "Deed_Area" = $6,
+                        "Sqm_Rechac" = $3,
+                        "Rai_Rechac" = $6,
                         refinal = $4,
                         editor = $5
                     WHERE id = $2
@@ -745,17 +739,13 @@ app.get('/api/getreclassfeatures/:tb', async (req, res) => {
                     a.classtype,
                     a.farmer_id,
                     b."Farmer_ID",
-                    b."F_name",
-                    b."L_name",
-                    b."Full_nam",
-                    CONCAT_WS(' ', b."F_name", b."L_name") AS farm_name,
-                    b."Para_Age",
-                    b."Deed_ID",
-                    b."Deed_Sqm",
-                    b."Deed_Area",
-                    b."Rubr_Sqm",
-                    b."Rubr_total",
-                    b."Sqm_Deed",
+                    b."Name",
+                    b."Surname",
+                    CONCAT_WS(' ', b."Name", b."Surname") AS farm_name,
+                    b."Old_Year",
+                    b."Land_ID",
+                    b."Sqm_Rechac",
+                    b."Rai_Rechac",
                     a.shpsplit_sqm,
                     a."Rubr_Area",
                     a.check_area,
@@ -927,9 +917,13 @@ app.delete('/api/delete_reclass_feature/:tb/:sub_id', async (req, res) => {
     }
 });
 
-// GET shpall background polygons from PostgreSQL with bbox spatial filtering
+// GET background polygons from project table with bbox spatial filtering
 app.get('/api/shpall/:tb', async (req, res) => {
     try {
+        const tb = req.params.tb.toLowerCase();
+        if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tb)) {
+            return res.status(400).json({ success: false, error: 'Invalid table name' });
+        }
         const bboxStr = req.query.bbox;
         if (!bboxStr) {
             return res.status(400).json({ success: false, error: 'bbox query param required: ?bbox=minX,minY,maxX,maxY' });
@@ -941,8 +935,8 @@ app.get('/api/shpall/:tb', async (req, res) => {
 
         const sql = `
             SELECT ST_AsGeoJSON(geom) AS geom_json
-            FROM public.shpall
-            WHERE geom && ST_MakeEnvelope($1, $2, $3, $4, 4326)
+            FROM ${tb}
+            WHERE geom IS NOT NULL AND geom && ST_MakeEnvelope($1, $2, $3, $4, 4326)
             LIMIT 5000
         `;
         const result = await pool.query(sql, parts);
@@ -967,8 +961,8 @@ app.get('/api/getreshapefeatures/:tb', async (req, res) => {
 
         const sql = `SELECT id,
                         "Farmer_ID",
-                        "Deed_Sqm",
-                        "Sqm_Deed",
+                        "Sqm_Rechac",
+                        "Rai_Rechac",
                         ST_ASGeoJSON(geom) AS geom
                     FROM ${tb}
                     WHERE geom IS NOT NULL`;
@@ -997,7 +991,7 @@ app.get('/api/countsfeatures/:tb', async (req, res) => {
                         SELECT COUNT(DISTINCT r.id) 
                         FROM reclass_${tb} r
                         JOIN ${tb} m ON r.id = m.id
-                        WHERE r.editor IS NOT NULL AND ABS(r.shpsplit_sqm - m."Deed_Sqm") <= 100
+                        WHERE r.editor IS NOT NULL AND ABS(r.shpsplit_sqm - m."Sqm_Rechac") <= 100
                     )
                     ELSE 0 
                 END
@@ -1050,7 +1044,7 @@ app.post('/api/create_reclass_feature/:tb', async (req, res) => {
                 RETURNING id
             )
             INSERT INTO reclass_${tb} (id, sub_id, farmer_id, shpsplit_sqm, "Rubr_Area", geom)
-            SELECT id, $2, "Farmer_ID", "Sqm_Deed", ROUND(("Sqm_Deed"::numeric / 1600.0), 2), geom
+            SELECT id, $2, "Farmer_ID", "Sqm_Rechac", ROUND(("Sqm_Rechac"::numeric / 1600.0), 2), geom
             FROM ${tb}
             WHERE id = $1
             RETURNING id, farmer_id, ST_AsGeoJSON(geom) AS geom;
@@ -1098,7 +1092,6 @@ app.post('/api/create_reclass_layer', async (req, res) => {
                 sub_id text COLLATE pg_catalog."default",
                 id_farmer text COLLATE pg_catalog."default",
                 shpsplit_sqm numeric,
-                "Rubr_Area" numeric,
                 "Rubr_Area" numeric,
                 geom geometry(MultiPolygon,4326),
                 classtype text COLLATE pg_catalog."default",
@@ -1371,8 +1364,8 @@ app.post('/api/unsplit_feature/:tb', async (req, res) => {
                 SELECT id,
                        id::text AS sub_id,
                        "Farmer_ID",
-                       "Sqm_Deed" AS shpsplit_sqm,
-                       ROUND(("Sqm_Deed"::numeric / 1600.0), 2) AS "Rubr_Area",
+                       "Sqm_Rechac" AS shpsplit_sqm,
+                       ROUND(("Sqm_Rechac"::numeric / 1600.0), 2) AS "Rubr_Area",
                        ST_Multi(geom) AS geom,
                        NULL AS classtype,
                        $2 AS editor
@@ -1559,36 +1552,36 @@ app.get('/api/download/reshape/:tb', async (req, res) => {
                             'Rubr_Area',    r."Rubr_Area",
                             'id',           r.id,
                             'Farmer_ID',    TRANSLATE(m."Farmer_ID"::text, '๐๑๒๓๔๕๖๗๘๙', '0123456789'),
-                            'Regis_No',     TRANSLATE(m."Regis_No"::text, '๐๑๒๓๔๕๖๗๘๙', '0123456789'),
-                            'No_Plot',      TRANSLATE(m."No_Plot"::text, '๐๑๒๓๔๕๖๗๘๙', '0123456789'),
-                            'Title_name',   m."Title_name",
-                            'F_name',       m."F_name",
-                            'L_name',       m."L_name",
-                            'Full_nam',     m."Full_nam",
-                            'Address',      TRANSLATE(m."Address"::text, '๐๑๒๓๔๕๖๗๘๙', '0123456789'),
-                            'Sub_Dis',      m."Sub_Dis",
-                            'District',     m."District",
-                            'Province',     m."Province",
-                            'F_Status',     m."F_Status",
-                            'Deed_ID',      TRANSLATE(m."Deed_ID"::text, '๐๑๒๓๔๕๖๗๘๙', '0123456789'),
-                            'Deed_Type',    m."Deed_Type",
-                            'Rubr_Rai',     m."Rubr_Rai",
-                            'Rubr_Ngan',    m."Rubr_Ngan",
-                            'Rubr_sqwa',    m."Rubr_sqwa",
-                            'Rubr_total',   m."Rubr_total",
-                            'Deed_Rai',     m."Deed_Rai",
-                            'Deed_Ngan',    m."Deed_Ngan",
-                            'Deed_sqwa',    m."Deed_sqwa",
-                            'Deed_total',   m."Deed_total",
-                            'Para_Age',     TRANSLATE(m."Para_Age"::text, '๐๑๒๓๔๕๖๗๘๙', '0123456789'),
-                            'X',            m."X",
-                            'Y',            m."Y",
-                            'Deed_Area',    m."Deed_Area",
+                            'Land_ID',      m."Land_ID",
+                            'Zone',         m."Zone",
+                            'Name',         m."Name",
+                            'Surname',      m."Surname",
+                            'Farm_ID',      m."Farm_ID",
+                            'F_Moo',        m."F_Moo",
+                            'F_Tam',        m."F_Tam",
+                            'F_Amp',        m."F_Amp",
+                            'F_Prove',      m."F_Prove",
+                            'Rai',          m."Rai",
+                            'Land_Type',    m."Land_Type",
+                            'Area_Rai',     m."Area_Rai",
+                            'Area_Ngan',    m."Area_Ngan",
+                            'Area_sqwa',    m."Area_sqwa",
+                            'Plant_Year',   m."Plant_Year",
+                            'Old_Year',     m."Old_Year",
+                            'DEM',          m."DEM",
+                            'Class_Age',    m."Class_Age",
+                            'Stratum',      m."Stratum",
+                            'Area_SqM',     m."Area_SqM",
+                            'Rai_Area',     m."Rai_Area",
+                            'UTM_East',     m."UTM_East",
+                            'UTM_North',    m."UTM_North",
+                            'Sqm_Rechac',   m."Sqm_Rechac",
+                            'Rai_Rechac',   m."Rai_Rechac",
                             'editor',       r.editor,
                             'ts',           r.ts
                         )
                     ) AS feat,
-                    m."Regis_No" AS regis_no
+                    m."Farmer_ID" AS regis_no
                     FROM reclass_${baseTb} r
                     JOIN ${baseTb} m ON r.id = m.id
                     WHERE r.geom IS NOT NULL ${extraTypeCondition}
@@ -1609,36 +1602,36 @@ app.get('/api/download/reshape/:tb', async (req, res) => {
                         'properties', json_build_object(
                             'id',           m.id,
                             'Farmer_ID',    TRANSLATE(m."Farmer_ID"::text, '๐๑๒๓๔๕๖๗๘๙', '0123456789'),
-                            'Regis_No',     TRANSLATE(m."Regis_No"::text, '๐๑๒๓๔๕๖๗๘๙', '0123456789'),
-                            'No_Plot',      TRANSLATE(m."No_Plot"::text, '๐๑๒๓๔๕๖๗๘๙', '0123456789'),
-                            'Title_name',   m."Title_name",
-                            'F_name',       m."F_name",
-                            'L_name',       m."L_name",
-                            'Full_nam',     m."Full_nam",
-                            'Address',      TRANSLATE(m."Address"::text, '๐๑๒๓๔๕๖๗๘๙', '0123456789'),
-                            'Sub_Dis',      m."Sub_Dis",
-                            'District',     m."District",
-                            'Province',     m."Province",
-                            'F_Status',     m."F_Status",
-                            'Deed_ID',      TRANSLATE(m."Deed_ID"::text, '๐๑๒๓๔๕๖๗๘๙', '0123456789'),
-                            'Deed_Type',    m."Deed_Type",
-                            'Rubr_Rai',     m."Rubr_Rai",
-                            'Rubr_Ngan',    m."Rubr_Ngan",
-                            'Rubr_sqwa',    m."Rubr_sqwa",
-                            'Rubr_total',   m."Rubr_total",
-                            'Deed_Rai',     m."Deed_Rai",
-                            'Deed_Ngan',    m."Deed_Ngan",
-                            'Deed_sqwa',    m."Deed_sqwa",
-                            'Deed_total',   m."Deed_total",
-                            'Para_Age',     TRANSLATE(m."Para_Age"::text, '๐๑๒๓๔๕๖๗๘๙', '0123456789'),
-                            'X',            m."X",
-                            'Y',            m."Y",
-                            'Deed_Area',    m."Deed_Area",
+                            'Land_ID',      m."Land_ID",
+                            'Zone',         m."Zone",
+                            'Name',         m."Name",
+                            'Surname',      m."Surname",
+                            'Farm_ID',      m."Farm_ID",
+                            'F_Moo',        m."F_Moo",
+                            'F_Tam',        m."F_Tam",
+                            'F_Amp',        m."F_Amp",
+                            'F_Prove',      m."F_Prove",
+                            'Rai',          m."Rai",
+                            'Land_Type',    m."Land_Type",
+                            'Area_Rai',     m."Area_Rai",
+                            'Area_Ngan',    m."Area_Ngan",
+                            'Area_sqwa',    m."Area_sqwa",
+                            'Plant_Year',   m."Plant_Year",
+                            'Old_Year',     m."Old_Year",
+                            'DEM',          m."DEM",
+                            'Class_Age',    m."Class_Age",
+                            'Stratum',      m."Stratum",
+                            'Area_SqM',     m."Area_SqM",
+                            'Rai_Area',     m."Rai_Area",
+                            'UTM_East',     m."UTM_East",
+                            'UTM_North',    m."UTM_North",
+                            'Sqm_Rechac',   m."Sqm_Rechac",
+                            'Rai_Rechac',   m."Rai_Rechac",
                             'editor',       m.editor,
                             'ts',           m.ts
                         )
                     ) AS feat,
-                    m."Regis_No" AS regis_no
+                    m."Farmer_ID" AS regis_no
                     FROM ${tb} m
                     WHERE m.geom IS NOT NULL
                 ) f;
@@ -2028,62 +2021,42 @@ app.post('/api/collected_feat', async (req, res) => {
 // Multer configuration for file upload
 const upload = multer({ dest: 'uploads/' });
 
-// Helper to normalize properties: lowercase keys and values, ensure all template columns exist
+// Helper to normalize properties: lowercase keys, map SHP attributes to new column schema
 const normalizeProperties = (props) => {
-    const numericCols = [
-        'No_Plot', 'Rubr_Rai', 'Rubr_Ngan', 'Rubr_sqwa', 'Rubr_total',
-        'Deed_Rai', 'Deed_Ngan', 'Deed_sqwa', 'Deed_total',
-        'Para_Age', 'X', 'Y',
-        'Rubr_Sqm', 'Deed_Sqm', 'Rubr_Area', 'Deed_Area', 'Sqm_Rub', 'Sqm_Deed'
-    ];
-
     const normalized = {};
     const sourceLower = {};
     for (let key in props) {
         sourceLower[key.toLowerCase()] = props[key];
     }
 
-    // Text fields
-    normalized.Farmer_ID = sourceLower.farmer_id || sourceLower.id_farmer || '';
-    normalized.Regis_No = sourceLower.regis_no || '';
-    normalized.No_Plot = sourceLower.no_plot || 0;
-    normalized.Title_name = sourceLower.title_name || sourceLower.titl_nam || '';
-    normalized.F_name = sourceLower.f_name || '';
-    normalized.L_name = sourceLower.l_name || '';
-    normalized.Full_nam = sourceLower.full_nam || '';
-    normalized.Address = sourceLower.address || '';
-    normalized.Sub_Dis = sourceLower.sub_dis || '';
-    normalized.District = sourceLower.district || '';
-    normalized.Province = sourceLower.province || '';
-    normalized.F_Status = sourceLower.f_status || sourceLower.status || '';
-    normalized.Deed_ID = sourceLower.deed_id || sourceLower.title_no || '';
-    normalized.Deed_Type = sourceLower.deed_type || sourceLower.title_type || '';
-
-    // Area fields (rai/ngan/sqwa)
-    normalized.Rubr_Rai = sourceLower.rubr_rai || sourceLower.yang_rai || 0;
-    normalized.Rubr_Ngan = sourceLower.rubr_ngan || 0;
-    normalized.Rubr_sqwa = sourceLower.rubr_sqwa || 0;
-    normalized.Rubr_total = sourceLower.rubr_total || 0;
-    normalized.Deed_Rai = sourceLower.deed_rai || sourceLower.rai || 0;
-    normalized.Deed_Ngan = sourceLower.deed_ngan || 0;
-    normalized.Deed_sqwa = sourceLower.deed_sqwa || 0;
-    normalized.Deed_total = sourceLower.deed_total || 0;
-    normalized.Para_Age = sourceLower.para_age || sourceLower.age || 0;
-    normalized.X = sourceLower.x || 0;
-    normalized.Y = sourceLower.y || 0;
-
-    // New area fields (m² and rai with 2 decimal)
-    // Deed_Sqm = เนื้อที่เป้าหมายโฉนด (m²)
-    normalized.Deed_Sqm = sourceLower.deed_sqm || (normalized.Deed_total * 1600) || 0;
-    // Rubr_Sqm = เนื้อที่เป้าหมายยางพารา (m²)
-    normalized.Rubr_Sqm = sourceLower.rubr_sqm || (normalized.Rubr_total * 1600) || 0;
-    // Deed_Area = เนื้อที่เป้าหมายโฉนด (ไร่) — 2 decimal
-    normalized.Deed_Area = sourceLower.deed_area || parseFloat((normalized.Deed_Sqm / 1600).toFixed(2));
-    // Sqm_Deed = เนื้อที่ขณะนี้โฉนด (m²)
-    normalized.Sqm_Deed = sourceLower.sqm_deed || 0;
-
-    // System fields
-    normalized.refinal = sourceLower.refinal || '';
+    normalized.OBJECTID   = parseInt(sourceLower.objectid)    || 0;
+    normalized.Land_ID    = sourceLower.land_id    || '';
+    normalized.Zone       = sourceLower.zone       || '';
+    normalized.Name       = sourceLower.name       || '';
+    normalized.Surname    = sourceLower.surname    || '';
+    normalized.Farm_ID    = sourceLower.farm_id    || '';
+    normalized.Farmer_ID  = sourceLower.farmer_id  || sourceLower.id_farmer || '';
+    normalized.F_Moo      = sourceLower.f_moo      || '';
+    normalized.F_Tam      = sourceLower.f_tam      || '';
+    normalized.F_Amp      = sourceLower.f_amp      || '';
+    normalized.F_Prove    = sourceLower.f_prove    || '';
+    normalized.Rai        = parseFloat(sourceLower.rai)        || 0;
+    normalized.Land_Type  = sourceLower.land_type  || '';
+    normalized.Area_Rai   = parseFloat(sourceLower.area_rai)   || 0;
+    normalized.Area_Ngan  = parseFloat(sourceLower.area_ngan)  || 0;
+    normalized.Area_sqwa  = parseFloat(sourceLower.area_sqwa)  || 0;
+    normalized.Plant_Year = parseInt(sourceLower.plant_year)   || 0;
+    normalized.Old_Year   = parseInt(sourceLower.old_year)     || 0;
+    normalized.DEM        = parseFloat(sourceLower.dem)        || 0;
+    normalized.Class_Age  = sourceLower.class_age  || '';
+    normalized.Stratum    = sourceLower.stratum    || '';
+    normalized.Area_SqM   = parseFloat(sourceLower.area_sqm)   || 0;
+    normalized.Rai_Area   = parseFloat(sourceLower.rai_area)   || 0;
+    normalized.UTM_East   = parseFloat(sourceLower.utm_east)   || 0;
+    normalized.UTM_North  = parseFloat(sourceLower.utm_north)  || 0;
+    normalized.Sqm_Rechac = parseFloat(sourceLower.sqm_rechac) || 0;
+    normalized.Rai_Rechac = parseFloat(sourceLower.rai_rechac) || 0;
+    normalized.refinal    = sourceLower.refinal    || '';
 
     return normalized;
 };
@@ -2154,37 +2127,33 @@ app.post('/api/upload-shapefile', upload.single('shpFile'), async (req, res) => 
         const createTableSql = `
             CREATE TABLE ${tb_name} (
                 id             SERIAL PRIMARY KEY,
+                "OBJECTID"     integer,
+                "Land_ID"      text,
+                "Zone"         text,
+                "Name"         text,
+                "Surname"      text,
+                "Farm_ID"      text,
                 "Farmer_ID"    text,
-                "Regis_No"     text,
-                "No_Plot"      numeric,
-                "Title_name"   text,
-                "F_name"       text,
-                "L_name"       text,
-                "Full_nam"     text,
-                "Address"      text,
-                "Sub_Dis"      text,
-                "District"     text,
-                "Province"     text,
-                "F_Status"     text,
-                "Deed_ID"      text,
-                "Deed_Type"    text,
-                "Rubr_Rai"     numeric,
-                "Rubr_Ngan"    numeric,
-                "Rubr_sqwa"    numeric,
-                "Rubr_total"   numeric,
-                "Deed_Rai"     numeric,
-                "Deed_Ngan"    numeric,
-                "Deed_sqwa"    numeric,
-                "Deed_total"   numeric,
-                "Para_Age"     numeric,
-                "X"            numeric,
-                "Y"            numeric,
-                "Rubr_Sqm"     numeric,
-                "Deed_Sqm"     numeric,
-                "Rubr_Area"    numeric(10,2),
-                "Deed_Area"    numeric(10,2),
-                "Sqm_Rub"      numeric,
-                "Sqm_Deed"     numeric,
+                "F_Moo"        text,
+                "F_Tam"        text,
+                "F_Amp"        text,
+                "F_Prove"      text,
+                "Rai"          numeric,
+                "Land_Type"    text,
+                "Area_Rai"     numeric,
+                "Area_Ngan"    numeric,
+                "Area_sqwa"    numeric,
+                "Plant_Year"   integer,
+                "Old_Year"     integer,
+                "DEM"          numeric,
+                "Class_Age"    text,
+                "Stratum"      text,
+                "Area_SqM"     numeric,
+                "Rai_Area"     numeric,
+                "UTM_East"     numeric,
+                "UTM_North"    numeric,
+                "Sqm_Rechac"   numeric,
+                "Rai_Rechac"   numeric,
                 geom           GEOMETRY(MultiPolygon, 4326),
                 geom_point     GEOMETRY(Point, 4326),
                 refinal        text,
@@ -2202,15 +2171,13 @@ app.post('/api/upload-shapefile', upload.single('shpFile'), async (req, res) => 
 
             CREATE VIEW v_reclass_${tb_name} AS SELECT
                 a.id,
-                a."Farmer_ID", a."Regis_No", a."No_Plot",
-                a."Title_name", a."F_name", a."L_name", a."Full_nam", a."Address",
-                a."Sub_Dis", a."District", a."Province", a."F_Status",
-                a."Deed_ID", a."Deed_Type",
-                a."Rubr_Rai", a."Rubr_Ngan", a."Rubr_sqwa", a."Rubr_total",
-                a."Deed_Rai", a."Deed_Ngan", a."Deed_sqwa", a."Deed_total",
-                a."Para_Age", a."X", a."Y",
-                a."Rubr_Sqm", a."Deed_Sqm", a."Deed_Area",
-                a."Sqm_Deed",
+                a."OBJECTID", a."Land_ID", a."Zone",
+                a."Name", a."Surname", a."Farm_ID", a."Farmer_ID",
+                a."F_Moo", a."F_Tam", a."F_Amp", a."F_Prove",
+                a."Rai", a."Land_Type", a."Area_Rai", a."Area_Ngan", a."Area_sqwa",
+                a."Plant_Year", a."Old_Year", a."DEM", a."Class_Age", a."Stratum",
+                a."Area_SqM", a."Rai_Area", a."UTM_East", a."UTM_North",
+                a."Sqm_Rechac", a."Rai_Rechac",
                 a.refinal, a.classified,
                 a.editor AS a_editor, a.ts AS a_ts,
                 r.fid AS reclass_fid, r.sub_id AS reclass_sub_id,
@@ -2263,37 +2230,38 @@ app.post('/api/upload-shapefile', upload.single('shpFile'), async (req, res) => 
                 const insertSql = `
                     WITH main_ins AS (
                         INSERT INTO ${tb_name} (
-                            "Farmer_ID", "Regis_No", "No_Plot", "Title_name", "F_name", "L_name", "Full_nam",
-                            "Address", "Sub_Dis", "District", "Province", "F_Status", "Deed_ID", "Deed_Type",
-                            "Rubr_Rai", "Rubr_Ngan", "Rubr_sqwa", "Rubr_total",
-                            "Deed_Rai", "Deed_Ngan", "Deed_sqwa", "Deed_total",
-                            "Para_Age", "X", "Y",
-                            "Rubr_Sqm", "Deed_Sqm", "Deed_Area",
-                            "Sqm_Deed",
+                            "OBJECTID", "Land_ID", "Zone", "Name", "Surname",
+                            "Farm_ID", "Farmer_ID", "F_Moo", "F_Tam", "F_Amp", "F_Prove",
+                            "Rai", "Land_Type", "Area_Rai", "Area_Ngan", "Area_sqwa",
+                            "Plant_Year", "Old_Year", "DEM", "Class_Age", "Stratum",
+                            "Area_SqM", "Rai_Area", "UTM_East", "UTM_North",
+                            "Sqm_Rechac", "Rai_Rechac",
                             refinal,
                             geom, geom_point
                         )
                         VALUES (
-                            $2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,
-                            $16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,
-                            $27,$28,$29,$30,
-                            $31,
+                            $2,$3,$4,$5,$6,
+                            $7,$8,$9,$10,$11,$12,
+                            $13,$14,$15,$16,$17,
+                            $18,$19,$20,$21,$22,
+                            $23,$24,$25,$26,
+                            $27,$28,
+                            $29,
                             ${geomVal}, ${geomPointVal}
                         )
-                        RETURNING id, "Farmer_ID" AS farmer_id, "Sqm_Deed" AS shpsplit_sqm, geom, geom_point
+                        RETURNING id, "Farmer_ID" AS farmer_id, "Sqm_Rechac" AS shpsplit_sqm, geom, geom_point
                     )
                     INSERT INTO reclass_${tb_name} (id, sub_id, farmer_id, shpsplit_sqm, "Rubr_Area", geom, geom_point, classtype)
                     SELECT id, id::text, farmer_id, shpsplit_sqm, ROUND((shpsplit_sqm::numeric / 1600.0), 2), geom, geom_point, '${geom_type}' FROM main_ins;
                 `;
                 const params = [
                     geomJson,
-                    norm.Farmer_ID, norm.Regis_No, norm.No_Plot, norm.Title_name, norm.F_name, norm.L_name, norm.Full_nam,
-                    norm.Address, norm.Sub_Dis, norm.District, norm.Province, norm.F_Status, norm.Deed_ID, norm.Deed_Type,
-                    norm.Rubr_Rai, norm.Rubr_Ngan, norm.Rubr_sqwa, norm.Rubr_total,
-                    norm.Deed_Rai, norm.Deed_Ngan, norm.Deed_sqwa, norm.Deed_total,
-                    norm.Para_Age, norm.X, norm.Y,
-                    norm.Rubr_Sqm, norm.Deed_Sqm, norm.Deed_Area,
-                    norm.Sqm_Deed,
+                    norm.OBJECTID, norm.Land_ID, norm.Zone, norm.Name, norm.Surname,
+                    norm.Farm_ID, norm.Farmer_ID, norm.F_Moo, norm.F_Tam, norm.F_Amp, norm.F_Prove,
+                    norm.Rai, norm.Land_Type, norm.Area_Rai, norm.Area_Ngan, norm.Area_sqwa,
+                    norm.Plant_Year, norm.Old_Year, norm.DEM, norm.Class_Age, norm.Stratum,
+                    norm.Area_SqM, norm.Rai_Area, norm.UTM_East, norm.UTM_North,
+                    norm.Sqm_Rechac, norm.Rai_Rechac,
                     norm.refinal
                 ];
                 await client.query(insertSql, params);
@@ -2334,7 +2302,7 @@ app.post('/api/upload-shapefile', upload.single('shpFile'), async (req, res) => 
 app.get('/api/export-sql', async (req, res) => {
     try {
         const { exec } = require('child_process');
-        const fileName = `${process.env.DB_NAME || 'rub2'}.sql`;
+        const fileName = `${process.env.DB_NAME || 'rub_v3'}.sql`;
         const filePath = path.join(__dirname, '..', 'uploads', fileName);
         if (!fs.existsSync(path.join(__dirname, '..', 'uploads'))) fs.mkdirSync(path.join(__dirname, '..', 'uploads'));
         process.env.PGPASSWORD = process.env.DB_PASSWORD;
@@ -2387,35 +2355,33 @@ app.post('/api/create-project', async (req, res) => {
         const createMainTable = `
             CREATE TABLE ${safe_name} (
                 id             SERIAL PRIMARY KEY,
+                "OBJECTID"     integer,
+                "Land_ID"      text,
+                "Zone"         text,
+                "Name"         text,
+                "Surname"      text,
+                "Farm_ID"      text,
                 "Farmer_ID"    text,
-                "Regis_No"     text,
-                "No_Plot"      numeric,
-                "Title_name"   text,
-                "F_name"       text,
-                "L_name"       text,
-                "Full_nam"     text,
-                "Address"      text,
-                "Sub_Dis"      text,
-                "District"     text,
-                "Province"     text,
-                "F_Status"     text,
-                "Deed_ID"      text,
-                "Deed_Type"    text,
-                "Rubr_Rai"     numeric,
-                "Rubr_Ngan"    numeric,
-                "Rubr_sqwa"    numeric,
-                "Rubr_total"   numeric,
-                "Deed_Rai"     numeric,
-                "Deed_Ngan"    numeric,
-                "Deed_sqwa"    numeric,
-                "Deed_total"   numeric,
-                "Para_Age"     numeric,
-                "X"            numeric,
-                "Y"            numeric,
-                "Rubr_Sqm"     numeric,
-                "Deed_Sqm"     numeric,
-                "Deed_Area"    numeric(10,2),
-                "Sqm_Deed"     numeric,
+                "F_Moo"        text,
+                "F_Tam"        text,
+                "F_Amp"        text,
+                "F_Prove"      text,
+                "Rai"          numeric,
+                "Land_Type"    text,
+                "Area_Rai"     numeric,
+                "Area_Ngan"    numeric,
+                "Area_sqwa"    numeric,
+                "Plant_Year"   integer,
+                "Old_Year"     integer,
+                "DEM"          numeric,
+                "Class_Age"    text,
+                "Stratum"      text,
+                "Area_SqM"     numeric,
+                "Rai_Area"     numeric,
+                "UTM_East"     numeric,
+                "UTM_North"    numeric,
+                "Sqm_Rechac"   numeric,
+                "Rai_Rechac"   numeric,
                 geom           GEOMETRY(MultiPolygon, 4326),
                 geom_point     GEOMETRY(Point, 4326),
                 refinal        text,
@@ -2452,15 +2418,13 @@ app.post('/api/create-project', async (req, res) => {
             CREATE VIEW v_reclass_${safe_name} AS
             SELECT
                 a.id,
-                a."Farmer_ID", a."Regis_No", a."No_Plot",
-                a."Title_name", a."F_name", a."L_name", a."Full_nam", a."Address",
-                a."Sub_Dis", a."District", a."Province", a."F_Status",
-                a."Deed_ID", a."Deed_Type",
-                a."Rubr_Rai", a."Rubr_Ngan", a."Rubr_sqwa", a."Rubr_total",
-                a."Deed_Rai", a."Deed_Ngan", a."Deed_sqwa", a."Deed_total",
-                a."Para_Age", a."X", a."Y",
-                a."Rubr_Sqm", a."Deed_Sqm", a."Deed_Area",
-                a."Sqm_Deed",
+                a."OBJECTID", a."Land_ID", a."Zone",
+                a."Name", a."Surname", a."Farm_ID", a."Farmer_ID",
+                a."F_Moo", a."F_Tam", a."F_Amp", a."F_Prove",
+                a."Rai", a."Land_Type", a."Area_Rai", a."Area_Ngan", a."Area_sqwa",
+                a."Plant_Year", a."Old_Year", a."DEM", a."Class_Age", a."Stratum",
+                a."Area_SqM", a."Rai_Area", a."UTM_East", a."UTM_North",
+                a."Sqm_Rechac", a."Rai_Rechac",
                 a.refinal, a.classified,
                 a.editor AS a_editor, a.ts AS a_ts,
                 r.fid AS reclass_fid, r.sub_id AS reclass_sub_id,
@@ -2611,37 +2575,38 @@ app.post('/api/upload-shapefile-to-table', upload.single('shpFile'), async (req,
                 const insertSql = `
                     WITH main_ins AS (
                         INSERT INTO ${safe_name} (
-                            "Farmer_ID", "Regis_No", "No_Plot", "Title_name", "F_name", "L_name", "Full_nam",
-                            "Address", "Sub_Dis", "District", "Province", "F_Status", "Deed_ID", "Deed_Type",
-                            "Rubr_Rai", "Rubr_Ngan", "Rubr_sqwa", "Rubr_total",
-                            "Deed_Rai", "Deed_Ngan", "Deed_sqwa", "Deed_total",
-                            "Para_Age", "X", "Y",
-                            "Rubr_Sqm", "Deed_Sqm", "Deed_Area",
-                            "Sqm_Deed",
+                            "OBJECTID", "Land_ID", "Zone", "Name", "Surname",
+                            "Farm_ID", "Farmer_ID", "F_Moo", "F_Tam", "F_Amp", "F_Prove",
+                            "Rai", "Land_Type", "Area_Rai", "Area_Ngan", "Area_sqwa",
+                            "Plant_Year", "Old_Year", "DEM", "Class_Age", "Stratum",
+                            "Area_SqM", "Rai_Area", "UTM_East", "UTM_North",
+                            "Sqm_Rechac", "Rai_Rechac",
                             refinal,
                             geom, geom_point
                         )
                         VALUES (
-                            $2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,
-                            $16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,
-                            $27,$28,$29,$30,
-                            $31,
+                            $2,$3,$4,$5,$6,
+                            $7,$8,$9,$10,$11,$12,
+                            $13,$14,$15,$16,$17,
+                            $18,$19,$20,$21,$22,
+                            $23,$24,$25,$26,
+                            $27,$28,
+                            $29,
                             ${geomVal}, ${geomPointVal}
                         )
-                        RETURNING id, "Farmer_ID" AS farmer_id, "Sqm_Deed" AS shpsplit_sqm, geom, geom_point
+                        RETURNING id, "Farmer_ID" AS farmer_id, "Sqm_Rechac" AS shpsplit_sqm, geom, geom_point
                     )
                     INSERT INTO reclass_${safe_name} (id, sub_id, farmer_id, shpsplit_sqm, "Rubr_Area", geom, geom_point, classtype)
                     SELECT id, id::text, farmer_id, shpsplit_sqm, ROUND((shpsplit_sqm::numeric / 1600.0), 2), geom, geom_point, '${geom_type}' FROM main_ins;
                 `;
                 const params = [
                     geomJson,
-                    norm.Farmer_ID, norm.Regis_No, norm.No_Plot, norm.Title_name, norm.F_name, norm.L_name, norm.Full_nam,
-                    norm.Address, norm.Sub_Dis, norm.District, norm.Province, norm.F_Status, norm.Deed_ID, norm.Deed_Type,
-                    norm.Rubr_Rai, norm.Rubr_Ngan, norm.Rubr_sqwa, norm.Rubr_total,
-                    norm.Deed_Rai, norm.Deed_Ngan, norm.Deed_sqwa, norm.Deed_total,
-                    norm.Para_Age, norm.X, norm.Y,
-                    norm.Rubr_Sqm, norm.Deed_Sqm, norm.Deed_Area,
-                    norm.Sqm_Deed,
+                    norm.OBJECTID, norm.Land_ID, norm.Zone, norm.Name, norm.Surname,
+                    norm.Farm_ID, norm.Farmer_ID, norm.F_Moo, norm.F_Tam, norm.F_Amp, norm.F_Prove,
+                    norm.Rai, norm.Land_Type, norm.Area_Rai, norm.Area_Ngan, norm.Area_sqwa,
+                    norm.Plant_Year, norm.Old_Year, norm.DEM, norm.Class_Age, norm.Stratum,
+                    norm.Area_SqM, norm.Rai_Area, norm.UTM_East, norm.UTM_North,
+                    norm.Sqm_Rechac, norm.Rai_Rechac,
                     norm.refinal
                 ];
                 await client.query(insertSql, params);
@@ -2775,7 +2740,7 @@ app.post('/api/restore-from-backup/:tb/:id', async (req, res) => {
             return res.status(404).json({ success: false, error: `ID ${featureId} not found in backup_${tb}` });
         }
         const bk = backupRow.rows[0];
-        const originalShparea = bk['Sqm_Deed']; // ค่าเนื้อที่ขณะนี้โฉนด (ต้นฉบับ)
+        const originalShparea = bk['Sqm_Rechac']; // ค่าเนื้อที่ขณะนี้ (ต้นฉบับ)
 
         // ── ตรวจสอบว่า id ยังมีอยู่ใน main table หรือไม่ ──────────────────────
         const mainRow = await pool.query(`SELECT id FROM ${tb} WHERE id = $1`, [featureId]);
@@ -2817,9 +2782,9 @@ app.post('/api/restore-from-backup/:tb/:id', async (req, res) => {
 
             const updateResult = await pool.query(`
                 UPDATE ${tb}
-                SET "Sqm_Deed"  = b."Sqm_Deed",
-                    geom        = b.geom,
-                    geom_point  = b.geom_point
+                SET "Sqm_Rechac" = b."Sqm_Rechac",
+                    geom         = b.geom,
+                    geom_point   = b.geom_point
                 FROM backup_${tb} b
                 WHERE ${tb}.id = $1
                   AND b.id     = $1
@@ -2919,7 +2884,7 @@ app.get('/api/backup-diff/:tb', async (req, res) => {
 
         // หา id ที่อยู่ใน backup แต่ไม่มีใน main table
         const diffResult = await pool.query(`
-            SELECT b.id, b."Farmer_ID", b."F_name", b."L_name", b.backup_at
+            SELECT b.id, b."Farmer_ID", b."Name", b."Surname", b.backup_at
             FROM backup_${tb} b
             WHERE NOT EXISTS (
                 SELECT 1 FROM ${tb} m WHERE m.id = b.id
@@ -3196,7 +3161,7 @@ app.get('/api/worker-summary-all', async (req, res) => {
             const mainReshapeRows = await pool.query(`
                 SELECT editor,
                     COUNT(*) AS farmer_count,
-                    ROUND(COALESCE(SUM("Sqm_Deed"), 0)::numeric, 2) AS total_sqm
+                    ROUND(COALESCE(SUM("Sqm_Rechac"), 0)::numeric, 2) AS total_sqm
                 FROM ${tb}
                 WHERE editor IS NOT NULL AND editor != ''
                 GROUP BY editor
@@ -3310,7 +3275,7 @@ app.get('/api/worker-summary/:tb', async (req, res) => {
         await pool.query(`
             SELECT editor,
                 COUNT(*) AS farmer_count,
-                ROUND(COALESCE(SUM("Sqm_Deed"), 0)::numeric, 2) AS total_sqm
+                ROUND(COALESCE(SUM("Sqm_Rechac"), 0)::numeric, 2) AS total_sqm
             FROM ${tb}
             WHERE editor IS NOT NULL AND editor != ''
             GROUP BY editor
@@ -3407,8 +3372,8 @@ app.get('/api/checker-summary/:tb', async (req, res) => {
             `),
             pool.query(`
                 SELECT r.reviewer,
-                    ROUND(COALESCE(SUM(t."Deed_Sqm"), 0)::numeric, 2) AS deed_sqm,
-                    ROUND(COALESCE(SUM(t."Rubr_Sqm"), 0)::numeric, 2) AS rubber_sqm
+                    ROUND(COALESCE(SUM(t."Sqm_Rechac"), 0)::numeric, 2) AS deed_sqm,
+                    ROUND(COALESCE(SUM(t."Sqm_Rechac"), 0)::numeric, 2) AS rubber_sqm
                 FROM (
                     SELECT DISTINCT reviewer, id
                     FROM reclass_${tb}

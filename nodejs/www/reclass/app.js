@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 //  app.js — Reclass page (OpenLayers version)
 //  Features:
 //    - OpenLayers map with Google / WMS / GEE layers
@@ -54,7 +54,7 @@ const shpallSource = new ol.source.Vector({
         const ll = ol.proj.toLonLat([extent[0], extent[1]]);
         const ur = ol.proj.toLonLat([extent[2], extent[3]]);
         const bbox = `${ll[0]},${ll[1]},${ur[0]},${ur[1]}`;
-        return `/rub/api/shpall/${tb}?bbox=${bbox}`;
+        return `/rub3/api/shpall/${tb}?bbox=${bbox}`;
     }
 });
 
@@ -292,7 +292,7 @@ let skipNextClick = false;    // prevent click handler from deselecting after dr
 
 // ── 7. Area helpers ──────────────────────────────────────
 async function calculateArea(geometry) {
-    const res = await fetch('/rub/api/area', {
+    const res = await fetch('/rub3/api/area', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ geometry })
@@ -307,16 +307,7 @@ async function updateAreaDisplay(feature) {
         const area = await calculateArea(geomGeoJSON.geometry);
         const round = Math.round(area);
         document.getElementById('current_sqm').value = round.toLocaleString('th-TH');
-
-        const sqmYang = parseFloat(document.getElementById('rubr_sqm').value.replace(/,/g, '')) || 0;
-        const el = document.getElementById('checkarea');
-        if (Math.abs(sqmYang - area) <= 100) {
-            el.innerHTML = '<span style="color:green">* พื้นที่ตรงกับข้อมูลเป้าหมาย</span>';
-        } else {
-            el.innerHTML = '<span style="color:red">* พื้นที่ไม่ตรงกับข้อมูลเป้าหมาย</span>';
-        }
         feature.set('shpsplit_sqm', area);
-        feature.set('Rubr_Area', Number((area / 1600).toFixed(2)));
     } catch (err) {
         console.error('Area calc error:', err);
     }
@@ -344,23 +335,11 @@ const loadGeoData = async (id, shouldFit = true) => {
     try {
         const tb = document.getElementById('tb').value;
 
-        const [spatialRes, targetRes] = await Promise.all([
-            fetch('/rub/api/getfeatures/' + tb + '/' + id),
-            fetch(`/rub/api/getfeaturesv3/${tb}`)
-        ]);
+        const spatialRes = await fetch('/rub3/api/getfeatures/' + tb + '/' + id);
         const { data } = await spatialRes.json();
-        const jsonTarget = await targetRes.json();
-        console.log('Spatial:', data, 'Target:', jsonTarget);
+        console.log('Spatial:', data);
 
         const features = data.map(item => {
-            const f = new ol.Feature({
-                geometry: new ol.geom.Polygon(
-                    JSON.parse(item.geom).type === 'Polygon'
-                        ? JSON.parse(item.geom).coordinates
-                        : JSON.parse(item.geom).coordinates[0]
-                ).transform(EPSG4326, EPSG3857)
-            });
-            // handle MultiPolygon
             const geomParsed = JSON.parse(item.geom);
             let olGeom;
             if (geomParsed.type === 'Polygon') {
@@ -375,9 +354,6 @@ const loadGeoData = async (id, shouldFit = true) => {
                 id: item.id,
                 sub_id: item.sub_id,
                 Farmer_ID: item['Farmer_ID'],
-                Rubr_Sqm: item['Rubr_Sqm'],
-                Rubr_total: item['Rubr_total'],
-                Deed_Sqm: item['Deed_Sqm'],
                 shpsplit_sqm: item.shpsplit_sqm,
                 Rubr_Area: item['Rubr_Area'],
                 classtype: item.classtype,
@@ -393,6 +369,14 @@ const loadGeoData = async (id, shouldFit = true) => {
 
         vectorSource.clear();
         vectorSource.addFeatures(features);
+
+        // Auto-select first feature and populate panel immediately
+        if (features.length > 0) {
+            if (selectedFeature) selectedFeature.set('selected', false);
+            selectedFeature = features[0];
+            selectedFeature.set('selected', true);
+            showFeaturePanel(selectedFeature);
+        }
 
         // Fit view
         if (shouldFit) {
@@ -467,23 +451,9 @@ function filterClasstypeOptions(ct) {
 function showFeaturePanel(feature) {
     document.getElementById('sub_id').value = feature.get('sub_id') || '';
     document.getElementById('xls_id_farmer').value = feature.get('Farmer_ID') || '';
-    document.getElementById('rubr_sqm').value = Number(feature.get('Rubr_Sqm') || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
 
     const currentArea = feature.get('shpsplit_sqm');
     document.getElementById('current_sqm').value = currentArea ? Math.round(currentArea).toLocaleString('th-TH') : '';
-
-    const sqmYang = parseFloat(document.getElementById('rubr_sqm').value.replace(/,/g, '')) || 0;
-    const el = document.getElementById('checkarea');
-    if (sqmYang > 0 && currentArea) {
-        if (Math.abs(sqmYang - currentArea) <= 100) {
-            el.innerHTML = '<span style="color:green">* พื้นที่ตรงกับข้อมูลเป้าหมาย</span>';
-        } else {
-            el.innerHTML = '<span style="color:red">* พื้นที่ไม่ตรงกับข้อมูลเป้าหมาย</span>';
-        }
-    } else {
-        el.className = 'text-muted';
-        el.innerHTML = '* หากมีการแบ่งพื้นที่แล้ว';
-    }
 
     const ct = feature.get('classtype');
     filterClasstypeOptions(ct);
@@ -824,7 +794,7 @@ async function executeSplit() {
     };
 
     try {
-        const res = await fetch('/rub/api/splitfeature/' + tb, {
+        const res = await fetch('/rub3/api/splitfeature/' + tb, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -883,7 +853,7 @@ async function executeUnsplit() {
     }
 
     try {
-        const res = await fetch('/rub/api/unsplit_feature/' + tb, {
+        const res = await fetch('/rub3/api/unsplit_feature/' + tb, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id, displayName })
@@ -954,7 +924,6 @@ document.getElementById('clear').addEventListener('click', () => {
     if (tbSplit) tbSplit.classList.remove('map-tool-active');
     document.getElementById('sub_id').value = '';
     document.getElementById('xls_id_farmer').value = '';
-
     document.getElementById('current_sqm').value = '';
     filterClasstypeOptions(null);
     document.getElementById('classtype').value = '';
@@ -1134,14 +1103,6 @@ function startEditMode() {
             if (isReverting) return;
             const area = ol.sphere.getArea(geomSel, { projection: 'EPSG:3857' });
             document.getElementById('current_sqm').value = Math.round(area).toLocaleString('th-TH');
-
-            const sqmYang = parseFloat(document.getElementById('rubr_sqm').value.replace(/,/g, '')) || 0;
-            const el = document.getElementById('checkarea');
-            if (Math.abs(sqmYang - area) <= 100) {
-                el.innerHTML = '<span style="color:green">* พื้นที่ตรงกับข้อมูลเป้าหมาย</span>';
-            } else {
-                el.innerHTML = '<span style="color:red">* พื้นที่ไม่ตรงกับข้อมูลเป้าหมาย</span>';
-            }
         });
         geomChangeListeners.push(listener);
     });
@@ -1320,7 +1281,7 @@ document.getElementById('save').addEventListener('click', async () => {
     const displayName = document.getElementById('displayName').value;
 
     try {
-        const res = await fetch('/rub/api/update_geometry/' + tb, {
+        const res = await fetch('/rub3/api/update_geometry/' + tb, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ sub_id, geometry: geom, displayName })
@@ -1354,7 +1315,7 @@ document.getElementById('classtype').addEventListener('change', async (e) => {
     const tb = document.getElementById('tb').value;
     const displayName = document.getElementById('displayName').value;
 
-    const res = await fetch('/rub/api/update_landuse/' + tb, {
+    const res = await fetch('/rub3/api/update_landuse/' + tb, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1483,7 +1444,7 @@ document.getElementById('collectedBtn').addEventListener('click', async () => {
     const id_list = selectedForMerge.map(f => f.get('sub_id'));
 
     try {
-        const res = await fetch('/rub/api/collected_feat', {
+        const res = await fetch('/rub3/api/collected_feat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id_list, tb, displayName })
@@ -1633,7 +1594,6 @@ const initApp = async () => {
     const urlParams = new URLSearchParams(window.location.search);
     const id = urlParams.get('id');
     const tb = urlParams.get('tb');
-    const rubr_sqm_param = urlParams.get('Rubr_Sqm');
 
     if (!tb || tb === 'undefined') {
         alert('พื้นที่ไม่ถูกต้อง');
@@ -1641,9 +1601,6 @@ const initApp = async () => {
         return;
     }
 
-    if (rubr_sqm_param) {
-        document.getElementById('rubr_sqm').value = Number(rubr_sqm_param).toLocaleString(undefined, { maximumFractionDigits: 2 });
-    }
     document.getElementById('id').value = id;
     document.getElementById('tb').value = tb;
 
@@ -1656,7 +1613,7 @@ const initApp = async () => {
 
 document.addEventListener('DOMContentLoaded', async () => {
     try {
-        const res = await fetch('/rub/auth/me');
+        const res = await fetch('/rub3/auth/me');
         const { user } = await res.json();
 
         if (user) {
@@ -1677,13 +1634,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             document.getElementById('logout-link').addEventListener('click', async (e) => {
                 e.preventDefault();
-                const r = await fetch('/rub/auth/logout');
+                const r = await fetch('/rub3/auth/logout');
                 const { success } = await r.json();
-                if (success) window.location.href = '/rub/index.html';
+                if (success) window.location.href = '/rub3/index.html';
                 else alert('Logout failed');
             });
         } else {
-            window.location.href = '/rub/index.html';
+            window.location.href = '/rub3/index.html';
         }
     } catch (err) {
         console.error('Init error:', err);
@@ -1697,7 +1654,7 @@ async function checkMyAssignment(displayName) {
     if (!alertEl || !rangeText || !tb) return;
 
     try {
-        const res = await fetch(`/rub/api/task-assignments/${tb}`);
+        const res = await fetch(`/rub3/api/task-assignments/${tb}`);
         const { data } = await res.json();
         
         if (!data || data.length === 0) return;

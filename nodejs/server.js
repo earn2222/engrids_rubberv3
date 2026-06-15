@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const { Pool } = require('pg');
 require('dotenv').config();
 
@@ -6,7 +6,7 @@ const app = express();
 const cors = require('cors');
 app.use(cors());
 
-/* ── Ensure rub2 database and PostGIS exist before starting ── */
+/* ── Ensure rub_v3 database and PostGIS exist before starting ── */
 async function ensureDatabase() {
     const adminPool = new Pool({
         user: process.env.DB_USER,
@@ -16,7 +16,7 @@ async function ensureDatabase() {
         port: process.env.DB_PORT,
     });
     try {
-        const dbName = process.env.DB_NAME || 'rub2';
+        const dbName = process.env.DB_NAME || 'rub_v3';
         const { rows } = await adminPool.query(
             `SELECT 1 FROM pg_database WHERE datname = $1`, [dbName]
         );
@@ -102,9 +102,9 @@ async function ensureDatabase() {
     }
 }
 
-app.use('/rub', require('./service/authen'));
-app.use('/rub', require('./service/api'));
-app.use('/rub', express.static('www'));
+app.use('/rub3', require('./service/authen'));
+app.use('/rub3', require('./service/api'));
+app.use('/rub3', express.static('www'));
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
 const port = process.env.PORT || 4400;

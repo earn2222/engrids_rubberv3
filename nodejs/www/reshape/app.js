@@ -1,4 +1,4 @@
-// Initialize map and feature group
+﻿// Initialize map and feature group
 const map = L.map('map', { maxZoom: 22 }).setView([18.819620993471577, 100.8784385963758], 13);
 const featureGroup = L.featureGroup();
 const lddFeatureGroup = L.featureGroup();
@@ -128,7 +128,7 @@ async function loadShpallLayer() {
     try {
         const b = map.getBounds();
         const bbox = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
-        const res = await fetch(`/rub/api/shpall/${tb}?bbox=${bbox}`);
+        const res = await fetch(`/rub3/api/shpall/${tb}?bbox=${bbox}`);
         const data = await res.json();
         shpallLayer.clearLayers();
         if (data.success && data.features && data.features.length > 0) {
@@ -174,46 +174,12 @@ map.on('click', (e) => {
     console.log(e.latlng);
 
 })
-// Configure Geoman controls
-map.pm.addControls({
-    position: 'topright',
-    drawCircle: false,
-    drawMarker: false,
-    drawPolyline: false,
-    drawRectangle: false,
-    drawPolygon: true,
-    editMode: true,
-    dragMode: false,
-    cutPolygon: false,
-    removalMode: false,
-    rotateMode: false,
-    drawText: false,
-    drawCircleMarker: false,
+// View-only mode — no Geoman editing controls
+
+const getFeatureStyle = () => ({
+    color: '#e65100', weight: 2.5, opacity: 1,
+    fillColor: '#ff9800', fillOpacity: 0.25
 });
-
-// Disable browser default context menu on map so right-click can delete nodes
-map.getContainer().addEventListener('contextmenu', (e) => e.preventDefault());
-
-// Set global Geoman option: right-click removes vertex
-map.pm.setGlobalOptions({ removeVertexOn: 'contextmenu' });
-
-const getFeatureStyle = (feature) => {
-    let target = Number(feature.properties.deed_sqm || 0);
-    if (target === 0) {
-        target = Number(feature.properties.rubr_sqm || 0);
-    }
-    const shp = Number(feature.properties.current_sqm || 0);  // เปรียบเทียบ m² กับ m²
-    const diff = target - shp;
-    const isEqual = Math.abs(diff) <= 100;
-
-    return {
-        color: isEqual ? '#00cc00' : '#FF7601',
-        weight: 2,
-        opacity: 0.9,
-        fillColor: isEqual ? '#90ee90' : '#FFBF78',
-        fillOpacity: 0.1
-    };
-};
 
 const highlightSelectedLayer = (layerToHighlight) => {
     featureGroup.eachLayer(l => {
@@ -326,98 +292,17 @@ function customLineToPolygon(geojsonFeature) {
 }
 
 // Label management - always uses selectedLayer to avoid stale/wrong closure references
-const updateAreaLabel = async () => {
-    if (!selectedLayer) return;
-    try {
-        const geojsonFeature = selectedLayer.toGeoJSON();
-        let geometry = geojsonFeature.geometry || (geojsonFeature.features && geojsonFeature.features[0]?.geometry);
-
-        if (!geometry) {
-            console.warn('updateAreaLabel: no geometry found on selectedLayer');
-            return;
-        }
-
-        if (geometry.type === 'LineString' || geometry.type === 'MultiLineString') {
-            try {
-                let polygonFeature = customLineToPolygon(geojsonFeature);
-                geometry = polygonFeature.geometry;
-            } catch (e) {
-                // Let it pass with warning if it's an incomplete line
-            }
-        }
-
-        console.log('Calculating area for geometry:', JSON.stringify(geometry).substring(0, 100));
-
-        const res = await fetch(`/rub/api/area`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ geometry })
-        });
-
-        if (!res.ok) {
-            const errText = await res.text();
-            throw new Error(`API error ${res.status}: ${errText}`);
-        }
-
-        const { area } = await res.json();
-        const target_area = Number(document.getElementById('deed_sqm').value.replace(/,/g, ''));
-
-        console.log(`Area result: ${area}, target: ${target_area}`);
-        document.getElementById('current_sqm').value = Math.round(area).toLocaleString();
-        
-        const diff = Math.abs(area - target_area);
-
-        if (diff > 100) {
-            document.getElementById('message').innerHTML = '<h5><span class="badge bg-danger">เนื้อที่ยังไม่เท่ากัน</span></h5>';
-        } else {
-            document.getElementById('message').innerHTML = '<h5><span class="badge bg-success">เนื้อที่ใกล้เคียงกัน</span></h5>';
-        }
-    } catch (error) {
-        console.error('Error updating label:', error);
-    }
-};
+// view-only — no area update needed
+const updateAreaLabel = () => { };
 
 function showFeaturePanel(feature, layer) {
-    const id = document.getElementById('id');
-    const xls_id_farmer = document.getElementById('xls_id_farmer');
-    const deed_sqm = document.getElementById('deed_sqm');
-    const current_sqm = document.getElementById('current_sqm');
-    const refinal = document.getElementById('refinal');
-
-    id.value = feature.properties.id;
-    xls_id_farmer.value = feature.properties.id_farmer || '';
-    document.getElementById('Rubr_Sqm').value = Number(feature.properties.rubr_sqm || 0);
-    const deed_sqm_val = Number(feature.properties.deed_sqm || 0);
-    const lbl_deed_sqm = document.getElementById('lbl_deed_sqm');
-
-    let targetSqm = deed_sqm_val;
-
-    if (deed_sqm_val === 0) {
-        lbl_deed_sqm.innerText = 'เนื้อที่เป้าหมายยางพารา (m²):';
-        targetSqm = Number(feature.properties.rubr_sqm || 0);
-        deed_sqm.value = targetSqm.toLocaleString(undefined, { maximumFractionDigits: 2 });
-    } else {
-        lbl_deed_sqm.innerText = 'เนื้อที่เป้าหมายโฉนด (m²):';
-        deed_sqm.value = targetSqm.toLocaleString(undefined, { maximumFractionDigits: 2 });
-    }
-
-    if (layer && layer instanceof L.Marker) {
-        current_sqm.value = '0';
-    } else {
-        current_sqm.value = Math.round(Number(feature.properties.current_sqm || 0)).toLocaleString();
-    }
-    refinal.value = feature.properties.refinal || '';
-
-    const currentMsg = document.getElementById('message');
-    const target = targetSqm;
-    const current = Number(feature.properties.current_sqm || 0);  // เปรียบเทียบ m² กับ m²
-    const diff = Math.abs(target - current);
-
-    if (diff <= 100) {
-        currentMsg.innerHTML = '<h5><span class="badge bg-success">เนื้อที่ใกล้เคียงกัน</span></h5>';
-    } else {
-        currentMsg.innerHTML = '<h5><span class="badge bg-danger">เนื้อที่ยังไม่เท่ากัน</span></h5>';
-    }
+    document.getElementById('id').value = feature.properties.id;
+    document.getElementById('xls_id_farmer').value = feature.properties.id_farmer || '';
+    document.getElementById('current_sqm').value =
+        Number(feature.properties.sqm_rechac || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 });
+    document.getElementById('current_rai').value =
+        Number(feature.properties.rai_rechac || 0).toLocaleString('th-TH', { maximumFractionDigits: 4 });
+    document.getElementById('classify').disabled = false;
 }
 
 // Track whether the user has actually edited the selected polygon
@@ -433,35 +318,13 @@ const onEachFeature = (feature, layer) => {
     layer.bindPopup(`${feature.properties.id}`);
 
     layer.on('click', (e) => {
-        // ถ้ากำลัง digitize (draw) อยู่ ไม่ให้แปลงอื่นมาแย่งข้อมูล
-        if (isDrawing) return;
         showFeaturePanel(feature, layer);
-        featureGroup.eachLayer(l => l.pm.disable());
-        layer.pm.enable({ removeVertexOn: 'contextmenu' });
         highlightSelectedLayer(layer);
-        layerEdited = false; // reset on new selection
         selectedLayer = layer;
     });
 
-    // Listen to pm:enable to attach a real-time change listener.
-    // Skip the FIRST pm:change (auto-fired by pm.enable itself), then respond to all actual user edits.
-    layer.on('pm:enable', () => {
-        let firstChange = true;
-        const onGeomChange = () => {
-            if (firstChange) { firstChange = false; return; } // ignore enable-triggered change
-            layerEdited = true;
-            updateAreaLabel(); // uses selectedLayer internally
-        };
-        layer.on('pm:change', onGeomChange);
-        // Clean up listener when editing is disabled
-        layer.once('pm:disable', () => {
-            layer.off('pm:change', onGeomChange);
-        });
-    });
-
-    // Also fire once on final edit/dragend
     layer.on('pm:edit pm:dragend', () => {
-        layerEdited = true;
+        // view-only — no editing
         updateAreaLabel(); // uses selectedLayer internally
     });
 }
@@ -475,7 +338,7 @@ const loadGeoData = async () => {
         const assignee = urlParams.get('assignee');
 
         const tb = document.getElementById('tb').value;
-        const response = await fetch(`/rub/api/getfeaturesv3/${tb}`);
+        const response = await fetch(`/rub3/api/getfeaturesv3/${tb}`);
         const { data } = await response.json();
 
         let filteredData = data;
@@ -512,21 +375,12 @@ const loadGeoData = async () => {
             }
             return {
                 id: item.id,
-                refinal: item.refinal,
-                farm_name: item['Full_nam'] || '',
-                f_name: item['F_name'] || '',
-                l_name: item['L_name'] || '',
-                age: item['Para_Age'] || '',
                 geom: geom,
-                id_farmer: item['Farmer_ID'] || '',
-                deed_id: item['Deed_ID'] || '',
-                deed_sqm: item['Deed_Sqm'] || 0,          // เนื้อที่เป้าหมายโฉนด (m²) = Deed_Sqm
-                deed_total: item['Deed_total'] || 0,        // เนื้อที่เป้าหมายโฉนด (ไร่) = Deed_total
-                rubr_sqm: item['Rubr_Sqm'] || 0,
-                rubr_total: item['Rubr_Area'] || 0,
-                current_sqm: item['Sqm_Deed'] || 0,         // เนื้อที่ขณะนี้ (m²) = Sqm_Deed
-                current_rai: item['Deed_Area'] || 0,        // เนื้อที่ขณะนี้ (ไร่) = Deed_Area
-                classified: item.classified,
+                id_farmer: item.farmer_id || '',
+                name: item.name || '',
+                surname: item.surname || '',
+                sqm_rechac: item.sqm_rechac || 0,
+                rai_rechac: item.rai_rechac || 0,
             };
         }).filter(item => item.geom !== null);
 
@@ -549,60 +403,26 @@ const loadGeoData = async () => {
                     }
                 },
                 { data: 'id', title: 'ID' },
-                { data: 'farm_name', title: 'ชื่อเกษตรกร' },
-                { data: 'age', title: 'อายุ (ปี)' },
-                { data: 'id_farmer', title: 'เลขทะเบียนเกษตรกร' },
-                { data: 'deed_id', title: 'เลขโฉนด' },
                 {
-                    data: null,
-                    title: 'เนื้อที่เป้าหมาย (m²)',
-                    render: (data, type, row) => {
-                        const deedSqm = Number(row.deed_sqm || 0);
-                        if (deedSqm === 0) {
-                            return '0 <small style="color:gray">(ยาง)</small>';
-                        }
-                        return Math.round(deedSqm).toLocaleString();
-                    }
+                    data: 'name',
+                    title: 'ชื่อ',
+                    render: (data) => data || '<span class="text-muted">-</span>'
                 },
                 {
-                    data: 'current_sqm',
+                    data: 'surname',
+                    title: 'นามสกุล',
+                    render: (data) => data || '<span class="text-muted">-</span>'
+                },
+                { data: 'id_farmer', title: 'เลขเกษตรกร' },
+                {
+                    data: 'sqm_rechac',
                     title: 'เนื้อที่ขณะนี้ (m²)',
-                    render: (data, type, row) => Math.round(Number(data || 0)).toLocaleString()
+                    render: (data) => Number(data || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 })
                 },
                 {
-                    data: null,
-                    title: 'ตรวจสอบ (m²)',
-                    render: (data, type, row) => {
-                        const deedSqm = Number(row.deed_sqm || 0);
-                        const rubrSqm = Number(row.rubr_sqm || 0);
-                        const target = deedSqm > 0 ? deedSqm : rubrSqm;
-                        const current = Number(row.current_sqm || 0);
-                        const diff = Math.round(target - current);
-                        const color = Math.abs(diff) <= 100 ? 'green' : 'red';
-                        const diffStyle = `color: ${color}; font-weight: bold;`;
-                        return `<span style="${diffStyle}">
-                                    ${Math.abs(diff) <= 100 ? "เนื้อที่ถูกต้อง" : "เนื้อที่ไม่ถูกต้อง"}
-                                    (${diff.toLocaleString()})
-                                </span>`;
-                    }
-                },
-                {
-                    data: 'classified',
-                    title: 'Classified',
-                    render: (data, type, row) => {
-                        const color = data ? 'green' : 'red';
-                        const diffStyle = `color: ${color}; font-weight: bold;`;
-                        return `<span style="${diffStyle}">${data ? "Classify แล้ว" : "ยังไม่ Classify"}</span>`;
-                    }
-                },
-                {
-                    data: null,
-                    title: 'ลบข้อมูล',
-                    render: (data, type, row) => {
-                        return `<button class="btn btn-danger btn-sm btn-icon delete-btn" data-id="${row.id}" title="ลบข้อมูลแปลงนี้">
-                                    <i class="bi bi-trash"></i>
-                                </button>`;
-                    }
+                    data: 'rai_rechac',
+                    title: 'เนื้อที่ขณะนี้ (ไร่)',
+                    render: (data) => Number(data || 0).toLocaleString('th-TH', { maximumFractionDigits: 4 })
                 }
             ],
             pageLength: 10,
@@ -610,13 +430,7 @@ const loadGeoData = async () => {
             select: true,
             destroy: true,
             scrollX: true,
-            initComplete: function () {
-                if (_userRole !== 'admin') {
-                    this.api().columns().every(function () {
-                        if (this.header().textContent.trim() === 'ลบข้อมูล') this.visible(false);
-                    });
-                }
-            }
+            initComplete: function () { }
         });
 
         const updateMap = () => {
@@ -629,14 +443,11 @@ const loadGeoData = async () => {
                     geometry: row.geom,
                     properties: {
                         id: row.id,
-                        refinal: row.refinal,
                         id_farmer: row.id_farmer,
-                        deed_sqm: row.deed_sqm,
-                        deed_total: row.deed_total,
-                        rubr_sqm: row.rubr_sqm,
-                        rubr_total: row.rubr_total,
-                        current_sqm: row.current_sqm,
-                        current_rai: row.current_rai
+                        name: row.name,
+                        surname: row.surname,
+                        sqm_rechac: row.sqm_rechac,
+                        rai_rechac: row.rai_rechac,
                     }
                 }
 
@@ -699,7 +510,6 @@ const loadGeoData = async () => {
                         if (layer.feature.properties.id === refid) {
                             selectedLayer = layer;
                             showFeaturePanel(layer.feature, layer);
-                            layer.pm.enable({ removeVertexOn: 'contextmenu' });
                             highlightSelectedLayer(layer);
                         }
                     }
@@ -709,49 +519,6 @@ const loadGeoData = async () => {
             }
         });
 
-        // Event listener for the new delete button
-        $('#featureTable tbody').on('click', '.delete-btn', async function (e) {
-            e.stopPropagation();
-            const id = $(this).data('id');
-            const tb = document.getElementById('tb').value;
-
-            if (confirm(`คุณต้องการลบข้อมูลแปลงนี้ใช่หรือไม่? (ID: ${id})`)) {
-                try {
-                    const response = await fetch(`/rub/api/deletefeature/${tb}/${id}`, {
-                        method: 'DELETE',
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                    const result = await response.json();
-
-                    if (result.success) {
-                        alert(`ลบข้อมูลสำเร็จ (ID: ${id})`);
-                        // Clear the map layers before reloading data
-                        featureGroup.eachLayer(layer => {
-                            layer.pm.disable();
-                            layer.areaLabel?.remove();
-                        });
-                        featureGroup.clearLayers();
-                        // Reset side panel
-                        document.getElementById('id').value = '';
-                        document.getElementById('xls_id_farmer').value = '';
-                        document.getElementById('Rubr_Sqm').value = '';
-                        document.getElementById('deed_sqm').value = '';
-                        document.getElementById('current_sqm').value = '';
-                        document.getElementById('refinal').value = '';
-                        document.getElementById('restoreId').value = '';
-                        document.getElementById('message').innerHTML = '';
-                        selectedLayer = null;
-
-                        await loadGeoData(); // Reload table and map
-                    } else {
-                        alert('เกิดข้อผิดพลาดในการลบข้อมูล: ' + (result.error || ''));
-                    }
-                } catch (error) {
-                    console.error('Error deleting data:', error);
-                    alert('ไม่สามารถลบข้อมูลได้');
-                }
-            }
-        });
 
 
         dataTable.rows().every(function () {
@@ -765,173 +532,7 @@ const loadGeoData = async () => {
     }
 };
 
-map.on('click', (e) => {
-    featureGroup.eachLayer(l => l.pm.disable());
-    highlightSelectedLayer(null);
-});
-
-document.getElementById('save').addEventListener('click', async () => {
-    if (!selectedLayer) {
-        alert('กรุณาเลือกแปลงที่ต้องการบันทึกก่อน');
-        return;
-    }
-
-    const id = document.getElementById('id').value;
-    const refinal = document.getElementById('refinal').value;
-    const displayName = document.getElementById('displayName').value;
-    const currentShpareaSq = document.getElementById('current_sqm').value.replace(/,/g, '');
-
-    const features = [];
-    const geojson = selectedLayer.toGeoJSON();
-    let finalGeojson = geojson;
-    if (geojson.geometry.type === 'LineString' || geojson.geometry.type === 'MultiLineString') {
-        try {
-            // Try to auto-close the line if it was drawn as Polyline
-            finalGeojson = customLineToPolygon(geojson);
-        } catch (e) {
-            alert('กรุณาวาดเส้นให้บรรจบกันเป็นรูปปิด (Polygon)');
-            return;
-        }
-    }
-    features.push(finalGeojson);
-
-    try {
-        const tb = document.getElementById('tb').value;
-        const response = await fetch(`/rub/api/updatefeatures/${tb}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id, refinal, features, displayName, geometryChanged: layerEdited, currentShpareaSq })
-        });
-        const result = await response.json();
-
-        if (result.success) {
-            layerEdited = false; // reset flag after successful save
-            featureGroup.eachLayer(layer => {
-                layer.pm.disable();
-                layer.areaLabel?.remove();
-            });
-
-            featureGroup.clearLayers();
-            await loadGeoData(); // Wait for reload
-
-            // After reload, re-select the saved feature and restore sidebar from DB values
-            const savedId = Number(id);
-            featureGroup.eachLayer(layer => {
-                if (layer.feature && layer.feature.properties.id === savedId) {
-                    selectedLayer = layer;
-                    showFeaturePanel(layer.feature, layer);
-                    layer.pm.enable({ removeVertexOn: 'contextmenu' });
-                    highlightSelectedLayer(layer);
-                }
-            });
-
-            alert(`อัพเดท features เรียบร้อย (ID: ${id})`);
-        } else {
-            alert('Failed to update features: ' + (result.error || ''));
-        }
-    } catch (error) {
-        console.error('Error saving data:', error);
-        alert('Failed to save data');
-    }
-});
-
-document.getElementById("restore").addEventListener("click", () => {
-    try {
-        const modal = document.getElementById("restoreModal");
-        if (modal) {
-            const bsModal = new bootstrap.Modal(modal);
-            bsModal.show();
-        } else {
-            console.error(`Modal with ID ${modalId} not found.`);
-        }
-    } catch (error) {
-        console.error('Failed to fetch user:', err);
-    }
-})
-
-document.getElementById('btnRestore').addEventListener("click", async () => {
-    try {
-        const tb = document.getElementById('tb').value;
-        const id = document.getElementById('restoreId').value;
-        const response = await fetch(`/rub/api/restorefeatures/${tb}/${id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id })
-        });
-        const result = await response.json();
-
-        if (result.success) {
-            // อัปเดตค่า current_sqm ใน sidebar จากข้อมูลที่ restore กลับมา
-            const restoredSqmDeed  = Number(result.data?.['Sqm_Deed']  || 0);
-            document.getElementById('current_sqm').value = Math.round(restoredSqmDeed).toLocaleString();
-
-            // เปรียบเทียบกับ target เพื่ออัปเดต message
-            const target = Number(document.getElementById('deed_sqm').value.replace(/,/g, '') || 0);
-            const diff = Math.abs(target - restoredSqmDeed);
-            document.getElementById('message').innerHTML = diff <= 100
-                ? '<h5><span class="badge bg-success">เนื้อที่ใกล้เคียงกัน</span></h5>'
-                : '<h5><span class="badge bg-danger">เนื้อที่ยังไม่เท่ากัน</span></h5>';
-
-            featureGroup.eachLayer(layer => {
-                layer.pm.disable();
-                layer.areaLabel?.remove();
-            });
-
-            featureGroup.clearLayers();
-            await loadGeoData();
-            document.getElementById('restoreId').value = "";
-            const modal = document.getElementById("restoreModal");
-            if (modal) {
-                const bsModal = bootstrap.Modal.getInstance(modal);
-                bsModal.hide();
-            }
-            alert(`Restore เรียบร้อย (ID: ${id})\nเนื้อที่: ${restoredArea.toFixed(0)} m²`);
-        } else {
-            alert('Failed to restore features: ' + (result.error || ''));
-        }
-    } catch (error) {
-        console.error('Error restoring data:', error);
-        alert('Failed to restore data');
-    }
-});
-
-// เลือกไอดี
-document.getElementById('classify').addEventListener('click', () => {
-    const id = document.getElementById('id').value;
-    if (!id) {
-        alert('เลือกแปลงที่ต้องการ classify ก่อน');
-        return;
-    }
-    const tb = document.getElementById('tb').value;
-
-    // Capture current assignment params
-    const urlParams = new URLSearchParams(window.location.search);
-    const id_from = urlParams.get('id_from');
-    const id_to = urlParams.get('id_to');
-    const assignee = urlParams.get('assignee');
-
-    let url = `/rub/reclass/index.html?tb=${tb}&id=${id}&Rubr_Sqm=${document.getElementById('Rubr_Sqm').value}`;
-    if (id_from && id_to && assignee) {
-        url += `&id_from=${id_from}&id_to=${id_to}&assignee=${encodeURIComponent(assignee)}`;
-    }
-
-    fetch(`/rub/api/create_reclass_feature/${tb}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id })
-    }).then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                window.open(url, '_self');
-            } else {
-                alert('Failed to create reclassification layer');
-            }
-        }).catch(error => {
-            console.error('Error creating reclassification layer:', error);
-            alert('Failed to create reclassification layer');
-        });
-});
-
+map.on('click', () => { highlightSelectedLayer(null); });
 
 document.getElementById('dashboard').addEventListener('click', (e) => {
     e.preventDefault();
@@ -942,6 +543,23 @@ document.getElementById('dashboard').addEventListener('click', (e) => {
     const assignee = urlParams.get('assignee');
 
     let url = './../reclassdash/index.html?tb=' + tb;
+    if (id_from && id_to && assignee) {
+        url += `&id_from=${id_from}&id_to=${id_to}&assignee=${encodeURIComponent(assignee)}`;
+    }
+    window.location.href = url;
+});
+
+document.getElementById('classify').addEventListener('click', () => {
+    const id = document.getElementById('id').value;
+    const tb = document.getElementById('tb').value;
+    if (!id || !tb) { alert('กรุณาเลือกแปลงก่อน'); return; }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const id_from = urlParams.get('id_from');
+    const id_to = urlParams.get('id_to');
+    const assignee = urlParams.get('assignee');
+
+    let url = `./../reclass/index.html?tb=${tb}&id=${id}`;
     if (id_from && id_to && assignee) {
         url += `&id_from=${id_from}&id_to=${id_to}&assignee=${encodeURIComponent(assignee)}`;
     }
@@ -967,7 +585,7 @@ const initApp = async () => {
 
 document.addEventListener('DOMContentLoaded', async () => {
     try {
-        const res = await fetch('/rub/auth/me');
+        const res = await fetch('/rub3/auth/me');
         const { user } = await res.json();
 
         if (user) {
@@ -989,10 +607,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('logout-link').addEventListener('click', async (e) => {
                 e.preventDefault();
                 try {
-                    const result = await fetch('/rub/auth/logout');
+                    const result = await fetch('/rub3/auth/logout');
                     const { success } = await result.json();
                     if (success) {
-                        window.location.href = '/rub/index.html';
+                        window.location.href = '/rub3/index.html';
                     } else {
                         alert('Logout failed');
                     }
@@ -1001,7 +619,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             });
         } else {
-            window.location.href = '/rub/index.html';
+            window.location.href = '/rub3/index.html';
         }
     } catch (err) {
         console.error('Failed to fetch user:', err);

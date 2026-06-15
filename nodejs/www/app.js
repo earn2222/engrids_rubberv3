@@ -1,6 +1,6 @@
-const initUser = async () => {
+﻿const initUser = async () => {
     try {
-        const response = await fetch(`/rub/api/users`);
+        const response = await fetch(`/rub3/api/users`);
         if (!response.ok) { console.error('users API:', response.status); return; }
         const result = await response.json();
         if (!Array.isArray(result)) { console.error('users unexpected response:', result); return; }
@@ -61,7 +61,7 @@ async function showAssigneeSelect(event, tb, targetType) {
     // Worker: ดึง assignment ของตัวเองและ navigate ตรง ไม่ต้องเปิด modal
     if (role === 'worker') {
         try {
-            const res = await fetch(`/rub/api/my-assignment/${tb}`);
+            const res = await fetch(`/rub3/api/my-assignment/${tb}`);
             if (res.status === 401) {
                 alert('Session หมดอายุ กรุณา Login ใหม่อีกครั้ง');
                 window.location.reload();
@@ -94,7 +94,7 @@ async function showAssigneeSelect(event, tb, targetType) {
     modal.show();
 
     try {
-        const response = await fetch(`/rub/api/task-progress/${tb}`);
+        const response = await fetch(`/rub3/api/task-progress/${tb}`);
         const { data } = await response.json();
 
         if (!data || data.length === 0) {
@@ -224,7 +224,7 @@ async function loadAssignmentHome(tb_name) {
     if (!el) return;
 
     try {
-        const res = await fetch(`/rub/api/task-progress/${tb_name}`);
+        const res = await fetch(`/rub3/api/task-progress/${tb_name}`);
         const { data } = await res.json();
         const myName = document.getElementById('display-name')?.textContent || '';
 
@@ -269,7 +269,7 @@ async function loadAssignmentHome(tb_name) {
 const initApp = async () => {
     try {
 
-        const response = await fetch('/rub/api/layerlist');
+        const response = await fetch('/rub3/api/layerlist');
         if (!response.ok) { console.error('layerlist API:', response.status); return; }
         const result = await response.json();
         if (!Array.isArray(result)) { console.error('layerlist unexpected response:', result); return; }
@@ -370,7 +370,7 @@ const initApp = async () => {
             reshape_download[i].addEventListener('click', function (e) {
                 e.preventDefault();
                 const tb = this.getAttribute('data-tb');
-                downloadFile(`/rub/api/download/reshape/${tb}`, `pacel_yang_${tb}.geojson`);
+                downloadFile(`/rub3/api/download/reshape/${tb}`, `pacel_yang_${tb}.geojson`);
             });
         }
 
@@ -379,7 +379,7 @@ const initApp = async () => {
             classify_download[i].addEventListener('click', function (e) {
                 e.preventDefault();
                 const tb = this.getAttribute('data-tb');
-                downloadFile(`/rub/api/download/reshape/v_reclass_${tb}`, `v_reclass_LU_${tb}.geojson`);
+                downloadFile(`/rub3/api/download/reshape/v_reclass_${tb}`, `v_reclass_LU_${tb}.geojson`);
             });
         }
 
@@ -388,7 +388,7 @@ const initApp = async () => {
             classify_download_rubber[i].addEventListener('click', function (e) {
                 e.preventDefault();
                 const tb = this.getAttribute('data-tb');
-                downloadFile(`/rub/api/download/reshape/v_reclass_${tb}?type=rubber`, `v_reclass_rubber_${tb}.geojson`);
+                downloadFile(`/rub3/api/download/reshape/v_reclass_${tb}?type=rubber`, `v_reclass_rubber_${tb}.geojson`);
             });
         }
 
@@ -397,7 +397,7 @@ const initApp = async () => {
             classify_download_all_rubber[i].addEventListener('click', function (e) {
                 e.preventDefault();
                 const tb = this.getAttribute('data-tb');
-                downloadFile(`/rub/api/download/reshape/v_reclass_${tb}?type=rubber_and_ex`, `v_reclass_rubber_ex_${tb}.geojson`);
+                downloadFile(`/rub3/api/download/reshape/v_reclass_${tb}?type=rubber_and_ex`, `v_reclass_rubber_ex_${tb}.geojson`);
             });
         }
 
@@ -406,10 +406,10 @@ const initApp = async () => {
             download_all[i].addEventListener('click', function (e) {
                 e.preventDefault();
                 const tb = this.getAttribute('data-tb');
-                downloadFile(`/rub/api/download/reshape/${tb}`, `pacel_yang_${tb}.geojson`);
-                downloadFile(`/rub/api/download/reshape/v_reclass_${tb}`, `v_reclass_LU_${tb}.geojson`);
-                downloadFile(`/rub/api/download/reshape/v_reclass_${tb}?type=rubber`, `v_reclass_rubber_${tb}.geojson`);
-                downloadFile(`/rub/api/download/reshape/v_reclass_${tb}?type=rubber_and_ex`, `v_reclass_rubber_ex_${tb}.geojson`);
+                downloadFile(`/rub3/api/download/reshape/${tb}`, `pacel_yang_${tb}.geojson`);
+                downloadFile(`/rub3/api/download/reshape/v_reclass_${tb}`, `v_reclass_LU_${tb}.geojson`);
+                downloadFile(`/rub3/api/download/reshape/v_reclass_${tb}?type=rubber`, `v_reclass_rubber_${tb}.geojson`);
+                downloadFile(`/rub3/api/download/reshape/v_reclass_${tb}?type=rubber_and_ex`, `v_reclass_rubber_ex_${tb}.geojson`);
             });
         }
 
@@ -424,7 +424,7 @@ const initApp = async () => {
                 }
                 const tb = this.getAttribute('data-tb');
 
-                fetch(`/rub/api/layerlist/${tb}`, {
+                fetch(`/rub3/api/layerlist/${tb}`, {
                     method: 'DELETE',
                     headers: { 'Content-Type': 'application/json' }
                 })
@@ -486,7 +486,7 @@ document.getElementById('btnAdd').addEventListener("click", async () => {
         const tb_name = document.getElementById("tb_name").value;
         const remark = document.getElementById("tb_remark");
 
-        const response = await fetch(`/rub/api/layerlist`, {
+        const response = await fetch(`/rub3/api/layerlist`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ tb_name, remark })
@@ -494,7 +494,7 @@ document.getElementById('btnAdd').addEventListener("click", async () => {
 
         const result = await response.json();
 
-        const response_reclass = await fetch(`/rub/api/create_reclass_layer`, {
+        const response_reclass = await fetch(`/rub3/api/create_reclass_layer`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ tb: tb_name })
@@ -518,7 +518,7 @@ document.getElementById('btnAdd').addEventListener("click", async () => {
 
 document.addEventListener('DOMContentLoaded', async () => {
     try {
-        const res = await fetch('/rub/auth/me');
+        const res = await fetch('/rub3/auth/me');
         const { user } = await res.json();
 
         window.currentUser = user || null;
@@ -547,7 +547,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('logout-link').addEventListener('click', async (e) => {
                 e.preventDefault();
                 try {
-                    await fetch('/rub/auth/logout');
+                    await fetch('/rub3/auth/logout');
                     window.location.reload();
                 } catch (err) {
                     console.error('Logout failed:', err);

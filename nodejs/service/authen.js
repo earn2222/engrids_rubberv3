@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const session = require('express-session');
 const passport = require('passport');
 const { Pool } = require('pg');
@@ -50,7 +50,7 @@ passport.deserializeUser(async (id, done) => {
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: process.env.GOOGLE_CALLBACK_URL || '/rub/auth/callback',
+    callbackURL: process.env.GOOGLE_CALLBACK_URL || '/rub3/auth/callback',
 },
     async (accessToken, refreshToken, profile, done) => {
         const googleId = profile.id;
@@ -101,7 +101,7 @@ app.get('/auth/callback',
             }
             if (!user) {
                 console.warn('[AUTH FAILED]', info);
-                return res.redirect('/rub/index.html');
+                return res.redirect('/rub3/index.html');
             }
             req.logIn(user, async (loginErr) => {
                 if (loginErr) {
@@ -129,7 +129,7 @@ app.get('/auth/callback',
                         [user.id, user.photo, user.displayName, user.email]
                     ).catch(e => console.error('[AUTOLINK]', e.message));
                 }
-                return res.redirect('/rub/index.html');
+                return res.redirect('/rub3/index.html');
             });
         })(req, res, next);
     }

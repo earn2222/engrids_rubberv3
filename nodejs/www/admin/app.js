@@ -1,4 +1,4 @@
-/* ================================================================
+﻿/* ================================================================
    Admin App  –  Two-step project workflow
    1) "สร้าง Project" → create empty table (no upload)
    2) "เพิ่มข้อมูล"   → upload shapefile (polygon / point) to existing table
@@ -11,7 +11,7 @@ const ROLE_COLORS = { admin: 'danger', worker: 'success' };
 /* ── Initialise logged-in users list with role management ── */
 const initUser = async () => {
     try {
-        const response = await fetch(`/rub/api/users`);
+        const response = await fetch(`/rub3/api/users`);
         const result = await response.json();
 
         const usersDiv = document.getElementById('usersList');
@@ -57,7 +57,7 @@ const initUser = async () => {
             roleSelect.addEventListener('change', async function() {
                 const newRole = this.value;
                 try {
-                    const res = await fetch(`/rub/api/users/${item.id}/role`, {
+                    const res = await fetch(`/rub3/api/users/${item.id}/role`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ role: newRole })
@@ -80,7 +80,7 @@ const initUser = async () => {
 /* ── Highcharts bar for feature counts ── */
 const showChart = async (tb, div) => {
     try {
-        const response = await fetch('/rub/api/countsfeatures/' + tb);
+        const response = await fetch('/rub3/api/countsfeatures/' + tb);
         const data = await response.json();
 
         const chartData = [
@@ -109,7 +109,7 @@ const existingLayerNames = new Set();
 /* ── Render the layer list ── */
 const initApp = async () => {
     try {
-        const response = await fetch('/rub/api/layerlist');
+        const response = await fetch('/rub3/api/layerlist');
         const result = await response.json();
         existingLayerNames.clear();
         result.forEach(item => existingLayerNames.add(item.tb_name.toLowerCase()));
@@ -210,7 +210,7 @@ const initApp = async () => {
                     return;
                 }
                 try {
-                    const res = await fetch(`/rub/api/layerlist/${currentName}/displayname`, {
+                    const res = await fetch(`/rub3/api/layerlist/${currentName}/displayname`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ display_name: newName })
@@ -274,10 +274,10 @@ const initApp = async () => {
             btn.addEventListener('click', function (e) {
                 e.preventDefault();
                 const tb = this.getAttribute('data-tb');
-                downloadFile(`/rub/api/download/reshape/${tb}`, `pacel_yang_${tb}.geojson`);
-                downloadFile(`/rub/api/download/reshape/v_reclass_${tb}`, `v_reclass_LU_${tb}.geojson`);
-                downloadFile(`/rub/api/download/reshape/v_reclass_${tb}?type=rubber`, `v_reclass_rubber_${tb}.geojson`);
-                downloadFile(`/rub/api/download/reshape/v_reclass_${tb}?type=rubber_and_ex`, `v_reclass_rubber_ex_${tb}.geojson`);
+                downloadFile(`/rub3/api/download/reshape/${tb}`, `pacel_yang_${tb}.geojson`);
+                downloadFile(`/rub3/api/download/reshape/v_reclass_${tb}`, `v_reclass_LU_${tb}.geojson`);
+                downloadFile(`/rub3/api/download/reshape/v_reclass_${tb}?type=rubber`, `v_reclass_rubber_${tb}.geojson`);
+                downloadFile(`/rub3/api/download/reshape/v_reclass_${tb}?type=rubber_and_ex`, `v_reclass_rubber_ex_${tb}.geojson`);
             });
         });
 
@@ -286,7 +286,7 @@ const initApp = async () => {
             btn.addEventListener('click', function (e) {
                 e.preventDefault();
                 const tb = this.getAttribute('data-tb');
-                downloadFile(`/rub/api/download/reshape/${tb}`, `pacel_yang_${tb}.geojson`);
+                downloadFile(`/rub3/api/download/reshape/${tb}`, `pacel_yang_${tb}.geojson`);
             });
         });
 
@@ -295,7 +295,7 @@ const initApp = async () => {
             btn.addEventListener('click', function (e) {
                 e.preventDefault();
                 const tb = this.getAttribute('data-tb');
-                downloadFile(`/rub/api/download/reshape/v_reclass_${tb}`, `v_reclass_LU_${tb}.geojson`);
+                downloadFile(`/rub3/api/download/reshape/v_reclass_${tb}`, `v_reclass_LU_${tb}.geojson`);
             });
         });
 
@@ -304,7 +304,7 @@ const initApp = async () => {
             btn.addEventListener('click', function (e) {
                 e.preventDefault();
                 const tb = this.getAttribute('data-tb');
-                downloadFile(`/rub/api/download/reshape/v_reclass_${tb}?type=rubber`, `v_reclass_rubber_${tb}.geojson`);
+                downloadFile(`/rub3/api/download/reshape/v_reclass_${tb}?type=rubber`, `v_reclass_rubber_${tb}.geojson`);
             });
         });
 
@@ -313,7 +313,7 @@ const initApp = async () => {
             btn.addEventListener('click', function (e) {
                 e.preventDefault();
                 const tb = this.getAttribute('data-tb');
-                downloadFile(`/rub/api/download/reshape/v_reclass_${tb}?type=rubber_and_ex`, `v_reclass_rubber_ex_${tb}.geojson`);
+                downloadFile(`/rub3/api/download/reshape/v_reclass_${tb}?type=rubber_and_ex`, `v_reclass_rubber_ex_${tb}.geojson`);
             });
         });
 
@@ -346,7 +346,7 @@ const initApp = async () => {
                 const tb = this.getAttribute('data-tb');
                 if (!confirm(`ยืนยันลบ "${tb}" ใช่หรือไม่?`)) return;
 
-                fetch(`/rub/api/layerlist/${tb}`, {
+                fetch(`/rub3/api/layerlist/${tb}`, {
                     method: 'DELETE',
                     headers: { 'Content-Type': 'application/json' }
                 })
@@ -482,7 +482,7 @@ document.getElementById('btnCreateProject').addEventListener('click', async () =
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>กำลังสร้าง...';
 
     try {
-        const res = await fetch('/rub/api/create-project', {
+        const res = await fetch('/rub3/api/create-project', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ tb_name, remark })
@@ -661,7 +661,7 @@ document.getElementById('btnAddData').addEventListener('click', async () => {
                 resolve(false);
             });
 
-            xhr.open('POST', '/rub/api/upload-shapefile-to-table', true);
+            xhr.open('POST', '/rub3/api/upload-shapefile-to-table', true);
             xhr.send(formData);
         });
 
@@ -700,7 +700,7 @@ let allUsers = [];
 /* ── โหลด users ไว้ใน cache ── */
 async function loadUsersCache() {
     try {
-        const res = await fetch('/rub/api/users');
+        const res = await fetch('/rub3/api/users');
         allUsers = await res.json();
     } catch (e) {
         allUsers = [];
@@ -844,7 +844,7 @@ async function renderAssignmentList(tb_name) {
     listEl.innerHTML = '<div class="text-muted text-center py-2"><span class="spinner-border spinner-border-sm"></span></div>';
 
     try {
-        const res = await fetch(`/rub/api/task-assignments/${tb_name}`);
+        const res = await fetch(`/rub3/api/task-assignments/${tb_name}`);
         const { data } = await res.json();
 
         if (!data || data.length === 0) {
@@ -999,7 +999,7 @@ async function renderAssignmentList(tb_name) {
                 if (!confirm(`ลบการมอบหมาย "${d.assignee_name} (ID ${d.id_from}–${d.id_to})" ใช่หรือไม่?`)) return;
 
                 try {
-                    const res = await fetch(`/rub/api/task-assignments/${rowId}`, { method: 'DELETE' });
+                    const res = await fetch(`/rub3/api/task-assignments/${rowId}`, { method: 'DELETE' });
                     const result = await res.json();
                     if (result.success) {
                         await renderAssignmentList(tb_name);
@@ -1052,13 +1052,13 @@ document.getElementById('btnSaveAssign').addEventListener('click', async () => {
         const payload = { assignee_name: finalName, assignee_email: finalEmail, assignee_photo: finalPhoto,
                           user_id: finalUserId || null, id_from, id_to, note };
         if (assignId) {
-            res = await fetch(`/rub/api/task-assignments/${assignId}`, {
+            res = await fetch(`/rub3/api/task-assignments/${assignId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
         } else {
-            res = await fetch(`/rub/api/task-assignments`, {
+            res = await fetch(`/rub3/api/task-assignments`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ tb_name, ...payload })
@@ -1093,7 +1093,7 @@ async function loadAssignmentStrip(tb_name) {
     if (!stripEl) return;
 
     try {
-        const res = await fetch(`/rub/api/task-progress/${tb_name}`);
+        const res = await fetch(`/rub3/api/task-progress/${tb_name}`);
         const { data } = await res.json();
 
         if (!data || data.length === 0) {
@@ -1156,7 +1156,7 @@ document.getElementById('btnTeamOverview').addEventListener('click', () => {
         </div>`;
     teamOverviewModal.show();
 
-    fetch('/rub/api/worker-summary-all')
+    fetch('/rub3/api/worker-summary-all')
         .then(r => r.json())
         .then(({ data }) => {
             teamOverviewData = data || [];
@@ -1340,7 +1340,7 @@ function openPaymentModal(tb_name) {
         </div>`;
     paymentModal.show();
 
-    fetch(`/rub/api/worker-summary/${tb_name}`)
+    fetch(`/rub3/api/worker-summary/${tb_name}`)
         .then(r => r.json())
         .then(({ data }) => {
             paymentWorkerData = data || [];
@@ -1485,7 +1485,7 @@ function openCheckerPaymentModal(tb_name) {
         </div>`;
     checkerPaymentModal.show();
 
-    fetch(`/rub/api/checker-summary/${tb_name}`)
+    fetch(`/rub3/api/checker-summary/${tb_name}`)
         .then(r => r.json())
         .then(({ data }) => {
             checkerWorkerData = data || [];
@@ -1648,18 +1648,18 @@ ${tableHtml}
 /* ── Bootstrap DOMContentLoaded: auth check → role guard → init ── */
 document.addEventListener('DOMContentLoaded', async () => {
     try {
-        const res = await fetch('/rub/auth/me');
+        const res = await fetch('/rub3/auth/me');
         const { user } = await res.json();
 
         if (!user) {
             alert('กรุณา Login ก่อนเข้าใช้งานหน้า Admin');
-            window.location.href = '/rub/index.html';
+            window.location.href = '/rub3/index.html';
             return;
         }
 
         if (user.role !== 'admin') {
             alert(`คุณไม่มีสิทธิ์เข้าถึงหน้านี้ (Role: ${user.role || 'worker'})\nหน้านี้สำหรับ Admin เท่านั้น`);
-            window.location.href = '/rub/index.html';
+            window.location.href = '/rub3/index.html';
             return;
         }
 
@@ -1678,8 +1678,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('logout-link').addEventListener('click', async (e) => {
             e.preventDefault();
             try {
-                await fetch('/rub/auth/logout');
-                window.location.href = '/rub/index.html';
+                await fetch('/rub3/auth/logout');
+                window.location.href = '/rub3/index.html';
             } catch (err) {
                 console.error('Logout failed:', err);
             }

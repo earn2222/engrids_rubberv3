@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
 
 <head>
@@ -49,7 +49,7 @@
                                 <li><a class="dropdown-item" href="#" id="logout-link">Logout</a></li>
                             </ul>
                         </div>
-                        <a href="/rub/auth/google" id="google-login-link">
+                        <a href="/rub3/auth/google" id="google-login-link">
                             <img src="https://developers.google.com/identity/images/btn_google_signin_dark_normal_web.png"
                                 alt="Sign in with Google">
                         </a>
@@ -86,38 +86,26 @@
                                 <strong>ID:</strong>
                                 <input class="form-control" id="id" disabled>
                                 <input type="hidden" id="tb">
-                                <input type="hidden" id="Rubr_Sqm">
                             </div>
                             <div class="mb-2">
                                 <strong>เลขทะเบียนเกษตรกร:</strong>
                                 <input class="form-control" id="xls_id_farmer" disabled>
                             </div>
-                            <div class="mb-2">
-                                <strong id="lbl_deed_sqm">เนื้อที่เป้าหมายโฉนด (m²):</strong>
-                                <input class="form-control" id="deed_sqm" disabled>
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <strong>เนื้อที่ขณะนี้ (m²):</strong>
+                                    <input class="form-control" id="current_sqm" disabled>
+                                </div>
+                                <div class="col-6">
+                                    <strong>เนื้อที่ขณะนี้ (ไร่):</strong>
+                                    <input class="form-control" id="current_rai" disabled>
+                                </div>
                             </div>
-
-                            <div class="mb-2">
-                                <strong>เนื้อที่ขณะนี้ (m²):</strong>
-                                <input class="form-control" id="current_sqm" disabled>
+                            <div class="mt-3">
+                                <button class="btn btn-success w-100" id="classify" disabled>
+                                    <i class="bi bi-diagram-3-fill me-1"></i>Classify แปลงที่นี้
+                                </button>
                             </div>
-
-                            <p class="mt-2 text-danger" id="message" style="font-weight: 500;"></p>
-                            <div class="mb-2">
-                                <strong>re-final (โค้ดพี่เพียง):</strong>
-                                <input class="form-control" type="text" id="refinal">
-                            </div>
-                        </div>
-
-                        <hr>
-
-                        <div class="section-title">
-                            <i class="bi bi-tools"></i> เครื่องมือ
-                        </div>
-                        <div class="d-flex flex-wrap gap-2">
-                            <button class="btn btn-info" id="save">Save</button>
-                            <button class="btn btn-success" id="classify">Classify แปลงที่นี้</button>
-                            <button class="btn btn-light border" id="restore">restore</button>
                         </div>
                     </div>
                 </div>
@@ -137,33 +125,6 @@
             </div>
         </div>
 
-    </div>
-
-    <!-- Modals -->
-    <div class="modal fade" id="restoreModal" tabindex="-1" aria-labelledby="restoreModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content"
-                style="border-radius: 12px; border: none; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
-                <div class="modal-header"
-                    style="background: linear-gradient(135deg, #e8f5e9, #f1f8e9); border-bottom: 1px solid rgba(76, 175, 80, 0.1);">
-                    <h5 class="modal-title" id="restoreModalLabel" style="color: #2e7d32; font-weight: 600;">Restore
-                        Feature</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="restoreName" class="form-label">ID ของ feature ที่ต้องการ restore</label>
-                        <input type="number" class="form-control" id="restoreId" required>
-                    </div>
-                </div>
-                <div class="modal-footer" style="border-top: 1px solid rgba(76, 175, 80, 0.1);">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-primary" id="btnRestore"
-                        style="background: linear-gradient(135deg, #66bb6a, #43a047); border: none;">Restore
-                        please</button>
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- Scripts -->

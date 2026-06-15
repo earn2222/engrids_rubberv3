@@ -14,7 +14,7 @@ PG_HOST     = os.getenv("POSTGRES_HOST", "postgis")
 PG_PORT     = os.getenv("POSTGRES_PORT", "5432")
 PG_USER     = os.getenv("POSTGRES_USER", "postgres")
 PG_PASSWORD = os.getenv("POSTGRES_PASSWORD", "rub1234")
-PG_DB       = os.getenv("POSTGRES_DB", "rub2")
+PG_DB       = os.getenv("POSTGRES_DB", "rub_v3")
 BACKUP_DIR  = Path(os.getenv("BACKUP_DIR", "/backups"))
 HOST_DIR    = Path("/backup-host")          # bind-mount → Windows ./backups folder
 INTERVAL_H  = float(os.getenv("BACKUP_INTERVAL_HOURS", "24"))
@@ -23,7 +23,7 @@ KEEP_DAYS   = int(os.getenv("BACKUP_KEEP_DAYS", "7"))
 
 app = FastAPI(
     title="DB Backup Service",
-    description="Scheduled PostgreSQL backups for rub2",
+    description="Scheduled PostgreSQL backups for rub_v3",
     version="1.0.0",
     docs_url="/rub/backup/docs",
     redoc_url="/rub/backup/redoc",
@@ -55,7 +55,6 @@ def _do_backup() -> Path:
             "--if-exists",
             "--create",
             "--encoding", "UTF8",
-            "--exclude-table=public.shpall",   # shpall is static ref data; restore from shpall.sql
             PG_DB,
         ],
         capture_output=True,
