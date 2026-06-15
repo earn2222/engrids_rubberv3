@@ -2,7 +2,7 @@
 <html>
 
 <head>
-    <title>Leaflet Geoman with Turf Area - Click to Edit</title>
+    <title>Reclassdash - Dashboard</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,13 +19,13 @@
 </head>
 
 <body>
-    <div class="container">
-        <div class="row">
-            <div class="col-sm-8 mt-3">
+    <div class="container-fluid px-3 py-2">
+        <div class="row split-row">
+            <div class="col-sm-8 mt-2 split-map-col">
                 <div class="card" id="map"></div>
             </div>
-            <div class="col-sm-4 mt-3">
-                <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="col-sm-4 mt-2 split-panel-col">
+                <div class="d-flex justify-content-between align-items-center mb-2">
                     <div>
                     </div>
                     <div id="user-panel" class="d-flex align-items-center">
@@ -41,53 +41,342 @@
                                 <li><a class="dropdown-item " href="#" id="logout-link">Logout</a></li>
                             </ul>
                         </div>
-                        <a href="/rub/auth/google" id="google-login-link">
+                        <a href="/rub3/auth/google" id="google-login-link">
                             <img src="https://developers.google.com/identity/images/btn_google_signin_dark_normal_web.png"
                                 alt="Sign in with Google">
                         </a>
                     </div>
                 </div>
-                <div class="card mb-3">
-                    <div class="card-body ">
-                        <a class="btn btn-secondary" href="./../index.html">
-                            <i class="bi bi-house-heart-fill"></i>Home
-                        </a>
-                        <button class="btn btn-secondary" id="reshape">ปรับรูปแปลง</button>
-                        <button class="btn btn-secondary" id="v3">V3</button>
+                <div id="assignmentInfo" class="mb-2"></div>
+
+                <div class="card mb-2">
+
+                    <div class="card-body nav-buttons">
+                        <div class="section-title"><i class="bi bi-compass"></i> เมนู</div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <a class="btn btn-secondary" href="./../index.html">
+                                <i class="bi bi-house-heart-fill"></i> Home
+                            </a>
+                            <button class="btn btn-secondary" id="reshape">ปรับรูปแปลง</button>
+                        </div>
                     </div>
                 </div>
-                <div class="card">
-                    <div class="card-body">
-                        <div id="featurePanel">
-                            <div>
-                                <strong>ID:</strong>
-                                <input class="form-control form-control-sm" id="id" disabled>
-                                <input type="hidden" id="tb">
+                <div class="card mb-2 shadow-sm" id="taskProgressCard" style="display:none;">
+                    <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center cursor-pointer py-3"
+                        data-bs-toggle="collapse" data-bs-target="#taskProgressCollapse" aria-expanded="false">
+                        <div class="section-title mb-0"><i class="bi bi-bar-chart-steps"></i> ความคืบหน้างาน</div>
+                        <i class="bi bi-chevron-down toggle-icon"></i>
+                    </div>
+                    <div class="collapse" id="taskProgressCollapse">
+                        <div class="card-body pt-0">
+                            <div id="taskProgressList" class="mt-2"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Worker Quick Access — compact scrollable plot list (shown only for workers) -->
+                <div class="card mb-2 shadow-sm" id="workerQuickCard" style="display:none;">
+                    <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center cursor-pointer py-2"
+                        data-bs-toggle="collapse" data-bs-target="#workerQuickCollapse" aria-expanded="true">
+                        <div class="section-title mb-0"><i class="bi bi-list-check"></i> รายการแปลงของคุณ</div>
+                        <i class="bi bi-chevron-down toggle-icon"></i>
+                    </div>
+                    <div class="collapse show" id="workerQuickCollapse">
+                        <div class="card-body pt-1 px-2 pb-2">
+                            <!-- Navigation: search + prev/next ID (hidden until data loads) -->
+                            <div id="workerNavBar" class="worker-nav-bar" style="display:none !important;">
+                                <div class="input-group input-group-sm worker-nav-search">
+                                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                    <input type="text" id="worker-id-search" class="form-control"
+                                        placeholder="ค้นหา ID...">
+                                </div>
+                                <div class="worker-nav-controls">
+                                    <button class="btn btn-outline-secondary btn-sm worker-nav-btn" id="btn-worker-prev" title="ID ก่อนหน้า">
+                                        <i class="bi bi-chevron-left"></i>
+                                    </button>
+                                    <span id="worker-nav-count" class="worker-nav-count">0 / 0</span>
+                                    <button class="btn btn-outline-secondary btn-sm worker-nav-btn" id="btn-worker-next" title="ID ถัดไป">
+                                        <i class="bi bi-chevron-right"></i>
+                                    </button>
+                                    <span class="worker-nav-label">เลื่อน ID</span>
+                                </div>
                             </div>
-                            <div>
-                                <strong>App No:</strong>
-                                <input class="form-control form-control-sm" id="xls_app_no">
+                            <!-- Status filter tabs -->
+                            <div class="worker-status-grid mb-2" id="workerStatusFilter">
+                                <button class="worker-status-card" data-filter="pass">
+                                    <i class="bi bi-check-circle-fill" style="color:#166534;"></i>
+                                    <span class="worker-filter-count" id="wfc-pass">0</span>
+                                    <span class="worker-status-label">ผ่านทั้งหมด</span>
+                                </button>
+                                <button class="worker-status-card" data-filter="fail">
+                                    <i class="bi bi-x-circle-fill" style="color:#991b1b;"></i>
+                                    <span class="worker-filter-count" id="wfc-fail">0</span>
+                                    <span class="worker-status-label">มีไม่ผ่าน</span>
+                                </button>
+                                <button class="worker-status-card" data-filter="remark">
+                                    <i class="bi bi-chat-dots-fill" style="color:#8b5cf6;"></i>
+                                    <span class="worker-filter-count" id="wfc-remark">0</span>
+                                    <span class="worker-status-label">มีหมายเหตุ</span>
+                                </button>
+                                <button class="worker-status-card" data-filter="unchecked">
+                                    <i class="bi bi-hourglass-split" style="color:#b45309;"></i>
+                                    <span class="worker-filter-count" id="wfc-unchecked">0</span>
+                                    <span class="worker-status-label">ยังไม่ตรวจ</span>
+                                </button>
                             </div>
-                            <!-- <div>
-                                <strong>ประเภทการใช้ประโยชน์:</strong>
-                                <input class="form-control" id="classtype">
-                            </div> -->
-                            <div>
-                                <strong>เนื้อที่ (m²):</strong>
-                                <input class="form-control form-control-sm" id="shpsplit_sqm">
+                            <!-- Selected plot banner — appears after clicking a plot item -->
+                            <div id="worker-selected-info" class="worker-sel-banner mb-2" style="display:none;">
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <div class="worker-sel-dot" id="worker-sel-dot"></div>
+                                    <div class="flex-grow-1">
+                                        <div class="d-flex align-items-center gap-1 flex-wrap">
+                                            <span class="badge bg-primary" id="worker-sel-subid">-</span>
+                                            <span class="text-muted" id="worker-sel-id"
+                                                style="font-size:0.72rem;"></span>
+                                        </div>
+                                        <div id="worker-sel-classtype" style="font-size:0.75rem; margin-top:2px;"></div>
+                                    </div>
+                                    <i class="bi bi-geo-alt-fill text-success" style="font-size:0.9rem;"></i>
+                                </div>
+                                <label class="xs-label">หมายเหตุสำหรับแปลงนี้</label>
+                                <textarea class="form-control form-control-sm" id="worker-sel-remark" rows="2"
+                                    placeholder="พิมพ์หมายเหตุ หรือแจ้งการแก้ไข..."></textarea>
+                                <div class="d-flex justify-content-end gap-2 mt-1">
+                                    <button class="btn btn-sm btn-outline-danger" id="worker-sel-delete" data-subid=""
+                                        title="ลบหมายเหตุ">
+                                        <i class="bi bi-trash3-fill"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-primary" id="worker-sel-save" data-subid="">
+                                        <i class="bi bi-send-fill me-1"></i> บันทึกหมายเหตุ
+                                    </button>
+                                </div>
+                            </div>
+                            <!-- Scrollable compact plot list -->
+                            <div id="workerPlotList" class="worker-plot-scroll">
+                                <div class="text-muted small text-center py-3">
+                                    <span class="spinner-border spinner-border-sm me-1"></span> กำลังโหลด...
+                                </div>
                             </div>
                         </div>
-                        <!-- <strong> <span class="mt-2" id="message"></span></strong> -->
                     </div>
                 </div>
-                <div class="row">
-                    <div class="col-sm-12 mt-3">
-                        <div class="card" id="container"></div>
+
+                <div class="card mb-2 shadow-sm">
+                    <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center cursor-pointer py-3"
+                        data-bs-toggle="collapse" data-bs-target="#featurePanelCollapse" aria-expanded="true">
+                        <div class="section-title mb-0"><i class="bi bi-layers"></i> ข้อมูลแปลง</div>
+                        <i class="bi bi-chevron-down toggle-icon"></i>
+                    </div>
+                    <div class="collapse show" id="featurePanelCollapse">
+                        <div class="card-body pt-0">
+                            <div id="featurePanel">
+                                <!-- Admin Status Filter Cards -->
+                                <div id="adminStatusBar" class="mb-3">
+                                    <div class="admin-status-grid">
+                                        <button class="admin-status-card" data-status="pass">
+                                            <div class="admin-status-icon" style="color:#166534;"><i class="bi bi-check-circle-fill"></i></div>
+                                            <div class="admin-status-count" id="asc-pass">0</div>
+                                            <div class="admin-status-label">ผ่านทั้งหมด</div>
+                                        </button>
+                                        <button class="admin-status-card" data-status="fail">
+                                            <div class="admin-status-icon" style="color:#991b1b;"><i class="bi bi-x-circle-fill"></i></div>
+                                            <div class="admin-status-count" id="asc-fail">0</div>
+                                            <div class="admin-status-label">มีไม่ผ่าน</div>
+                                        </button>
+                                        <button class="admin-status-card" data-status="remark">
+                                            <div class="admin-status-icon" style="color:#8b5cf6;"><i class="bi bi-chat-dots-fill"></i></div>
+                                            <div class="admin-status-count" id="asc-remark">0</div>
+                                            <div class="admin-status-label">มีหมายเหตุ</div>
+                                        </button>
+                                        <button class="admin-status-card" data-status="none">
+                                            <div class="admin-status-icon" style="color:#b45309;"><i class="bi bi-hourglass-split"></i></div>
+                                            <div class="admin-status-count" id="asc-none">0</div>
+                                            <div class="admin-status-label">ยังไม่ตรวจ</div>
+                                        </button>
+
+                                    </div>
+                                </div>
+                                <!-- Plot Navigation & Search Bar -->
+                                <div class="plot-nav-bar mb-3">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="input-group input-group-sm flex-grow-1">
+                                            <input type="text" class="form-control border-end-0" id="search-plot-id"
+                                                placeholder="🔎 พิมพ์ ID หรือ เลขทะเบียน...">
+                                            <button class="btn btn-primary" id="btn-panel-search" title="ค้นหา"><i
+                                                    class="bi bi-search"></i></button>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-1">
+                                            <button class="btn btn-outline-secondary btn-sm" id="btn-plot-prev"
+                                                title="แปลงก่อนหน้า">
+                                                <i class="bi bi-chevron-left"></i>
+                                            </button>
+                                            <div id="plot-nav-count" class="badge bg-light text-dark border px-2 py-1"
+                                                style="font-size: 0.75rem; min-width: 65px; font-family: 'Inter', sans-serif;">
+                                                0 / 0</div>
+                                            <button class="btn btn-outline-secondary btn-sm" id="btn-plot-next"
+                                                title="แปลงถัดไป">
+                                                <i class="bi bi-chevron-right"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div
+                                    class="d-flex justify-content-between align-items-center mb-3 bg-white p-2 rounded-3 border">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="bg-primary text-white p-2 rounded-3"
+                                            style="width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.1rem;"
+                                            id="display-id-num">-</div>
+                                        <div>
+                                            <div class="text-muted"
+                                                style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase;">
+                                                เลขแปลง</div>
+                                            <div id="display-id" class="fw-bold" style="font-size: 0.9rem;">ID: -</div>
+                                        </div>
+                                    </div>
+                                    <div class="text-end">
+                                        <div class="text-muted"
+                                            style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase;">
+                                            เลขทะเบียนเกษตรกร</div>
+                                        <div id="display-farmer-id" class="fw-bold text-primary"
+                                            style="font-size: 1rem;"><i class="bi bi-person-vcard"></i> -</div>
+                                    </div>
+                                </div>
+
+                                <input type="hidden" id="id">
+                                <input type="hidden" id="tb">
+                                <input type="hidden" id="panel-sub-id">
+
+
+                                <!-- Additional classification info -->
+                                <div class="mb-3">
+                                    <label class="small fw-bold text-success"><i class="bi bi-tag-fill"></i>
+                                        ประเภทปัจจุบัน</label>
+                                    <div id="display-classtype" class="mt-1">
+                                        <span class="badge bg-light text-dark border w-100 py-2">-</span>
+                                    </div>
+                                </div>
+
+                                <!-- Review Section -->
+                                <div class="review-section-container">
+
+                                    <!-- ═══ Box สำหรับเจ้าหน้าที่ (Checker) — ตรวจทีละ ID ═══ -->
+                                    <div class="review-box checker-box mb-3">
+                                        <div class="d-flex align-items-center justify-content-between mb-2">
+                                            <div class="section-title-sm">
+                                                <i class="bi bi-shield-check"></i> เจ้าหน้าที่ (Checker)
+                                            </div>
+                                        </div>
+
+                                        <!-- Sub-id list — filled by JS -->
+                                        <div id="id-sub-list" class="id-sub-list mb-2">
+                                            <div class="text-muted small text-center py-3">
+                                                <i class="bi bi-hand-index-thumb"></i> เลือกแปลงจากแผนที่หรือตาราง
+                                            </div>
+                                        </div>
+
+                                        <!-- Batch actions -->
+                                        <div class="d-flex gap-2 mb-2" id="id-batch-actions"
+                                            style="display:none !important;">
+                                            <button class="btn btn-outline-success btn-sm flex-grow-1"
+                                                id="btn-batch-pass">
+                                                <i class="bi bi-check-all"></i> ผ่านทั้งหมด
+                                            </button>
+                                            <button class="btn btn-outline-danger btn-sm flex-grow-1"
+                                                id="btn-batch-fail">
+                                                <i class="bi bi-x-lg"></i> ไม่ผ่านทั้งหมด
+                                            </button>
+                                        </div>
+
+                                        <!-- Shared remark -->
+                                        <div class="mb-2" id="id-remark-section" style="display:none;">
+                                            <label class="xs-label">หมายเหตุ / ความเห็น</label>
+                                            <textarea class="form-control form-control-sm" id="id-checker-remark"
+                                                rows="2"
+                                                placeholder="พิมพ์ความเห็น (ใช้กับทุก sub_id ของ ID นี้)..."></textarea>
+                                        </div>
+
+                                        <!-- Last saved info -->
+                                        <div class="saved-info-footer" id="id-reviewer-info">
+                                            <i class="bi bi-check-circle-fill saved-icon"></i>
+                                            <div class="saved-info-text">
+                                                <span class="saved-label">บันทึกล่าสุดโดย</span>
+                                                <span id="id-reviewer-name" class="saved-name">ยังไม่มีการบันทึก</span>
+                                                <span id="id-review-time" class="saved-time"></span>
+                                            </div>
+                                        </div>
+
+                                        <!-- Save button -->
+                                        <button class="btn btn-success btn-sm w-100 mt-2" id="btn-save-id-review"
+                                            style="display:none;">
+                                            <i class="bi bi-floppy-fill me-1"></i> บันทึกผลการตรวจ
+                                        </button>
+                                    </div>
+
+                                    <!-- ═══ Box สำหรับผู้ใช้งาน (User) ═══ -->
+                                    <div class="review-box user-box">
+                                        <!-- Header row -->
+                                        <div class="d-flex align-items-center justify-content-between mb-2">
+                                            <div class="section-title-sm" style="color: #1565c0;">
+                                                <i class="bi bi-chat-dots-fill"></i> ผู้ใช้งาน (User)
+                                            </div>
+                                            <span id="user-dirty-badge" class="draft-badge draft-badge-blue"
+                                                style="display:none;">
+                                                <i class="bi bi-pencil-fill"></i> ยังไม่บันทึก
+                                            </span>
+                                        </div>
+
+                                        <!-- Remark textarea -->
+                                        <div class="mb-2">
+                                            <label class="xs-label">หมายเหตุ / แจ้งการแก้ไข</label>
+                                            <textarea class="form-control form-control-sm" id="panel-user-remark"
+                                                rows="2" placeholder="ระบุรายละเอียด หรือแจ้งการแก้ไข..."></textarea>
+                                        </div>
+
+                                        <!-- Last saved info — always visible -->
+                                        <div class="saved-info-footer saved-info-blue" id="panel-user-info">
+                                            <i class="bi bi-check-circle-fill saved-icon"></i>
+                                            <div class="saved-info-text">
+                                                <span class="saved-label">บันทึกล่าสุดโดย</span>
+                                                <span id="panel-user-name" class="saved-name">-</span>
+                                                <span id="panel-user-time" class="saved-time"></span>
+                                            </div>
+                                        </div>
+
+                                        <!-- Action buttons -->
+                                        <div class="d-flex gap-2 mt-2">
+                                            <button class="btn btn-primary btn-sm flex-grow-1" id="panel-btn-save-user">
+                                                <i class="bi bi-send-fill me-1"></i> บันทึกหมายเหตุ
+                                            </button>
+                                            <button class="btn btn-outline-danger btn-sm" id="panel-btn-clear-user"
+                                                title="ล้างหมายเหตุ">
+                                                <i class="bi bi-trash3-fill"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="row">
-                    <div class="col-sm-12 mt-3">
-                        <div class="card" id="count-rai"></div>
+                <div class="card mb-2 shadow-sm">
+                    <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center cursor-pointer py-3"
+                        data-bs-toggle="collapse" data-bs-target="#chartsCollapse" aria-expanded="false">
+                        <div class="section-title mb-0"><i class="bi bi-pie-chart-fill"></i> รายงานสถิติ</div>
+                        <i class="bi bi-chevron-down toggle-icon"></i>
+                    </div>
+                    <div class="collapse" id="chartsCollapse">
+                        <div class="card-body pt-0">
+                            <div class="row">
+                                <div class="col-sm-12 mt-2">
+                                    <div class="card border-0 bg-transparent" id="container"></div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-sm-12 mt-2">
+                                    <div class="card border-0 bg-transparent" id="count-rai"></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -96,6 +385,17 @@
             <div class="col-12">
                 <div class="card">
                     <div class="card-body">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                            <div class="section-title mb-0"><i class="bi bi-table"></i> ตารางข้อมูลแปลงยาง</div>
+                            <div class="d-flex gap-2 flex-wrap align-items-center">
+                                <span class="small fw-bold text-muted">กรอง:</span>
+                                <button class="btn btn-sm btn-filter-status active" data-filter="">ทั้งหมด</button>
+                                <button class="btn btn-sm btn-filter-status" data-filter="none">⏳ ยังไม่ตรวจ</button>
+                                <button class="btn btn-sm btn-filter-status" data-filter="pass">✅ ผ่านทั้งหมด</button>
+                                <button class="btn btn-sm btn-filter-status" data-filter="fail">❌ มีไม่ผ่าน</button>
+                                <button class="btn btn-sm btn-filter-status" data-filter="remark">💬 มีหมายเหตุ</button>
+                            </div>
+                        </div>
                         <table id="featureTable" class="display nowrap" style="width: 100%;"></table>
                     </div>
                 </div>
@@ -104,6 +404,45 @@
     </div>
 
 
+    <!-- Review History Modal -->
+    <div class="modal fade" id="reviewHistoryModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header" style="background:#0dcaf0; color:#fff;">
+                    <h6 class="modal-title">
+                        <i class="bi bi-clock-history me-2"></i>ประวัติการตรวจสอบ — แปลง ID: <span
+                            id="history-plot-id">-</span>
+                    </h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-3" id="history-modal-body">
+                    <div class="text-center py-3"><span class="spinner-border spinner-border-sm"></span> กำลังโหลด...
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">ปิด</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Note Popup Modal -->
+    <div class="modal fade" id="notePopupModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-md">
+            <div class="modal-content">
+                <div class="modal-header py-2">
+                    <h6 class="modal-title" id="notePopupTitle">หมายเหตุ</h6>
+                    <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="notePopupBody"
+                    style="font-size: 0.9rem; word-break: break-word; overflow-wrap: break-word;"></div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">ปิด</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
@@ -111,9 +450,8 @@
         crossorigin="anonymous"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <!-- <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.14.2/dist/leaflet-geoman.min.js"></script> -->
-    <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
-    <script src="https://code.highcharts.com/highcharts.js"></script>
-    <script src="./app.js"> </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.3.0/highcharts.min.js"></script>
+    <script src="./app.js?v=3"></script>
 </body>
 
 </html>

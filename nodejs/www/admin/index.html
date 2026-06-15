@@ -1,12 +1,10 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>rub</title>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin – Rubber Plot Management</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@100..900&display=swap">
@@ -16,15 +14,14 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.14.2/dist/leaflet-geoman.css" />
     <link rel="stylesheet" href="./../assets/bootstrap.min.css">
-    <link rel="stylesheet" href="./style.css">
+    <link rel="stylesheet" href="./style.css?v=3">
 </head>
 
 <body>
     <div class="container mt-5">
         <input type="hidden" id="chkLogin">
         <div class="d-flex justify-content-between align-items-center mb-3">
-            <div>
-            </div>
+            <div></div>
             <div id="user-panel" class="d-flex align-items-center">
                 <div id="profile-section" class="dropdown d-flex align-items-center" style="display: none !important;">
                     <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle"
@@ -34,73 +31,406 @@
                         <span id="display-name" class="fw-medium"></span>
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item " href="#" id="logout-link">Logout</a></li>
+                        <li><a class="dropdown-item" href="/rub3/index.html"><i class="bi bi-house-door me-1"></i> หน้าหลัก</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="#" id="logout-link">Logout</a></li>
                     </ul>
                 </div>
-                <a href="/rub/auth/google" id="google-login-link">
+                <a href="/rub3/auth/google" id="google-login-link">
                     <img src="https://developers.google.com/identity/images/btn_google_signin_dark_normal_web.png"
                         alt="Sign in with Google">
                 </a>
             </div>
         </div>
+
         <div class="row">
             <div class="col-sm-8">
                 <div class="card">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <div class="label">แปลงยาง</div>
-                            <button class="btn btn-light" id="addData">เพิ่ม</button>
+                            <div class="d-flex gap-2">
+                                <a href="/rub3/index.html" class="btn btn-outline-success">
+                                    <i class="bi bi-house-door me-1"></i>หน้าหลัก
+                                </a>
+                                <button class="btn btn-light" id="createProjectBtn">
+                                    <i class="bi bi-folder-plus me-1"></i>สร้าง Project
+                                </button>
+                            </div>
                         </div>
-                        <div class="mt-3" id="layerList"> </div>
+                        <div class="mt-3" id="layerList"></div>
                     </div>
                 </div>
             </div>
             <div class="col-sm-4">
                 <div class="card">
                     <div class="card-body">
-                        <div class="label">ทีมงานคุณภาพ</div>
-                        <div class="mt-3" id="usersList"> </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="label">ทีมงานคุณภาพ</div>
+                            <button class="btn btn-team-overview btn-sm" id="btnTeamOverview">
+                                <i class="bi bi-people-fill me-1"></i>ภาพรวมทีมงาน
+                            </button>
+                        </div>
+                        <div class="mt-3" id="usersList"></div>
                     </div>
                 </div>
-
             </div>
         </div>
-
     </div>
 
-    <!-- add modal  -->
-    <div class="modal fade" id="addModal" tabindex="-1" aria-labelledby="addModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
+    <!-- ═══════════════════════════════════════════════════════
+         MODAL 1: สร้าง Project (create table only, no upload)
+    ═══════════════════════════════════════════════════════ -->
+    <div class="modal fade" id="createProjectModal" tabindex="-1" aria-labelledby="createProjectModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-md">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title f" id="addModalLabel">เพิ่มแปลงยาง</h5>
+                    <h5 class="modal-title f" id="createProjectModalLabel">
+                        <i class="bi bi-folder-plus me-2"></i>สร้าง Project ใหม่
+                    </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label for="tb_name" class="form-label">ชื่อย่อ</label>
-                        <input type="text" class="form-control" id="tb_name" placeholder="ชื่อ table">
+                        <label for="cp_province" class="form-label">ชื่อ table <span
+                                class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="cp_province" placeholder="เช่น champhon_earn_01">
+                        <small class="text-muted">ใช้ตัวอักษรภาษาอังกฤษ ไม่มีวรรค</small>
+                        <div id="cp_name_error" class="text-danger mt-1 small" style="display:none;"></div>
                     </div>
                     <div class="mb-3">
-                        <label for="remark" class="form-label">remark</label>
-                        <input type="text" class="form-control" id="tb_remark">
+                        <label for="cp_remark" class="form-label">Remark</label>
+                        <textarea class="form-control" id="cp_remark" rows="2"
+                            placeholder="หมายเหตุ (ไม่บังคับ)"></textarea>
+                    </div>
+                    <!-- Preview table name -->
+                    <div class="table-name-preview" id="tableNamePreview" style="display:none;">
+                        <i class="bi bi-table me-2"></i>
+                        ชื่อ Table ที่จะสร้าง: <strong id="previewTableName"></strong>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-primary" id="btnAdd" data-bs-dismiss="modal">Save</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                    <button type="button" class="btn btn-primary" id="btnCreateProject">
+                        <i class="bi bi-check-circle me-1"></i>สร้าง Project
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- ═══════════════════════════════════════════════════════
+         MODAL 2: เพิ่มข้อมูล (upload shapefile to existing table)
+    ═══════════════════════════════════════════════════════ -->
+    <div class="modal fade" id="addDataModal" tabindex="-1" aria-labelledby="addDataModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title f" id="addDataModalLabel">
+                        <i class="bi bi-upload me-2"></i>เพิ่มข้อมูล
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Table เป้าหมาย</label>
+                        <input type="text" class="form-control" id="ad_tb_name" readonly>
+                    </div>
+                    <!-- Geometry type selector - card style -->
+                    <div class="mb-3">
+                        <label class="form-label">ประเภทข้อมูล <span class="text-danger">*</span></label>
+                        <div class="geom-type-selector d-flex gap-3">
+                            <div class="geom-type-card" id="card_polygon" data-value="polygon">
+                                <i class="bi bi-pentagon-fill geom-icon"></i>
+                                <div class="geom-label">Polygon</div>
+                                <div class="geom-sublabel">พื้นที่แปลง</div>
+                            </div>
+                            <div class="geom-type-card" id="card_point" data-value="point">
+                                <i class="bi bi-geo-alt-fill geom-icon"></i>
+                                <div class="geom-label">Point</div>
+                                <div class="geom-sublabel">จุดพิกัด</div>
+                            </div>
+                        </div>
+                        <input type="hidden" id="ad_geom_type" value="">
+                    </div>
+                    <div class="mb-3">
+                        <label for="ad_shpFile" class="form-label">อัปโหลด Shapefile (ZIP) <span
+                                class="text-danger">*</span></label>
+                        <div class="upload-zone" id="uploadZone">
+                            <i class="bi bi-cloud-arrow-up-fill upload-zone-icon"></i>
+                            <div class="upload-zone-text">คลิกหรือลากไฟล์มาวางที่นี่</div>
+                            <div class="upload-zone-sub">รองรับ ZIP ที่มี .shp .shx .dbf .prj</div>
+                            <input type="file" id="ad_shpFile" accept=".zip" class="upload-file-input" multiple>
+                        </div>
+                        <div id="fileNameDisplay" class="file-name-display flex-column gap-2" style="display:none; max-height: 150px; overflow-y: auto;"></div>
+                    </div>
+                    <div id="ad_uploadProgress" style="display: none;" class="mb-2">
+                        <div class="progress">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"
+                                aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" id="ad_progressBar"
+                                style="width: 0%"></div>
+                        </div>
+                        <small id="ad_progressText">กำลังอัปโหลด...</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                    <button type="button" class="btn btn-primary" id="btnAddData">
+                        <i class="bi bi-cloud-upload me-1"></i>อัปโหลดข้อมูล
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════
+         MODAL 3: มอบหมายงาน (Task Assignment)
+    ═══════════════════════════════════════════════════════ -->
+    <div class="modal fade" id="assignModal" tabindex="-1" aria-labelledby="assignModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title f" id="assignModalLabel">
+                        <i class="bi bi-people-fill me-2"></i>มอบหมายงาน
+                        <span class="assign-tb-badge ms-2" id="assignModalTbBadge"></span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+
+                    <!-- Assignment list -->
+                    <div id="assignmentList" class="mb-4"></div>
+
+                    <!-- Add / Edit form -->
+                    <div class="assign-form-card" id="assignFormCard">
+                        <div class="assign-form-title" id="assignFormTitle">
+                            <i class="bi bi-plus-circle me-1"></i>เพิ่มการมอบหมายงานใหม่
+                        </div>
+                        <input type="hidden" id="assign_id">
+                        <input type="hidden" id="assign_tb_name">
+
+                        <!-- Assignee selector -->
+                        <div class="mb-3">
+                            <label class="form-label">ผู้รับผิดชอบ <span class="text-danger">*</span></label>
+
+                            <!-- วิธีที่ 1: เลือกจาก chip (คนที่เคย Login) -->
+                            <div class="small text-muted mb-1">
+                                <i class="bi bi-person-check me-1"></i>เลือกจากรายชื่อผู้ที่เคย Login
+                            </div>
+                            <div class="assignee-picker" id="assigneePicker"></div>
+
+                            <!-- divider -->
+                            <div class="d-flex align-items-center my-2 gap-2">
+                                <hr class="flex-grow-1 m-0">
+                                <small class="text-muted px-1">หรือ</small>
+                                <hr class="flex-grow-1 m-0">
+                            </div>
+
+                            <!-- วิธีที่ 2: พิมพ์อีเมลโดยตรง -->
+                            <div class="small text-muted mb-1">
+                                <i class="bi bi-envelope me-1"></i>พิมพ์อีเมลโดยตรง
+                            </div>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                                <input type="email" class="form-control" id="assign_email_input"
+                                    placeholder="example@gmail.com">
+                                <button class="btn btn-outline-secondary" type="button" id="btnLookupEmail"
+                                    title="ค้นหาผู้ใช้จากอีเมล">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                            </div>
+                            <div id="emailLookupResult" class="mt-1 small"></div>
+
+                            <input type="hidden" id="assign_name">
+                            <input type="hidden" id="assign_email">
+                            <input type="hidden" id="assign_user_id">
+                            <input type="hidden" id="assign_photo">
+                        </div>
+
+                        <!-- ID range -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-6">
+                                <label class="form-label">ID เริ่มต้น <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="assign_id_from" min="1" placeholder="1">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label">ID สิ้นสุด <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="assign_id_to" min="1" placeholder="10">
+                            </div>
+                        </div>
+
+                        <!-- Note -->
+                        <div class="mb-3">
+                            <label class="form-label">หมายเหตุ</label>
+                            <input type="text" class="form-control" id="assign_note" placeholder="(ไม่บังคับ)">
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-primary" id="btnSaveAssign">
+                                <i class="bi bi-check-circle me-1"></i>บันทึก
+                            </button>
+                            <button class="btn btn-secondary" id="btnCancelAssignEdit" style="display:none;">
+                                ยกเลิก
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════
+         MODAL 4: ภาพรวมทีมงานทุกโปรเจค (Global Team Overview)
+    ═══════════════════════════════════════════════════════ -->
+    <div class="modal fade" id="teamOverviewModal" tabindex="-1" aria-labelledby="teamOverviewModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title f" id="teamOverviewModalLabel">
+                        <i class="bi bi-people-fill me-2"></i>ภาพรวมทีมงาน – ทุกโปรเจค
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Rate setting -->
+                    <div class="payment-rate-bar d-flex align-items-center gap-2 flex-wrap mb-4">
+                        <i class="bi bi-currency-exchange payment-rate-icon"></i>
+                        <label class="fw-bold mb-0" style="white-space:nowrap;">อัตราค่าจ้าง</label>
+                        <input type="number" id="team_rate_rai" class="form-control payment-rate-input"
+                            value="1" min="0" step="1" placeholder="1">
+                        <span class="fw-bold mb-0" style="white-space:nowrap;">บาท / ไร่</span>
+                        <span class="text-muted" style="white-space:nowrap;">คำนวณจาก</span>
+                        <select id="team_basis" class="form-select form-select-sm" style="max-width:210px;">
+                            <option value="reclass_rubber">ยางพาราที่ลงทะเบียน (Rubber)</option>
+                            <option value="reclass_all">Reclass ทั้งหมด</option>
+                            <option value="reshape">โฉนด (Reshape)</option>
+                        </select>
+                        <button class="btn btn-primary btn-sm" id="btnCalcTeam">
+                            <i class="bi bi-calculator me-1"></i>คำนวณ
+                        </button>
+                    </div>
+
+                    <!-- Team summary accordion -->
+                    <div id="teamOverviewWrap">
+                        <div class="text-center text-muted py-4">
+                            <div class="spinner-border spinner-border-sm me-2"></div>กำลังโหลดข้อมูล...
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-between">
+                    <button class="btn btn-outline-secondary btn-sm" id="btnPrintTeam">
+                        <i class="bi bi-printer me-1"></i>พิมพ์รายงาน
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════
+         MODAL 5: คำนวณค่าจ้าง (Worker Payment Summary per layer)
+    ═══════════════════════════════════════════════════════ -->
+    <div class="modal fade" id="paymentModal" tabindex="-1" aria-labelledby="paymentModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title f" id="paymentModalLabel">
+                        <i class="bi bi-calculator-fill me-2"></i>สรุปค่าจ้างทีมงาน
+                        <span class="ms-2 badge bg-secondary" id="paymentModalTbBadge"></span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Rate setting -->
+                    <div class="payment-rate-bar d-flex align-items-center gap-2 flex-wrap mb-4">
+                        <i class="bi bi-currency-exchange payment-rate-icon"></i>
+                        <label class="fw-bold mb-0" style="white-space:nowrap;">อัตราค่าจ้าง</label>
+                        <input type="number" id="pay_rate_rai" class="form-control payment-rate-input"
+                            value="1" min="0" step="1" placeholder="1">
+                        <span class="fw-bold mb-0" style="white-space:nowrap;">บาท / ไร่</span>
+                        <span class="text-muted" style="white-space:nowrap;">คำนวณจาก</span>
+                        <select id="pay_basis" class="form-select form-select-sm" style="max-width:210px;">
+                            <option value="reclass_rubber">ยางพาราที่ลงทะเบียน (Rubber)</option>
+                            <option value="reclass_all">Reclass ทั้งหมด</option>
+                            <option value="reshape">โฉนด (Reshape)</option>
+                        </select>
+                        <button class="btn btn-primary btn-sm" id="btnCalcPay">
+                            <i class="bi bi-calculator me-1"></i>คำนวณ
+                        </button>
+                    </div>
+
+                    <!-- Summary table -->
+                    <div id="paymentTableWrap">
+                        <div class="text-center text-muted py-4">
+                            <div class="spinner-border spinner-border-sm me-2"></div>กำลังโหลดข้อมูล...
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-between">
+                    <button class="btn btn-outline-secondary btn-sm" id="btnPrintPayment">
+                        <i class="bi bi-printer me-1"></i>พิมพ์รายงาน
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════
+         MODAL 6: คำนวณค่าจ้างคนตรวจ (Checker Payment per layer)
+    ═══════════════════════════════════════════════════════ -->
+    <div class="modal fade" id="checkerPaymentModal" tabindex="-1" aria-labelledby="checkerPaymentModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header" style="background:linear-gradient(135deg,#0288d1,#01579b); color:#fff;">
+                    <h5 class="modal-title f" id="checkerPaymentModalLabel">
+                        <i class="bi bi-shield-check me-2"></i>สรุปค่าจ้างคนตรวจ (Checker)
+                        <span class="ms-2 badge bg-light text-dark" id="checkerPayModalTbBadge"></span>
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Rate setting -->
+                    <div class="payment-rate-bar d-flex align-items-center gap-2 flex-wrap mb-4" style="background:linear-gradient(135deg,#e1f5fe,#b3e5fc); border-color:#81d4fa;">
+                        <i class="bi bi-shield-check payment-rate-icon" style="color:#0288d1;"></i>
+                        <label class="fw-bold mb-0" style="white-space:nowrap;">อัตราค่าตรวจ</label>
+                        <input type="number" id="chk_rate_rai" class="form-control payment-rate-input"
+                            value="1" min="0" step="0.01" placeholder="1">
+                        <select id="chk_unit" class="form-select form-select-sm" style="max-width:240px;">
+                            <option value="class_rai">บาท/ไร่ — พื้นที่คลาส</option>
+                            <option value="deed_rai">บาท/ไร่ — พื้นที่โฉนด</option>
+                            <option value="rubber_rai">บาท/ไร่ — พื้นที่ยางพาราลงทะเบียน</option>
+                            <option value="plot">บาท/แปลง (ID)</option>
+                            <option value="subplot">บาท/รายการ (sub_id)</option>
+                        </select>
+                        <button class="btn btn-primary btn-sm" id="btnCalcChecker" style="background:#0288d1; border-color:#0288d1;">
+                            <i class="bi bi-calculator me-1"></i>คำนวณ
+                        </button>
+                    </div>
+                    <!-- Summary table -->
+                    <div id="checkerPayTableWrap">
+                        <div class="text-center text-muted py-4">
+                            <div class="spinner-border spinner-border-sm me-2"></div>กำลังโหลดข้อมูล...
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-between">
+                    <button class="btn btn-outline-secondary btn-sm" id="btnPrintChecker">
+                        <i class="bi bi-printer me-1"></i>พิมพ์รายงาน
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Bootstrap JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
         integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
         crossorigin="anonymous"></script>
 
-    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.3.0/highcharts.min.js"></script>
     <script src="./app.js"></script>
 </body>
 

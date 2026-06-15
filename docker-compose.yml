@@ -1,80 +1,86 @@
-services:
+﻿services:
   postgis:
     platform: linux/amd64
-    image: postgis/postgis:latest
-    container_name: rub_postgis
+    build: ./postgis
+    container_name: rub_postgis_v3
     restart: always
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=rub1234
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
       - POSTGRES_DB=postgres
     ports:
-      - 5400:5432
+      - "${DB_PORT}:5432"
     volumes:
-      - ./postgis:/docker-entrypoint-initdb.d
+      - pgdata_v3:/var/lib/postgresql/data
     networks:
-      - rub-network
+      - rub-network-v3
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres -d postgres" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER} -d postgres" ]
       interval: 5s
       timeout: 5s
-      retries: 10
-
-  # geoserver:
-  #   image: docker.osgeo.org/geoserver:2.27.x
-  #   platform: linux/amd64
-  #   container_name: rub_geoserver
-  #   restart: always
-  #   ports:
-  #     - "8080:8080"
-  #   environment:
-  #     - GEOSERVER_ADMIN_PASSWORD=rubgeoserver
-  #   depends_on:
-  #     - postgis
-  #   volumes:
-  #     - ./geoserver_data:/opt/geoserver_data
-  #   networks:
-  #     - rub-network
+      retries: 60
+      start_period: 600s
 
   nodejs:
-    image: node:latest
-    container_name: rub_nodejs
+    build: ./nodejs
+    container_name: rub_nodejs_v3
     restart: always
     working_dir: /usr/src/app
+    env_file:
+      - .env
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=production
+      - PORT=3000
       - DB_HOST=postgis
       - DB_PORT=5432
-      - DB_USER=postgres
-      - DB_PASSWORD=rub1234
-      - DB_NAME=rub
     depends_on:
-      - postgis
+      postgis:
+        condition: service_healthy
     volumes:
-      - ./nodejs:/usr/src/app
+      - uploads_data_v3:/usr/src/app/uploads
     ports:
-      - "3400:3000"
+      - "4400:3000"
     networks:
-      - rub-network
-    command: sh -c "npm i && npm i -g nodemon && nodemon"
+      - rub-network-v3
+    command: sh -c "nodemon server.js"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:3000/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
 
-#   react:
-#     image: node:latest
-#     container_name: rub_react
-#     restart: always
-#     working_dir: /usr/src/app
-#     environment:
-#       - NODE_ENV=development
-#       - REACT_APP_API_URL=http://nodejs:3000 
-#     depends_on:
-#       - nodejs
-#     volumes:
-#       - ./react:/usr/src/app
-#     ports:
-#       - "3000:5173" 
-#     networks:
-#       - rub-network
-#     command: sh -c "npm i && npm run dev" 
+  backup:
+    build: ./backup
+    container_name: rub_backup_v3
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_HOST=postgis
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+      - BACKUP_INTERVAL_HOURS=24
+      - BACKUP_KEEP_DAYS=7
+      - BACKUP_DIR=/backups
+    depends_on:
+      nodejs:
+        condition: service_healthy
+    volumes:
+      - backups_data_v3:/backups
+      - ./backups:/backup-host
+    ports:
+      - "9100:8100"
+    networks:
+      - rub-network-v3
+
 networks:
-  rub-network:
+  rub-network-v3:
     driver: bridge
+
+volumes:
+  pgdata_v3:
+  uploads_data_v3:
+  backups_data_v3:
