@@ -12,7 +12,7 @@ let _focusedSubId = null;
 
 const _resetHighlights = () => {
     _highlightedLayers.forEach(({ layer, style }) => {
-        try { layer.setStyle(style); } catch (_) {}
+        try { layer.setStyle(style); } catch (_) { }
     });
     _highlightedLayers = [];
 };
@@ -54,7 +54,7 @@ $.fn.dataTable.ext.search.push(function (settings, data, dataIndex) {
             case 'pass': return rowData.check_area === 'ผ่าน' && rowData.check_shape === 'ผ่าน';
             case 'fail': return rowData.check_area === 'ไม่ผ่าน' || rowData.check_shape === 'ไม่ผ่าน';
             case 'mixed': return (rowData.check_area === 'ผ่าน' && rowData.check_shape === 'ไม่ผ่าน') ||
-                                 (rowData.check_area === 'ไม่ผ่าน' && rowData.check_shape === 'ผ่าน');
+                (rowData.check_area === 'ไม่ผ่าน' && rowData.check_shape === 'ผ่าน');
             case 'remark': return !!(rowData.remark || rowData.user_remark);
             default: return true;
         }
@@ -270,34 +270,40 @@ const focusPlot = (rowData) => {
         }
     }
 
-    // Restore previous focused polygon
+    // Restore previous focused polygon (re-apply group dashed if it's still a sibling)
     if (_focusedLayer) {
-        try { _focusedLayer.layer.setStyle(_focusedLayer.originalStyle); } catch (_) {}
+        try {
+            const prevLayer = _focusedLayer.layer;
+            const prevOrigStyle = _focusedLayer.originalStyle;
+            const inGroup = _highlightedLayers.some(h => h.layer === prevLayer);
+            if (inGroup) {
+                prevLayer.setStyle({ color: '#FF6600', fillColor: prevOrigStyle.fillColor, weight: 3, opacity: 1, fillOpacity: 0.45, dashArray: '5,3' });
+            } else {
+                prevLayer.setStyle(prevOrigStyle);
+            }
+        } catch (_) { }
         _focusedLayer = null;
         _focusedSubId = null;
     }
 
-    // Highlight the newly focused polygon with its classtype color (persistent)
-    const layer = findLayerBySubId(subId);
-    if (layer) {
-        if (typeof layer.setStyle === 'function') {
-            const originalStyle = getFeatureStyle({ properties: rowData });
-            _focusedLayer = { layer, originalStyle };
-            _focusedSubId = subId;
-            // Yellow border so selected polygon is clearly visible
-            layer.setStyle({
-                color: '#FFD600',
-                fillColor: originalStyle.fillColor,
-                weight: 5,
-                opacity: 1,
-                fillOpacity: 0.65,
-                dashArray: null
-            });
-        }
-    }
-
-    // 2. Info Panel: Populate data
+    // 2. Info Panel: Populate data (admin: triggers group-highlight for all subs of same parent)
     showFeaturePanel({ properties: rowData });
+
+    // Apply solid focused highlight ON TOP of group-highlight — must come after showFeaturePanel
+    const layer = findLayerBySubId(subId);
+    if (layer && typeof layer.setStyle === 'function') {
+        const originalStyle = getFeatureStyle({ properties: rowData });
+        _focusedLayer = { layer, originalStyle };
+        _focusedSubId = subId;
+        layer.setStyle({
+            color: '#FF6600',
+            fillColor: originalStyle.fillColor,
+            weight: 6,
+            opacity: 1,
+            fillOpacity: 0.75,
+            dashArray: null
+        });
+    }
 
     // 3. DataTable: Highlight selected row
     const rowNode = dt.row((idx, d) => String(d.sub_id) === String(subId)).node();
@@ -752,7 +758,7 @@ const onEachFeature = (feature, layer) => {
     layer.on('click', () => {
         // Restore previous focused polygon style
         if (_focusedLayer) {
-            try { _focusedLayer.layer.setStyle(_focusedLayer.originalStyle); } catch (_) {}
+            try { _focusedLayer.layer.setStyle(_focusedLayer.originalStyle); } catch (_) { }
             _focusedLayer = null;
             _focusedSubId = null;
         }
@@ -1163,19 +1169,37 @@ const loadGeoData = async () => {
             const rowData = dt.rows().data().toArray().find(r => String(r.sub_id) === subId);
             if (!rowData) return;
 
+            // Restore previous focused polygon (re-apply group dashed if still a sibling)
+            if (_focusedLayer) {
+                try {
+                    const prevLayer = _focusedLayer.layer;
+                    const prevOrigStyle = _focusedLayer.originalStyle;
+                    const inGroup = _highlightedLayers.some(h => h.layer === prevLayer);
+                    if (inGroup) {
+                        prevLayer.setStyle({ color: '#FFD600', fillColor: prevOrigStyle.fillColor, weight: 3, opacity: 1, fillOpacity: 0.45, dashArray: '5,3' });
+                    } else {
+                        prevLayer.setStyle(prevOrigStyle);
+                    }
+                } catch (_) { }
+                _focusedLayer = null;
+                _focusedSubId = null;
+            }
+
             // Zoom to this polygon
             if (rowData.geom) {
                 try {
                     const b = L.geoJSON(rowData.geom).getBounds();
                     if (b.isValid()) map.flyToBounds(b, { padding: [50, 50], maxZoom: 22, duration: 0.6 });
-                } catch (_) {}
+                } catch (_) { }
             }
 
-            // Highlight the clicked polygon
+            // Apply solid focused highlight and track it
             const lyr = findLayerBySubId(subId);
             if (lyr && typeof lyr.setStyle === 'function') {
-                const activeStyle = getFeatureStyle({ properties: rowData });
-                lyr.setStyle({ color: '#FFD600', fillColor: activeStyle.fillColor, weight: 5, opacity: 1, fillOpacity: 0.7, dashArray: null });
+                const origStyle = getFeatureStyle({ properties: rowData });
+                _focusedLayer = { layer: lyr, originalStyle: origStyle };
+                _focusedSubId = subId;
+                lyr.setStyle({ color: '#FF6600', fillColor: origStyle.fillColor, weight: 6, opacity: 1, fillOpacity: 0.75, dashArray: null });
             }
 
             // Update area info cards to reflect this sub_id's classtype + area
@@ -1509,13 +1533,13 @@ const loadGeoData = async () => {
             modal.show();
 
             const reasonLabels = {
-                'restore':        '🔄 คืนค่าแปลง',
-                'reshape':        '✏️ ปรับรูปแปลง',
-                'manual_clear':   '🗑️ ล้างข้อมูล',
+                'restore': '🔄 คืนค่าแปลง',
+                'reshape': '✏️ ปรับรูปแปลง',
+                'manual_clear': '🗑️ ล้างข้อมูล',
                 'update_landuse': '🏷️ อัปเดตประเภท',
-                'update_geometry':'📐 อัปเดตรูปทรง',
-                'split':          '✂️ ตัดแบ่งแปลง',
-                'unsplit':        '🔗 ยกเลิกการตัด — คืนเป็นแปลงเดิม'
+                'update_geometry': '📐 อัปเดตรูปทรง',
+                'split': '✂️ ตัดแบ่งแปลง',
+                'unsplit': '🔗 ยกเลิกการตัด — คืนเป็นแปลงเดิม'
             };
 
             try {
@@ -1545,9 +1569,9 @@ const loadGeoData = async () => {
                         <td class="${csClass}">${h.check_shape || '<span class="text-muted">-</span>'}</td>
                         <td class="small">${h.remark
                             ? `<span class="history-remark-cell"
-                                    data-remark="${h.remark.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')}"
+                                    data-remark="${h.remark.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')}"
                                     title="คลิกเพื่อดูทั้งหมด">
-                                    <span class="history-remark-preview">${h.remark.replace(/</g,'&lt;')}</span>
+                                    <span class="history-remark-preview">${h.remark.replace(/</g, '&lt;')}</span>
                                     <i class="bi bi-arrows-angle-expand history-remark-icon"></i>
                                </span>`
                             : '<span class="text-muted">-</span>'}</td>
@@ -1771,7 +1795,7 @@ const loadGeoData = async () => {
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ sub_id: subId, user_remark: '', user_name: '' })
                             });
-                        } catch (_) {}
+                        } catch (_) { }
                     }
 
                     // Update reviewer input and timestamp in the row
@@ -2290,7 +2314,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const profileImg = document.getElementById('profile-image');
             profileImg.referrerPolicy = "no-referrer";
             profileImg.src = user.photo;
-            profileImg.onerror = function() {
+            profileImg.onerror = function () {
                 this.onerror = null;
                 this.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName)}&background=E9F5EC&color=2e7d32&rounded=true`;
             };
