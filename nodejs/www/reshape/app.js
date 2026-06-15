@@ -2,6 +2,7 @@
 const map = L.map('map', { maxZoom: 22 }).setView([18.819620993471577, 100.8784385963758], 13);
 const featureGroup = L.featureGroup();
 const lddFeatureGroup = L.featureGroup();
+let _userRole = null;
 
 // Custom Rubber Tree Icon
 const rubberTreeIcon = L.icon({
@@ -609,6 +610,13 @@ const loadGeoData = async () => {
             select: true,
             destroy: true,
             scrollX: true,
+            initComplete: function () {
+                if (_userRole !== 'admin') {
+                    this.api().columns().every(function () {
+                        if (this.header().textContent.trim() === 'ลบข้อมูล') this.visible(false);
+                    });
+                }
+            }
         });
 
         const updateMap = () => {
@@ -974,6 +982,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             };
             document.getElementById('display-name').textContent = user.displayName;
             document.getElementById('displayName').value = user.displayName;
+            _userRole = user.role || 'worker';
 
             await initApp();
 

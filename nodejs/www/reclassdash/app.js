@@ -27,7 +27,8 @@ const _applyWorkerVisibility = () => {
     if ($.fn.DataTable.isDataTable('#featureTable')) {
         const dt = $('#featureTable').DataTable();
         dt.columns().every(function () {
-            if (this.header().textContent.trim() === 'บันทึก') this.visible(false);
+            const title = this.header().textContent.trim();
+            if (title === 'บันทึก' || title === 'ลบ') this.visible(false);
         });
         // Start with first parent ID so the list isn't overwhelmingly long
         const allRows = dt.rows().data().toArray();
@@ -1009,9 +1010,11 @@ const loadGeoData = async () => {
                     data: 'check_area',
                     title: 'ตรวจสอบโฉนด',
                     render: (data, type, row) => {
-                        // Return plain value for sorting/filtering
-                        if (type === 'sort' || type === 'type' || type === 'filter') {
-                            return data || '';
+                        if (type === 'sort' || type === 'type' || type === 'filter') return data || '';
+                        if (_userRole === 'worker') {
+                            if (data === 'ผ่าน') return `<span style="display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:999px;background:#d1fae5;color:#065f46;font-size:0.82rem;font-weight:700;border:1.5px solid #6ee7b7;white-space:nowrap;"><i class="bi bi-check-circle-fill"></i> ผ่าน</span>`;
+                            if (data === 'ไม่ผ่าน') return `<span style="display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:999px;background:#fee2e2;color:#991b1b;font-size:0.82rem;font-weight:700;border:1.5px solid #fca5a5;white-space:nowrap;"><i class="bi bi-x-circle-fill"></i> ไม่ผ่าน</span>`;
+                            return `<span style="display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:999px;background:#f1f5f9;color:#94a3b8;font-size:0.82rem;border:1.5px solid #e2e8f0;white-space:nowrap;"><i class="bi bi-dash-circle"></i> -</span>`;
                         }
                         const passSelected = data === 'ผ่าน' ? 'selected' : '';
                         const failSelected = data === 'ไม่ผ่าน' ? 'selected' : '';
@@ -1026,9 +1029,11 @@ const loadGeoData = async () => {
                     data: 'check_shape',
                     title: 'ตรวจสอบการจำเเนกประเภท',
                     render: (data, type, row) => {
-                        // Return plain value for sorting/filtering
-                        if (type === 'sort' || type === 'type' || type === 'filter') {
-                            return data || '';
+                        if (type === 'sort' || type === 'type' || type === 'filter') return data || '';
+                        if (_userRole === 'worker') {
+                            if (data === 'ผ่าน') return `<span style="display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:999px;background:#d1fae5;color:#065f46;font-size:0.82rem;font-weight:700;border:1.5px solid #6ee7b7;white-space:nowrap;"><i class="bi bi-check-circle-fill"></i> ผ่าน</span>`;
+                            if (data === 'ไม่ผ่าน') return `<span style="display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:999px;background:#fee2e2;color:#991b1b;font-size:0.82rem;font-weight:700;border:1.5px solid #fca5a5;white-space:nowrap;"><i class="bi bi-x-circle-fill"></i> ไม่ผ่าน</span>`;
+                            return `<span style="display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:999px;background:#f1f5f9;color:#94a3b8;font-size:0.82rem;border:1.5px solid #e2e8f0;white-space:nowrap;"><i class="bi bi-dash-circle"></i> -</span>`;
                         }
                         const passSelected = data === 'ผ่าน' ? 'selected' : '';
                         const failSelected = data === 'ไม่ผ่าน' ? 'selected' : '';
@@ -1050,6 +1055,19 @@ const loadGeoData = async () => {
                                 data-subid="${row.sub_id}" data-type="checker" title="ดูข้อมูลเต็ม">
                                 <i class="bi bi-eye"></i></button>`
                             : '';
+                        if (_userRole === 'worker') {
+                            if (hasData) {
+                                return `<button class="btn btn-note-popup"
+                                    data-subid="${row.sub_id}" data-type="checker"
+                                    title="${(data || '').replace(/"/g, '&quot;')}"
+                                    style="display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:999px;background:#f0fdf4;color:#166534;font-size:0.82rem;font-weight:600;border:1.5px solid #86efac;white-space:nowrap;cursor:pointer;">
+                                    <i class="bi bi-eye-fill"></i> ดูหมายเหตุ
+                                </button>`;
+                            }
+                            return `<span style="display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:999px;background:#f1f5f9;color:#94a3b8;font-size:0.82rem;border:1.5px solid #e2e8f0;white-space:nowrap;">
+                                <i class="bi bi-dash-circle"></i> -
+                            </span>`;
+                        }
                         return `<div class="input-group input-group-sm" style="min-width:180px;">
                             <input type="text" class="form-control form-control-sm review-remark"
                                 data-subid="${row.sub_id}"
@@ -1110,12 +1128,15 @@ const loadGeoData = async () => {
                             const options = { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' };
                             dateStr = `<div class="text-muted mt-1 reviewer-time" style="font-size: 0.75rem;"><i class="bi bi-clock"></i> ${date.toLocaleDateString('th-TH', options)}น.</div>`;
                         }
+                        if (_userRole === 'worker') {
+                            return `<div>${data ? `<span>${data}</span>` : '<span class="text-muted">-</span>'}${dateStr}</div>`;
+                        }
                         return `
                         <div class="d-flex justify-content-between align-items-start">
                             <div class="reviewer-input-container" style="flex-grow: 1;">
-                                <input type="text" class="form-control form-control-sm review-reviewer" 
-                                    data-subid="${row.sub_id}" 
-                                    value="${data || ''}" 
+                                <input type="text" class="form-control form-control-sm review-reviewer"
+                                    data-subid="${row.sub_id}"
+                                    value="${data || ''}"
                                     readonly
                                     placeholder="ชื่อผู้ตรวจ...">
                                 ${dateStr}
