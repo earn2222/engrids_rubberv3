@@ -63,11 +63,11 @@
                 </div>
                 <div class="card mb-2 shadow-sm" id="taskProgressCard" style="display:none;">
                     <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center cursor-pointer py-3"
-                        data-bs-toggle="collapse" data-bs-target="#taskProgressCollapse" aria-expanded="true">
+                        data-bs-toggle="collapse" data-bs-target="#taskProgressCollapse" aria-expanded="false">
                         <div class="section-title mb-0"><i class="bi bi-bar-chart-steps"></i> ความคืบหน้างาน</div>
                         <i class="bi bi-chevron-down toggle-icon"></i>
                     </div>
-                    <div class="collapse show" id="taskProgressCollapse">
+                    <div class="collapse" id="taskProgressCollapse">
                         <div class="card-body pt-0">
                             <div id="taskProgressList" class="mt-2"></div>
                         </div>
@@ -83,9 +83,13 @@
                     </div>
                     <div class="collapse show" id="workerQuickCollapse">
                         <div class="card-body pt-1 px-2 pb-2">
-                            <!-- Navigation: prev / counter / next ID (hidden until data loads) -->
-                            <div class="d-flex align-items-center gap-1 mb-2" id="workerNavBar"
+                            <!-- Navigation: search / prev / counter / next ID (hidden until data loads) -->
+                            <div class="d-flex align-items-center gap-1 mb-2 flex-wrap" id="workerNavBar"
                                 style="display:none !important;">
+                                <input type="text" id="worker-id-search"
+                                    class="form-control form-control-sm"
+                                    style="width:80px; font-size:0.72rem;"
+                                    placeholder="🔎 ID...">
                                 <button class="btn btn-outline-secondary btn-sm px-2" id="btn-worker-prev"
                                     title="ID ก่อนหน้า">
                                     <i class="bi bi-chevron-left"></i>
@@ -99,6 +103,34 @@
                                     <i class="bi bi-chevron-right"></i>
                                 </button>
                                 <span class="text-muted ms-1" style="font-size:0.72rem;">เลื่อน ID</span>
+                            </div>
+                            <!-- Status filter tabs -->
+                            <div class="worker-status-grid mb-2" id="workerStatusFilter">
+                                <button class="worker-status-card active" data-filter="all">
+                                    <i class="bi bi-grid-3x3-gap-fill"></i>
+                                    <span class="worker-filter-count" id="wfc-all">0</span>
+                                    <span class="worker-status-label">ทั้งหมด</span>
+                                </button>
+                                <button class="worker-status-card" data-filter="unchecked">
+                                    <i class="bi bi-hourglass-split"></i>
+                                    <span class="worker-filter-count" id="wfc-unchecked">0</span>
+                                    <span class="worker-status-label">รอตรวจ</span>
+                                </button>
+                                <button class="worker-status-card" data-filter="pass">
+                                    <i class="bi bi-check-circle-fill"></i>
+                                    <span class="worker-filter-count" id="wfc-pass">0</span>
+                                    <span class="worker-status-label">ผ่าน</span>
+                                </button>
+                                <button class="worker-status-card" data-filter="partial">
+                                    <i class="bi bi-slash-circle-fill"></i>
+                                    <span class="worker-filter-count" id="wfc-partial">0</span>
+                                    <span class="worker-status-label">บางส่วน</span>
+                                </button>
+                                <button class="worker-status-card" data-filter="fail">
+                                    <i class="bi bi-x-circle-fill"></i>
+                                    <span class="worker-filter-count" id="wfc-fail">0</span>
+                                    <span class="worker-status-label">ไม่ผ่าน</span>
+                                </button>
                             </div>
                             <!-- Selected plot banner — appears after clicking a plot item -->
                             <div id="worker-selected-info" class="worker-sel-banner mb-2" style="display:none;">
@@ -146,6 +178,36 @@
                     <div class="collapse show" id="featurePanelCollapse">
                         <div class="card-body pt-0">
                             <div id="featurePanel">
+                                <!-- Admin Status Filter Cards -->
+                                <div id="adminStatusBar" class="mb-3">
+                                    <div class="admin-status-grid">
+                                        <button class="admin-status-card active" data-status="all">
+                                            <div class="admin-status-icon" style="color:#475569;"><i class="bi bi-grid-3x3-gap-fill"></i></div>
+                                            <div class="admin-status-count" id="asc-all">0</div>
+                                            <div class="admin-status-label">ทั้งหมด</div>
+                                        </button>
+                                        <button class="admin-status-card" data-status="none">
+                                            <div class="admin-status-icon" style="color:#b45309;"><i class="bi bi-hourglass-split"></i></div>
+                                            <div class="admin-status-count" id="asc-none">0</div>
+                                            <div class="admin-status-label">ยังไม่ตรวจ</div>
+                                        </button>
+                                        <button class="admin-status-card" data-status="pass">
+                                            <div class="admin-status-icon" style="color:#166534;"><i class="bi bi-check-circle-fill"></i></div>
+                                            <div class="admin-status-count" id="asc-pass">0</div>
+                                            <div class="admin-status-label">ผ่านทั้งหมด</div>
+                                        </button>
+                                        <button class="admin-status-card" data-status="fail">
+                                            <div class="admin-status-icon" style="color:#991b1b;"><i class="bi bi-x-circle-fill"></i></div>
+                                            <div class="admin-status-count" id="asc-fail">0</div>
+                                            <div class="admin-status-label">มีไม่ผ่าน</div>
+                                        </button>
+                                        <button class="admin-status-card" data-status="partial">
+                                            <div class="admin-status-icon" style="color:#1d4ed8;"><i class="bi bi-slash-circle-fill"></i></div>
+                                            <div class="admin-status-count" id="asc-partial">0</div>
+                                            <div class="admin-status-label">ผ่านบางส่วน</div>
+                                        </button>
+                                    </div>
+                                </div>
                                 <!-- Plot Navigation & Search Bar -->
                                 <div class="plot-nav-bar mb-3">
                                     <div class="d-flex align-items-center gap-2">

@@ -1001,6 +1001,105 @@ table.dataTable tbody tr.selected > * {
     border-radius: 6px;
 }
 
+/* ===== Admin Status Filter Cards ===== */
+.admin-status-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+}
+.admin-status-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 10px 6px 8px;
+    border-radius: 12px;
+    border: 1.5px solid #e2e8f0;
+    background: #f8fafc;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: center;
+    min-width: 0;
+}
+.admin-status-card:hover {
+    border-color: #94a3b8;
+    background: #f1f5f9;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+.admin-status-card.active {
+    background: #fff;
+    border-color: currentColor;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+.admin-status-card[data-status="all"].active    { border-color: #64748b; background: #f1f5f9; }
+.admin-status-card[data-status="none"].active   { border-color: #f59e0b; background: #fffbeb; }
+.admin-status-card[data-status="pass"].active   { border-color: #22c55e; background: #f0fdf4; }
+.admin-status-card[data-status="fail"].active   { border-color: #ef4444; background: #fef2f2; }
+.admin-status-card[data-status="partial"].active { border-color: #3b82f6; background: #eff6ff; }
+.admin-status-icon {
+    font-size: 1.15rem;
+    line-height: 1;
+}
+.admin-status-count {
+    font-size: 1.1rem;
+    font-weight: 800;
+    line-height: 1;
+    color: #1e293b;
+}
+.admin-status-label {
+    font-size: 0.62rem;
+    font-weight: 600;
+    color: #64748b;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+/* ===== Worker Status Filter Cards ===== */
+.worker-status-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 5px;
+}
+.worker-status-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 8px 4px 6px;
+    border-radius: 10px;
+    border: 1.5px solid #e2e8f0;
+    background: #f8fafc;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-size: 1rem;
+    color: #64748b;
+}
+.worker-status-card:hover {
+    border-color: #94a3b8;
+    background: #f1f5f9;
+    transform: translateY(-1px);
+}
+.worker-status-card.active { background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+.worker-status-card[data-filter="all"].active      { border-color: #64748b; color: #334155; }
+.worker-status-card[data-filter="unchecked"].active { border-color: #f59e0b; color: #b45309; background: #fffbeb; }
+.worker-status-card[data-filter="pass"].active     { border-color: #22c55e; color: #166534; background: #f0fdf4; }
+.worker-status-card[data-filter="partial"].active  { border-color: #3b82f6; color: #1d4ed8; background: #eff6ff; }
+.worker-status-card[data-filter="fail"].active     { border-color: #ef4444; color: #991b1b; background: #fef2f2; }
+.worker-filter-count {
+    font-size: 1rem;
+    font-weight: 800;
+    line-height: 1;
+    color: inherit;
+}
+.worker-status-label {
+    font-size: 0.6rem;
+    font-weight: 600;
+    color: #64748b;
+    white-space: nowrap;
+}
+.worker-status-card.active .worker-status-label { color: inherit; }
+
 /* ===== Worker Quick Access Panel ===== */
 .worker-plot-scroll {
     max-height: 360px;
@@ -1035,6 +1134,20 @@ table.dataTable tbody tr.selected > * {
     border-color: #42a5f5;
     box-shadow: 0 2px 8px rgba(25, 118, 210, 0.12);
     transform: translateX(2px);
+}
+
+.worker-id-group {
+    margin-bottom: 4px;
+}
+.worker-id-group-header {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #475569;
+    background: #f1f5f9;
+    border-left: 3px solid #94a3b8;
+    padding: 4px 8px;
+    border-radius: 0 4px 4px 0;
+    margin-bottom: 2px;
 }
 
 .worker-class-dot {

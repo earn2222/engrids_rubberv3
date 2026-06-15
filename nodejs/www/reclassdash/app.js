@@ -5,10 +5,33 @@ let _activeFilter = '';
 let _panelCheckerDirty = false;
 const _checkerDraft = {};   // { [sub_id]: { check_area, check_shape, remark } }
 let _userRole = null;
+let _workerStatusFilter = 'all';
+let _adminNavFilter = 'all';
 let _highlightedLayers = [];
 let _currentReviewId = null;
 let _focusedLayer = null;      // { layer, originalStyle } — currently zoomed-to polygon
 let _focusedSubId = null;
+
+// Returns unique parent IDs filtered by current _workerStatusFilter
+const _getWorkerNavIds = (allRows) => {
+    if (_workerStatusFilter === 'all') {
+        return [...new Set(allRows.map(r => String(r.id)))];
+    }
+    const _isPartial = r => {
+        const hasAny = r.check_area || r.check_shape;
+        const pass = r.check_area === 'ผ่าน' && r.check_shape === 'ผ่าน';
+        const fail = r.check_area === 'ไม่ผ่าน' || r.check_shape === 'ไม่ผ่าน';
+        return hasAny && !pass && !fail;
+    };
+    const filtered = allRows.filter(r => {
+        if (_workerStatusFilter === 'unchecked') return !r.check_area && !r.check_shape;
+        if (_workerStatusFilter === 'pass') return r.check_area === 'ผ่าน' && r.check_shape === 'ผ่าน';
+        if (_workerStatusFilter === 'fail') return r.check_area === 'ไม่ผ่าน' || r.check_shape === 'ไม่ผ่าน';
+        if (_workerStatusFilter === 'partial') return _isPartial(r);
+        return true;
+    });
+    return [...new Set(filtered.map(r => String(r.id)))];
+};
 
 const _resetHighlights = () => {
     _highlightedLayers.forEach(({ layer, style }) => {
@@ -314,7 +337,7 @@ const focusPlot = (rowData) => {
 
     // 4. Worker quick list: filter to this parent ID, highlight item, update banner
     if (_userRole === 'worker') {
-        buildWorkerPlotList(rowData.id);
+        buildWorkerPlotList(_workerStatusFilter === 'all' ? rowData.id : null);
         $('.worker-plot-item').removeClass('active');
         const $item = $(`.worker-plot-item[data-subid="${subId}"]`);
         $item.addClass('active');
@@ -352,10 +375,10 @@ const _updateWorkerSelectedBanner = (rowData) => {
     // Track current parent ID for prev/next navigation
     _currentReviewId = String(rowData.id || '');
 
-    // Update nav counter
+    // Update nav counter (filtered by current status filter)
     if ($.fn.DataTable.isDataTable('#featureTable')) {
         const dt = $('#featureTable').DataTable();
-        const uniqueIds = [...new Set(dt.rows().data().toArray().map(r => String(r.id)))];
+        const uniqueIds = _getWorkerNavIds(dt.rows().data().toArray());
         const idx = uniqueIds.indexOf(_currentReviewId);
         $('#worker-nav-count').text(`${idx >= 0 ? idx + 1 : '-'} / ${uniqueIds.length}`);
     }
@@ -414,34 +437,113 @@ const buildWorkerPlotList = (filterId = null) => {
         $('#workerPlotList').html('<div class="text-muted small text-center py-3"><i class="bi bi-inbox"></i> ไม่พบแปลง</div>');
         return;
     }
-    const displayRows = filterId ? allRows.filter(r => String(r.id) === String(filterId)) : allRows;
-    const html = displayRows.map(row => {
+    // Counts always from ALL rows (entire worker's dataset, not filtered by ID)
+    const cntAll = allRows.length;
+    const cntUnchecked = allRows.filter(r => !r.check_area && !r.check_shape).length;
+    const cntPass = allRows.filter(r => r.check_area === 'ผ่าน' && r.check_shape === 'ผ่าน').length;
+    const cntFail = allRows.filter(r => r.check_area === 'ไม่ผ่าน' || r.check_shape === 'ไม่ผ่าน').length;
+    const cntPartial = cntAll - cntUnchecked - cntPass - cntFail;
+    $('#wfc-all').text(cntAll);
+    $('#wfc-unchecked').text(cntUnchecked);
+    $('#wfc-pass').text(cntPass);
+    $('#wfc-partial').text(cntPartial > 0 ? cntPartial : 0);
+    $('#wfc-fail').text(cntFail);
+
+    // List display: filter by current ID (if selected), then apply status filter
+    const baseRows = filterId ? allRows.filter(r => String(r.id) === String(filterId)) : allRows;
+
+    // Apply status filter by admin verdict
+    const isPartial = r => {
+        const hasAny = r.check_area || r.check_shape;
+        const isPass = r.check_area === 'ผ่าน' && r.check_shape === 'ผ่าน';
+        const isFail = r.check_area === 'ไม่ผ่าน' || r.check_shape === 'ไม่ผ่าน';
+        return hasAny && !isPass && !isFail;
+    };
+    const displayRows = baseRows.filter(r => {
+        if (_workerStatusFilter === 'unchecked') return !r.check_area && !r.check_shape;
+        if (_workerStatusFilter === 'pass') return r.check_area === 'ผ่าน' && r.check_shape === 'ผ่าน';
+        if (_workerStatusFilter === 'fail') return r.check_area === 'ไม่ผ่าน' || r.check_shape === 'ไม่ผ่าน';
+        if (_workerStatusFilter === 'partial') return isPartial(r);
+        return true;
+    });
+
+    // Apply ID search filter from input
+    const idSearch = ($('#worker-id-search').val() || '').trim();
+    const finalRows = idSearch ? displayRows.filter(r => String(r.id).includes(idSearch)) : displayRows;
+
+    // Build single item HTML
+    const buildItem = row => {
         const color = _workerColorMap[row.classtype] || '#90a4ae';
         const label = _workerLabelMap[row.classtype] || 'อื่นๆ';
         const ca = row.check_area || '';
         const cs = row.check_shape || '';
-        let statusHtml = '<span class="badge bg-secondary" style="font-size:0.6rem;padding:2px 5px;">⏳</span>';
-        if (ca === 'ผ่าน' && cs === 'ผ่าน') statusHtml = '<span class="badge bg-success" style="font-size:0.6rem;padding:2px 5px;">✅</span>';
-        else if (ca === 'ไม่ผ่าน' || cs === 'ไม่ผ่าน') statusHtml = '<span class="badge bg-danger" style="font-size:0.6rem;padding:2px 5px;">❌</span>';
+        let verdictHtml;
+        if (ca === 'ผ่าน' && cs === 'ผ่าน') {
+            verdictHtml = `<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;background:#d1fae5;color:#065f46;font-size:0.72rem;font-weight:700;border:1.5px solid #6ee7b7;white-space:nowrap;"><i class="bi bi-check-circle-fill"></i> ผ่าน</span>`;
+        } else if (ca === 'ไม่ผ่าน' || cs === 'ไม่ผ่าน') {
+            verdictHtml = `<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;background:#fee2e2;color:#991b1b;font-size:0.72rem;font-weight:700;border:1.5px solid #fca5a5;white-space:nowrap;"><i class="bi bi-x-circle-fill"></i> ไม่ผ่าน</span>`;
+        } else if (ca || cs) {
+            verdictHtml = `<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;background:#eff6ff;color:#1d4ed8;font-size:0.72rem;font-weight:700;border:1.5px solid #93c5fd;white-space:nowrap;"><i class="bi bi-slash-circle-fill"></i> บางส่วน</span>`;
+        } else {
+            verdictHtml = `<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;background:#fef9c3;color:#854d0e;font-size:0.72rem;font-weight:700;border:1.5px solid #fde047;white-space:nowrap;"><i class="bi bi-hourglass-split"></i> รอตรวจ</span>`;
+        }
+        const noteTag = row.user_remark ? `<span style="font-size:0.65rem;color:#1d4ed8;"><i class="bi bi-chat-dots-fill"></i></span>` : '';
         const notePreview = row.user_remark
-            ? `<div class="worker-plot-note"><i class="bi bi-chat-dots-fill" style="font-size:0.65rem;"></i> ${row.user_remark.substring(0, 25)}${row.user_remark.length > 25 ? '…' : ''}</div>`
+            ? `<div class="worker-plot-note"><i class="bi bi-chat-dots-fill" style="font-size:0.65rem;"></i> ${row.user_remark.substring(0, 20)}${row.user_remark.length > 20 ? '…' : ''}</div>`
             : '';
         return `<div class="worker-plot-item" data-subid="${row.sub_id}" data-id="${row.id}">
             <div class="worker-class-dot" style="background:${color};"></div>
             <div class="worker-plot-info">
-                <div class="worker-plot-ids"><span class="text-primary">#${row.sub_id}</span> <span class="text-muted fw-normal" style="font-size:0.7rem;">· ID:${row.id}</span></div>
+                <div class="worker-plot-ids"><span class="text-primary fw-bold">#${row.sub_id}</span> ${noteTag}</div>
                 <div class="worker-plot-class">${label}</div>
                 ${notePreview}
             </div>
-            <div class="ms-auto">${statusHtml}</div>
+            <div class="ms-auto ps-2">${verdictHtml}</div>
         </div>`;
-    }).join('');
-    $('#workerPlotList').html(html || '<div class="text-muted small text-center py-3">ไม่พบแปลงใน ID นี้</div>');
+    };
 
-    // Update nav counter: show position of filterId within all unique IDs
-    const uniqueIds = [...new Set(allRows.map(r => String(r.id)))];
-    if (filterId) {
-        const idx = uniqueIds.indexOf(String(filterId));
+    // Always group by parent ID so headers are visible in all filter modes
+    const showGrouped = true;
+    let html;
+    if (showGrouped) {
+        const groups = {};
+        finalRows.forEach(row => {
+            const key = String(row.id);
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(row);
+        });
+        html = Object.entries(groups).map(([id, rows]) =>
+            `<div class="worker-id-group">
+                <div class="worker-id-group-header">
+                    <i class="bi bi-folder2-open me-1"></i>ID: ${id}
+                    <span class="ms-1" style="font-size:0.68rem;opacity:0.75;">(${rows.length} แปลง)</span>
+                </div>
+                ${rows.map(buildItem).join('')}
+            </div>`
+        ).join('');
+    } else {
+        html = finalRows.map(buildItem).join('');
+    }
+
+    const emptyMsg = _workerStatusFilter === 'unchecked'
+        ? (filterId && cntUnchecked > 0
+            ? '<div class="text-muted small text-center py-3"><i class="bi bi-inbox"></i> ไม่มีรายการรอตรวจใน ID นี้</div>'
+            : '<div class="text-muted small text-center py-3"><i class="bi bi-check2-all text-success"></i> ตรวจครบแล้ว!</div>')
+        : _workerStatusFilter === 'pass'
+        ? '<div class="text-muted small text-center py-3"><i class="bi bi-inbox"></i> ยังไม่มีที่ผ่าน</div>'
+        : _workerStatusFilter === 'partial'
+        ? '<div class="text-muted small text-center py-3"><i class="bi bi-inbox"></i> ไม่มีรายการผ่านบางส่วน</div>'
+        : _workerStatusFilter === 'fail'
+        ? '<div class="text-muted small text-center py-3"><i class="bi bi-emoji-smile text-success"></i> ไม่มีรายการไม่ผ่าน!</div>'
+        : '<div class="text-muted small text-center py-3">ไม่พบแปลงใน ID นี้</div>';
+
+    $('#workerPlotList').html(html || emptyMsg);
+
+    // Update nav counter: filtered unique IDs based on current status filter
+    const uniqueIds = _getWorkerNavIds(allRows);
+    const countId = filterId || _currentReviewId;
+    if (countId) {
+        const idx = uniqueIds.indexOf(String(countId));
         $('#worker-nav-count').text(`${idx >= 0 ? idx + 1 : '-'} / ${uniqueIds.length}`);
     } else {
         $('#worker-nav-count').text(`- / ${uniqueIds.length}`);
@@ -487,13 +589,52 @@ const autoSaveUserRemark = async () => {
     }
 };
 
+// ── Admin status helpers ──
+const getIdStatus = (allRows, id) => {
+    const subs = allRows.filter(r => String(r.id) === String(id));
+    if (!subs.length) return 'none';
+    const hasAny = subs.some(r => r.check_area || r.check_shape);
+    if (!hasAny) return 'none';
+    const allPass = subs.every(r => r.check_area === 'ผ่าน' && r.check_shape === 'ผ่าน');
+    if (allPass) return 'pass';
+    const hasFail = subs.some(r => r.check_area === 'ไม่ผ่าน' || r.check_shape === 'ไม่ผ่าน');
+    if (hasFail) return 'fail';
+    return 'partial';
+};
+
+const updateAdminStatusCounts = () => {
+    if (!$.fn.DataTable.isDataTable('#featureTable')) return;
+    const allRows = $('#featureTable').DataTable().rows().data().toArray();
+    const uniqueIds = [...new Set(allRows.map(r => String(r.id)))];
+    let cntNone = 0, cntPass = 0, cntFail = 0, cntPartial = 0;
+    uniqueIds.forEach(id => {
+        const s = getIdStatus(allRows, id);
+        if (s === 'none') cntNone++;
+        else if (s === 'pass') cntPass++;
+        else if (s === 'fail') cntFail++;
+        else cntPartial++;
+    });
+    $('#asc-all').text(uniqueIds.length);
+    $('#asc-none').text(cntNone);
+    $('#asc-pass').text(cntPass);
+    $('#asc-fail').text(cntFail);
+    $('#asc-partial').text(cntPartial);
+};
+
 // Helper to navigate between plots (Prev/Next) — by unique parent ID
 const navigatePlots = async (direction) => {
     if (_panelUserDirty) await autoSaveUserRemark();
 
     const dt = $('#featureTable').DataTable();
     const allRows = dt.rows({ search: 'applied' }).data().toArray();
-    const uniqueIds = [...new Set(allRows.map(r => String(r.id)))];
+    const allUniqueIds = [...new Set(allRows.map(r => String(r.id)))];
+
+    // Apply nav filter: worker uses _workerStatusFilter, admin uses _adminNavFilter
+    const uniqueIds = _userRole === 'worker'
+        ? _getWorkerNavIds(allRows)
+        : (_adminNavFilter !== 'all'
+            ? allUniqueIds.filter(id => getIdStatus(allRows, id) === _adminNavFilter)
+            : allUniqueIds);
 
     const currentIdIdx = _currentReviewId
         ? uniqueIds.indexOf(String(_currentReviewId))
@@ -506,7 +647,6 @@ const navigatePlots = async (direction) => {
         if (firstRow) {
             _currentReviewId = null;
             focusPlot(firstRow);
-            // For workers: rebuild list filtered to this parent ID only
             if (_userRole === 'worker') {
                 buildWorkerPlotList(nextId);
             }
@@ -891,7 +1031,7 @@ const loadGeoData = async () => {
         const dataTable = $('#featureTable').DataTable({
             data: tableData,
             scrollX: true,
-            initComplete: function () { _applyWorkerVisibility(); _applyAdminVisibility(); },
+            initComplete: function () { _applyWorkerVisibility(); _applyAdminVisibility(); updateAdminStatusCounts(); },
             columns: [
                 {
                     data: null,
@@ -1349,6 +1489,7 @@ const loadGeoData = async () => {
                 $('#id-review-time').text(now.toLocaleString('th-TH', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' น.');
                 // id-reviewer-info always visible
 
+                updateAdminStatusCounts();
                 btn.html('<i class="bi bi-check-circle-fill"></i> บันทึกแล้ว').removeClass('btn-success').addClass('btn-primary');
                 setTimeout(() => btn.html('<i class="bi bi-floppy-fill me-1"></i> บันทึกผลการตรวจ').removeClass('btn-primary').addClass('btn-success').prop('disabled', false), 2000);
 
@@ -2290,6 +2431,40 @@ $(document).on('click', '#worker-sel-delete', async function () {
 $(document).on('click', '#btn-worker-prev', () => navigatePlots(-1));
 $(document).on('click', '#btn-worker-next', () => navigatePlots(1));
 
+// ── Admin status filter cards ──
+$(document).on('click', '#adminStatusBar .admin-status-card', function () {
+    _adminNavFilter = $(this).data('status');
+    $('#adminStatusBar .admin-status-card').removeClass('active');
+    $(this).addClass('active');
+    // Update nav counter to reflect filtered IDs
+    if ($.fn.DataTable.isDataTable('#featureTable')) {
+        const allRows = $('#featureTable').DataTable().rows({ search: 'applied' }).data().toArray();
+        const allUniqueIds = [...new Set(allRows.map(r => String(r.id)))];
+        const filtered = _adminNavFilter === 'all'
+            ? allUniqueIds
+            : allUniqueIds.filter(id => getIdStatus(allRows, id) === _adminNavFilter);
+        const currentIdx = _currentReviewId ? filtered.indexOf(String(_currentReviewId)) : -1;
+        $('#plot-nav-count').text(`${currentIdx >= 0 ? currentIdx + 1 : '-'} / ${filtered.length}`);
+    }
+});
+
+// ── Worker status filter tabs ──
+$(document).on('click', '#workerStatusFilter .worker-status-card', function () {
+    _workerStatusFilter = $(this).data('filter');
+    $('#workerStatusFilter .worker-status-card').removeClass('active');
+    $(this).addClass('active');
+    // เมื่อเลือก filter สถานะ ให้แสดงทุก ID (ไม่จำกัดแค่ ID ปัจจุบัน)
+    // เมื่อกลับมา "ทั้งหมด" จึงกลับไปแสดง ID ปัจจุบัน
+    const filterId = _workerStatusFilter === 'all' ? (_currentReviewId || null) : null;
+    buildWorkerPlotList(filterId);
+});
+
+// ── Worker ID search input ──
+$(document).on('input', '#worker-id-search', function () {
+    const filterId = _workerStatusFilter === 'all' ? (_currentReviewId || null) : null;
+    buildWorkerPlotList(filterId);
+});
+
 // ── Worker quick panel: click plot item → zoom + highlight + load banner ──
 $(document).on('click', '.worker-plot-item', function () {
     const subId = String($(this).data('subid'));
@@ -2297,7 +2472,7 @@ $(document).on('click', '.worker-plot-item', function () {
     const dt = $('#featureTable').DataTable();
     const rowData = dt.rows().data().toArray().find(r => String(r.sub_id) === subId);
     if (!rowData) return;
-    _currentReviewId = null;
+    _currentReviewId = String(rowData.id);
     focusPlot(rowData);
 });
 
