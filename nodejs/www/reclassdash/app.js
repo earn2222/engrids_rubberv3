@@ -934,22 +934,53 @@ const loadGeoData = async () => {
                 {
                     data: 'deed_sqm',
                     title: 'เนื้อที่เป้าหมายโฉนด (m²)',
-                    render: (data) => `<span class="area-num area-target">${Number(data).toLocaleString('th-TH', { maximumFractionDigits: 0 })}</span>`
+                    render: (data) => {
+                        const val = Number(data);
+                        if (val === 0) return `<span class="area-num area-target">0 <small style="color:gray">(ยาง)</small></span>`;
+                        return `<span class="area-num area-target">${val.toLocaleString('th-TH', { maximumFractionDigits: 0 })}</span>`;
+                    }
                 },
                 {
                     data: 'current_sqm',
                     title: 'เนื้อที่ขณะนี้โฉนด (m²)',
-                    render: (data) => `<span class="area-num">${Number(data).toLocaleString('th-TH', { maximumFractionDigits: 0 })}</span>`
+                    render: (data, type, row) => {
+                        const cur = Number(data || 0);
+                        const deedSqm = Number(row.deed_sqm || 0);
+                        const rubrSqm = Number(row.rubr_sqm || 0);
+                        const target = deedSqm > 0 ? deedSqm : rubrSqm;
+                        const diff = Math.round(cur - target);
+                        const sign = diff >= 0 ? '+' : '';
+                        const diffColor = Math.abs(diff) <= 100 ? 'green' : 'red';
+                        const diffHtml = target > 0
+                            ? ` <small style="color:${diffColor}">(${sign}${diff.toLocaleString('th-TH')})</small>`
+                            : '';
+                        return `<span class="area-num">${cur.toLocaleString('th-TH', { maximumFractionDigits: 0 })}${diffHtml}</span>`;
+                    }
                 },
                 {
                     data: 'rubr_sqm',
                     title: 'เนื้อที่เป้าหมายยางพารา (m²)',
-                    render: (data) => `<span class="area-num area-yang">${Number(data).toLocaleString('th-TH', { maximumFractionDigits: 0 })}</span>`
+                    render: (data, type, row) => {
+                        if (row.classtype !== 'rubber') return `<span class="text-muted">-</span>`;
+                        return `<span class="area-num area-yang">${Number(data).toLocaleString('th-TH', { maximumFractionDigits: 0 })}</span>`;
+                    }
                 },
                 {
                     data: 'shpsplit_sqm',
                     title: 'เนื้อที่ขณะนี้คลาส (m²)',
-                    render: (data) => `<span class="area-num">${Number(data || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 })}</span>`
+                    render: (data, type, row) => {
+                        const val = Number(data || 0);
+                        const valStr = val.toLocaleString('th-TH', { maximumFractionDigits: 0 });
+                        if (row.classtype !== 'rubber') return `<span class="area-num">${valStr}</span>`;
+                        const rubrSqm = Number(row.rubr_sqm || 0);
+                        const diff = Math.round(val - rubrSqm);
+                        const sign = diff >= 0 ? '+' : '';
+                        const diffColor = Math.abs(diff) <= 100 ? 'green' : 'red';
+                        const diffHtml = rubrSqm > 0
+                            ? ` <small style="color:${diffColor}">(${sign}${diff.toLocaleString('th-TH')})</small>`
+                            : '';
+                        return `<span class="area-num">${valStr}${diffHtml}</span>`;
+                    }
                 },
                 {
                     data: 'classtype',
