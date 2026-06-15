@@ -471,6 +471,20 @@ function showFeaturePanel(feature) {
 
     const currentArea = feature.get('shpsplit_sqm');
     document.getElementById('current_sqm').value = currentArea ? Math.round(currentArea).toLocaleString('th-TH') : '';
+
+    const sqmYang = parseFloat(document.getElementById('rubr_sqm').value.replace(/,/g, '')) || 0;
+    const el = document.getElementById('checkarea');
+    if (sqmYang > 0 && currentArea) {
+        if (Math.abs(sqmYang - currentArea) <= 100) {
+            el.innerHTML = '<span style="color:green">* พื้นที่ตรงกับข้อมูลเป้าหมาย</span>';
+        } else {
+            el.innerHTML = '<span style="color:red">* พื้นที่ไม่ตรงกับข้อมูลเป้าหมาย</span>';
+        }
+    } else {
+        el.className = 'text-muted';
+        el.innerHTML = '* หากมีการแบ่งพื้นที่แล้ว';
+    }
+
     const ct = feature.get('classtype');
     filterClasstypeOptions(ct);
     document.getElementById('classtype').value = ct ? ct : '';
