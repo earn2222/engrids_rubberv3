@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 
 <head>
@@ -103,30 +103,25 @@
                             </div>
                             <!-- Status filter tabs -->
                             <div class="worker-status-grid mb-2" id="workerStatusFilter">
-                                <button class="worker-status-card active" data-filter="all">
-                                    <i class="bi bi-grid-3x3-gap-fill"></i>
-                                    <span class="worker-filter-count" id="wfc-all">0</span>
-                                    <span class="worker-status-label">ทั้งหมด</span>
-                                </button>
-                                <button class="worker-status-card" data-filter="unchecked">
-                                    <i class="bi bi-hourglass-split"></i>
-                                    <span class="worker-filter-count" id="wfc-unchecked">0</span>
-                                    <span class="worker-status-label">รอตรวจ</span>
-                                </button>
                                 <button class="worker-status-card" data-filter="pass">
-                                    <i class="bi bi-check-circle-fill"></i>
+                                    <i class="bi bi-check-circle-fill" style="color:#166534;"></i>
                                     <span class="worker-filter-count" id="wfc-pass">0</span>
-                                    <span class="worker-status-label">ผ่าน</span>
-                                </button>
-                                <button class="worker-status-card" data-filter="partial">
-                                    <i class="bi bi-slash-circle-fill"></i>
-                                    <span class="worker-filter-count" id="wfc-partial">0</span>
-                                    <span class="worker-status-label">บางส่วน</span>
+                                    <span class="worker-status-label">ผ่านทั้งหมด</span>
                                 </button>
                                 <button class="worker-status-card" data-filter="fail">
-                                    <i class="bi bi-x-circle-fill"></i>
+                                    <i class="bi bi-x-circle-fill" style="color:#991b1b;"></i>
                                     <span class="worker-filter-count" id="wfc-fail">0</span>
-                                    <span class="worker-status-label">ไม่ผ่าน</span>
+                                    <span class="worker-status-label">มีไม่ผ่าน</span>
+                                </button>
+                                <button class="worker-status-card" data-filter="remark">
+                                    <i class="bi bi-chat-dots-fill" style="color:#8b5cf6;"></i>
+                                    <span class="worker-filter-count" id="wfc-remark">0</span>
+                                    <span class="worker-status-label">มีหมายเหตุ</span>
+                                </button>
+                                <button class="worker-status-card" data-filter="unchecked">
+                                    <i class="bi bi-hourglass-split" style="color:#b45309;"></i>
+                                    <span class="worker-filter-count" id="wfc-unchecked">0</span>
+                                    <span class="worker-status-label">ยังไม่ตรวจ</span>
                                 </button>
                             </div>
                             <!-- Selected plot banner — appears after clicking a plot item -->
@@ -178,16 +173,6 @@
                                 <!-- Admin Status Filter Cards -->
                                 <div id="adminStatusBar" class="mb-3">
                                     <div class="admin-status-grid">
-                                        <button class="admin-status-card active" data-status="all">
-                                            <div class="admin-status-icon" style="color:#475569;"><i class="bi bi-grid-3x3-gap-fill"></i></div>
-                                            <div class="admin-status-count" id="asc-all">0</div>
-                                            <div class="admin-status-label">ทั้งหมด</div>
-                                        </button>
-                                        <button class="admin-status-card" data-status="none">
-                                            <div class="admin-status-icon" style="color:#b45309;"><i class="bi bi-hourglass-split"></i></div>
-                                            <div class="admin-status-count" id="asc-none">0</div>
-                                            <div class="admin-status-label">ยังไม่ตรวจ</div>
-                                        </button>
                                         <button class="admin-status-card" data-status="pass">
                                             <div class="admin-status-icon" style="color:#166534;"><i class="bi bi-check-circle-fill"></i></div>
                                             <div class="admin-status-count" id="asc-pass">0</div>
@@ -198,11 +183,17 @@
                                             <div class="admin-status-count" id="asc-fail">0</div>
                                             <div class="admin-status-label">มีไม่ผ่าน</div>
                                         </button>
-                                        <button class="admin-status-card" data-status="partial">
-                                            <div class="admin-status-icon" style="color:#1d4ed8;"><i class="bi bi-slash-circle-fill"></i></div>
-                                            <div class="admin-status-count" id="asc-partial">0</div>
-                                            <div class="admin-status-label">ผ่านบางส่วน</div>
+                                        <button class="admin-status-card" data-status="remark">
+                                            <div class="admin-status-icon" style="color:#8b5cf6;"><i class="bi bi-chat-dots-fill"></i></div>
+                                            <div class="admin-status-count" id="asc-remark">0</div>
+                                            <div class="admin-status-label">มีหมายเหตุ</div>
                                         </button>
+                                        <button class="admin-status-card" data-status="none">
+                                            <div class="admin-status-icon" style="color:#b45309;"><i class="bi bi-hourglass-split"></i></div>
+                                            <div class="admin-status-count" id="asc-none">0</div>
+                                            <div class="admin-status-label">ยังไม่ตรวจ</div>
+                                        </button>
+
                                     </div>
                                 </div>
                                 <!-- Plot Navigation & Search Bar -->
@@ -255,30 +246,6 @@
                                 <input type="hidden" id="tb">
                                 <input type="hidden" id="panel-sub-id">
 
-                                <!-- Comparison Area Cards -->
-                                <div class="row g-2 mb-3">
-                                    <div class="col-6">
-                                        <div class="area-comparison-card land" style="padding-bottom: 5px;">
-                                            <div class="card-label"><i class="bi bi-geo-alt-fill"></i> ข้อมูลโฉนด</div>
-                                            <div class="d-flex justify-content-between align-items-end mt-1">
-                                                <span class="x-small fw-bold text-muted">เนื้อที่ขณะนี้:</span>
-                                                <div class="current-val m-0 text-primary"><span id="curr-land-sqm"
-                                                        style="font-size: 1rem;">0</span> <small>m²</small></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-6">
-                                        <div class="area-comparison-card rubber" style="padding-bottom: 5px;">
-                                            <div class="card-label"><i class="bi bi-tree-fill"></i> ข้อมูลที่คลาส</div>
-                                            <div class="d-flex justify-content-between align-items-end mt-1 d-none"
-                                                id="rubber-current-row">
-                                                <span class="x-small fw-bold text-muted">เนื้อที่ขณะนี้:</span>
-                                                <div class="current-val m-0 text-success"><span id="curr-area-sqm"
-                                                        style="font-size: 1rem;">0</span> <small>m²</small></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
 
                                 <!-- Additional classification info -->
                                 <div class="mb-3">
@@ -426,7 +393,6 @@
                                 <button class="btn btn-sm btn-filter-status" data-filter="none">⏳ ยังไม่ตรวจ</button>
                                 <button class="btn btn-sm btn-filter-status" data-filter="pass">✅ ผ่านทั้งหมด</button>
                                 <button class="btn btn-sm btn-filter-status" data-filter="fail">❌ มีไม่ผ่าน</button>
-                                <button class="btn btn-sm btn-filter-status" data-filter="mixed">⚠️ ผ่านบางส่วน</button>
                                 <button class="btn btn-sm btn-filter-status" data-filter="remark">💬 มีหมายเหตุ</button>
                             </div>
                         </div>
@@ -485,7 +451,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <!-- <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.14.2/dist/leaflet-geoman.min.js"></script> -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.3.0/highcharts.min.js"></script>
-    <script src="./app.js?v=2"></script>
+    <script src="./app.js?v=3"></script>
 </body>
 
 </html>

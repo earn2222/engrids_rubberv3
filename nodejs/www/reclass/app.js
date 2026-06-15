@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 //  app.js — Reclass page (OpenLayers version)
 //  Features:
 //    - OpenLayers map with Google / WMS / GEE layers
@@ -307,7 +307,9 @@ async function updateAreaDisplay(feature) {
         const area = await calculateArea(geomGeoJSON.geometry);
         const round = Math.round(area);
         document.getElementById('current_sqm').value = round.toLocaleString('th-TH');
+        document.getElementById('current_rai').value = (area / 1600).toLocaleString('th-TH', { maximumFractionDigits: 4 });
         feature.set('shpsplit_sqm', area);
+        feature.set('Rubr_Area', (area / 1600).toFixed(2));
     } catch (err) {
         console.error('Area calc error:', err);
     }
@@ -353,9 +355,9 @@ const loadGeoData = async (id, shouldFit = true) => {
             feat.setProperties({
                 id: item.id,
                 sub_id: item.sub_id,
-                Farmer_ID: item['Farmer_ID'],
+                Farmer_ID: item.farmer_id || item['Farmer_ID'],
                 shpsplit_sqm: item.shpsplit_sqm,
-                Rubr_Area: item['Rubr_Area'],
+                Rubr_Area: item['Rubr_Area'] || (item.shpsplit_sqm / 1600),
                 classtype: item.classtype,
                 check_area: item.check_area || '',
                 check_shape: item.check_shape || '',
@@ -454,6 +456,7 @@ function showFeaturePanel(feature) {
 
     const currentArea = feature.get('shpsplit_sqm');
     document.getElementById('current_sqm').value = currentArea ? Math.round(currentArea).toLocaleString('th-TH') : '';
+    document.getElementById('current_rai').value = currentArea ? (currentArea / 1600).toLocaleString('th-TH', { maximumFractionDigits: 4 }) : '';
 
     const ct = feature.get('classtype');
     filterClasstypeOptions(ct);

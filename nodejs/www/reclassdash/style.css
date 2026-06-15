@@ -1004,7 +1004,7 @@ table.dataTable tbody tr.selected > * {
 /* ===== Admin Status Filter Cards ===== */
 .admin-status-grid {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 6px;
 }
 .admin-status-card {
@@ -1058,7 +1058,7 @@ table.dataTable tbody tr.selected > * {
 /* ===== Worker Status Filter Cards ===== */
 .worker-status-grid {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 5px;
 }
 .worker-status-card {

@@ -1,4 +1,4 @@
-﻿// ── Global state ──
+// ── Global state ──
 let _panelUserDirty = false;
 let _autoSavingUserRemark = false;
 let _activeFilter = '';
@@ -404,12 +404,7 @@ const _updateAreaCards = (rowData) => {
     const rdLabel = labelMapFull[rowData.classtype] || 'อื่นๆ';
     const rdColor = colorMapFull[rowData.classtype] || '#6c757d';
 
-    // Left card: current land area (sqm_rechac)
-    $('#curr-land-sqm').text(Number(rowData.current_sqm || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 }));
 
-    // Right card: current class area
-    $('#curr-area-sqm').text(Number(rowData.shpsplit_sqm || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 }));
-    $('#rubber-current-row').removeClass('d-none');
 
     // Classtype badge
     $('#display-classtype').html(`<span class="classtype-badge w-100 text-center" style="background:${rdColor}15; color:#000; border:1px solid ${rdColor}40; font-weight: 500;">${rdLabel}</span>`);
@@ -428,32 +423,25 @@ const buildWorkerPlotList = (filterId = null) => {
     // Counts = number of unique parent IDs in each status (always global, not per-ID)
     const allUniqueIds = [...new Set(allRows.map(r => String(r.id)))];
     const getSubsOf = id => allRows.filter(r => String(r.id) === id);
-    const cntAll      = allUniqueIds.length;
-    const cntUnchecked = allUniqueIds.filter(id => getSubsOf(id).every(r => !r.check_area && !r.check_shape)).length;
-    const cntPass      = allUniqueIds.filter(id => getSubsOf(id).every(r => r.check_area === 'ผ่าน' && r.check_shape === 'ผ่าน')).length;
-    const cntFail      = allUniqueIds.filter(id => getSubsOf(id).some(r => r.check_area === 'ไม่ผ่าน' || r.check_shape === 'ไม่ผ่าน')).length;
-    const cntPartial   = cntAll - cntUnchecked - cntPass - cntFail;
-    $('#wfc-all').text(cntAll);
-    $('#wfc-unchecked').text(cntUnchecked);
+    const cntAll = allUniqueIds.length;
+    const cntUnchecked = allUniqueIds.filter(id => getSubsOf(id).every(r => !r.check_shape)).length;
+    const cntPass = allUniqueIds.filter(id => getSubsOf(id).every(r => r.check_shape === 'ผ่าน')).length;
+    const cntFail = allUniqueIds.filter(id => getSubsOf(id).some(r => r.check_shape === 'ไม่ผ่าน')).length;
+    const cntRemark = allUniqueIds.filter(id => getSubsOf(id).some(r => !!(r.remark || r.user_remark))).length;
     $('#wfc-pass').text(cntPass);
-    $('#wfc-partial').text(cntPartial > 0 ? cntPartial : 0);
     $('#wfc-fail').text(cntFail);
+    $('#wfc-remark').text(cntRemark);
+    $('#wfc-unchecked').text(cntUnchecked);
 
     // List display: filter by current ID (if selected), then apply status filter
     const baseRows = filterId ? allRows.filter(r => String(r.id) === String(filterId)) : allRows;
 
     // Apply status filter by admin verdict
-    const isPartial = r => {
-        const hasAny = r.check_area || r.check_shape;
-        const isPass = r.check_area === 'ผ่าน' && r.check_shape === 'ผ่าน';
-        const isFail = r.check_area === 'ไม่ผ่าน' || r.check_shape === 'ไม่ผ่าน';
-        return hasAny && !isPass && !isFail;
-    };
     const displayRows = baseRows.filter(r => {
-        if (_workerStatusFilter === 'unchecked') return !r.check_area && !r.check_shape;
-        if (_workerStatusFilter === 'pass') return r.check_area === 'ผ่าน' && r.check_shape === 'ผ่าน';
-        if (_workerStatusFilter === 'fail') return r.check_area === 'ไม่ผ่าน' || r.check_shape === 'ไม่ผ่าน';
-        if (_workerStatusFilter === 'partial') return isPartial(r);
+        if (_workerStatusFilter === 'unchecked') return !r.check_shape;
+        if (_workerStatusFilter === 'pass') return r.check_shape === 'ผ่าน';
+        if (_workerStatusFilter === 'fail') return r.check_shape === 'ไม่ผ่าน';
+        if (_workerStatusFilter === 'remark') return !!(r.remark || r.user_remark);
         return true;
     });
 
@@ -465,15 +453,12 @@ const buildWorkerPlotList = (filterId = null) => {
     const buildItem = row => {
         const color = _workerColorMap[row.classtype] || '#90a4ae';
         const label = _workerLabelMap[row.classtype] || 'อื่นๆ';
-        const ca = row.check_area || '';
         const cs = row.check_shape || '';
         let verdictHtml;
-        if (ca === 'ผ่าน' && cs === 'ผ่าน') {
+        if (cs === 'ผ่าน') {
             verdictHtml = `<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;background:#d1fae5;color:#065f46;font-size:0.72rem;font-weight:700;border:1.5px solid #6ee7b7;white-space:nowrap;"><i class="bi bi-check-circle-fill"></i> ผ่าน</span>`;
-        } else if (ca === 'ไม่ผ่าน' || cs === 'ไม่ผ่าน') {
+        } else if (cs === 'ไม่ผ่าน') {
             verdictHtml = `<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;background:#fee2e2;color:#991b1b;font-size:0.72rem;font-weight:700;border:1.5px solid #fca5a5;white-space:nowrap;"><i class="bi bi-x-circle-fill"></i> ไม่ผ่าน</span>`;
-        } else if (ca || cs) {
-            verdictHtml = `<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;background:#eff6ff;color:#1d4ed8;font-size:0.72rem;font-weight:700;border:1.5px solid #93c5fd;white-space:nowrap;"><i class="bi bi-slash-circle-fill"></i> บางส่วน</span>`;
         } else {
             verdictHtml = `<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;background:#fef9c3;color:#854d0e;font-size:0.72rem;font-weight:700;border:1.5px solid #fde047;white-space:nowrap;"><i class="bi bi-hourglass-split"></i> รอตรวจ</span>`;
         }
@@ -520,12 +505,10 @@ const buildWorkerPlotList = (filterId = null) => {
             ? '<div class="text-muted small text-center py-3"><i class="bi bi-inbox"></i> ไม่มีรายการรอตรวจใน ID นี้</div>'
             : '<div class="text-muted small text-center py-3"><i class="bi bi-check2-all text-success"></i> ตรวจครบแล้ว!</div>')
         : _workerStatusFilter === 'pass'
-        ? '<div class="text-muted small text-center py-3"><i class="bi bi-inbox"></i> ยังไม่มีที่ผ่าน</div>'
-        : _workerStatusFilter === 'partial'
-        ? '<div class="text-muted small text-center py-3"><i class="bi bi-inbox"></i> ไม่มีรายการผ่านบางส่วน</div>'
-        : _workerStatusFilter === 'fail'
-        ? '<div class="text-muted small text-center py-3"><i class="bi bi-emoji-smile text-success"></i> ไม่มีรายการไม่ผ่าน!</div>'
-        : '<div class="text-muted small text-center py-3">ไม่พบแปลงใน ID นี้</div>';
+            ? '<div class="text-muted small text-center py-3"><i class="bi bi-inbox"></i> ยังไม่มีที่ผ่าน</div>'
+            : _workerStatusFilter === 'fail'
+                ? '<div class="text-muted small text-center py-3"><i class="bi bi-emoji-smile text-success"></i> ไม่มีรายการไม่ผ่าน!</div>'
+                : '<div class="text-muted small text-center py-3">ไม่พบแปลงใน ID นี้</div>';
 
     $('#workerPlotList').html(html || emptyMsg);
 
@@ -583,11 +566,11 @@ const autoSaveUserRemark = async () => {
 const getIdStatus = (allRows, id) => {
     const subs = allRows.filter(r => String(r.id) === String(id));
     if (!subs.length) return 'none';
-    const hasAny = subs.some(r => r.check_area || r.check_shape);
+    const hasAny = subs.some(r => r.check_shape);
     if (!hasAny) return 'none';
-    const allPass = subs.every(r => r.check_area === 'ผ่าน' && r.check_shape === 'ผ่าน');
+    const allPass = subs.every(r => r.check_shape === 'ผ่าน');
     if (allPass) return 'pass';
-    const hasFail = subs.some(r => r.check_area === 'ไม่ผ่าน' || r.check_shape === 'ไม่ผ่าน');
+    const hasFail = subs.some(r => r.check_shape === 'ไม่ผ่าน');
     if (hasFail) return 'fail';
     return 'partial';
 };
@@ -596,19 +579,18 @@ const updateAdminStatusCounts = () => {
     if (!$.fn.DataTable.isDataTable('#featureTable')) return;
     const allRows = $('#featureTable').DataTable().rows().data().toArray();
     const uniqueIds = [...new Set(allRows.map(r => String(r.id)))];
-    let cntNone = 0, cntPass = 0, cntFail = 0, cntPartial = 0;
+    let cntNone = 0, cntPass = 0, cntFail = 0, cntRemark = 0;
     uniqueIds.forEach(id => {
-        const s = getIdStatus(allRows, id);
-        if (s === 'none') cntNone++;
-        else if (s === 'pass') cntPass++;
-        else if (s === 'fail') cntFail++;
-        else cntPartial++;
+        const subs = allRows.filter(r => String(r.id) === String(id));
+        if (subs.every(r => !r.check_shape)) cntNone++;
+        if (subs.every(r => r.check_shape === 'ผ่าน')) cntPass++;
+        if (subs.some(r => r.check_shape === 'ไม่ผ่าน')) cntFail++;
+        if (subs.some(r => !!(r.remark || r.user_remark))) cntRemark++;
     });
-    $('#asc-all').text(uniqueIds.length);
     $('#asc-none').text(cntNone);
     $('#asc-pass').text(cntPass);
     $('#asc-fail').text(cntFail);
-    $('#asc-partial').text(cntPartial);
+    $('#asc-remark').text(cntRemark);
 };
 
 // Helper to navigate between plots (Prev/Next) — by unique parent ID
@@ -733,9 +715,6 @@ const showFeaturePanel = (feature, layer) => {
                 `<option value="${v}" ${val === v ? 'selected' : ''}>${v === '' ? '-- เลือก --' : v === 'ผ่าน' ? '✅ ผ่าน' : '❌ ไม่ผ่าน'}</option>`
             ).join('');
 
-            // Deed-level check_area — one value for entire deed
-            const deedCa = allSubs.find(r => r.check_area)?.check_area || '';
-
             // Per-sub check_shape rows
             const shapeRowsHtml = allSubs.map(r => {
                 const label = labelMap[r.classtype] || r.classtype || '?';
@@ -752,10 +731,6 @@ const showFeaturePanel = (feature, layer) => {
             }).join('');
 
             $('#id-sub-list').html(allSubs.length ? `
-                <div class="check-section mb-2">
-                    <div class="check-section-title">ตรวจสอบโฉนด</div>
-                    <select class="form-select deed-check-area">${mkOpts(deedCa)}</select>
-                </div>
                 <div class="check-section">
                     <div class="check-section-title">ตรวจสอบประเภท</div>
                     <div class="shape-sub-list">${shapeRowsHtml}</div>
@@ -805,19 +780,15 @@ const showFeaturePanel = (feature, layer) => {
     }
 
     // ── Status summary badge ──
-    const ca = props.check_area || '';
     const cs = props.check_shape || '';
     let statusHtml = '';
-    if (!ca && !cs) {
+    if (!cs) {
         statusHtml = '<span class="badge bg-secondary" style="font-size:0.7rem;">⏳ ยังไม่ตรวจ</span>';
-    } else if (ca === 'ผ่าน' && cs === 'ผ่าน') {
-        statusHtml = '<span class="badge bg-success" style="font-size:0.7rem;">✅ ผ่านทั้งหมด</span>';
-    } else if (ca === 'ไม่ผ่าน' || cs === 'ไม่ผ่าน') {
-        statusHtml = '<span class="badge bg-danger" style="font-size:0.7rem;">❌ มีไม่ผ่าน</span>';
+    } else if (cs === 'ผ่าน') {
+        statusHtml = '<span class="badge bg-success" style="font-size:0.7rem;">✅ ผ่าน</span>';
     } else {
-        statusHtml = '<span class="badge bg-warning text-dark" style="font-size:0.7rem;">⏳ ตรวจบางส่วน</span>';
+        statusHtml = '<span class="badge bg-danger" style="font-size:0.7rem;">❌ ไม่ผ่าน</span>';
     }
-    // status summary badge removed (replaced by per-ID panel)
 
     // ✅ Navigation Update (Counter)
     try {
@@ -983,7 +954,6 @@ const loadGeoData = async () => {
             current_sqm: item.sqm_rechac || item.shpsplit_sqm || 0,
             shpsplit_sqm: item.shpsplit_sqm,
             classtype: item.classtype,
-            check_area: item.check_area || '',
             check_shape: item.check_shape || '',
             remark: item.remark || '',
             reviewer: item.reviewer || '',
@@ -1074,14 +1044,12 @@ const loadGeoData = async () => {
                 },
                 {
                     data: null,
-                    title: 'ตรวจสอบคลาสว่าถูกไม่ถูก',
+                    title: 'ตรวจสอบคลาส',
                     render: (data, type, row) => {
-                        const ca = row.check_area || '';
                         const cs = row.check_shape || '';
-                        if (!ca && !cs) return '<span class="text-muted" style="font-size:0.75rem;">⏳ ยังไม่ตรวจ</span>';
-                        const caIcon = ca === 'ผ่าน' ? '✅' : ca === 'ไม่ผ่าน' ? '❌' : '—';
+                        if (!cs) return '<span class="text-muted" style="font-size:0.75rem;">⏳ ยังไม่ตรวจ</span>';
                         const csIcon = cs === 'ผ่าน' ? '✅' : cs === 'ไม่ผ่าน' ? '❌' : '—';
-                        return `<div style="font-size:0.78rem;line-height:1.7;white-space:nowrap;">โฉนด: ${caIcon} ${ca || '-'}<br>ประเภท: ${csIcon} ${cs || '-'}</div>`;
+                        return `<div style="font-size:0.78rem;line-height:1.7;white-space:nowrap;">ตรวจสอบ: ${csIcon} ${cs}</div>`;
                     }
                 },
                 {
@@ -1095,8 +1063,40 @@ const loadGeoData = async () => {
                 },
                 {
                     data: 'reviewer',
-                    title: 'หมายเลขผู้ใช้',
-                    render: (data) => data ? `<span style="font-size:0.8rem;">${data}</span>` : '<span class="text-muted">-</span>'
+                    title: 'ผู้ตรวจสอบ',
+                    render: (data, type, row) => {
+                        let dateStr = '';
+                        if (row.review_ts) {
+                            const date = new Date(row.review_ts);
+                            const options = { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' };
+                            dateStr = `<div class="text-muted mt-1" style="font-size: 0.75rem;"><i class="bi bi-clock"></i> ${date.toLocaleDateString('th-TH', options)}น.</div>`;
+                        }
+                        if (!data) return '<span class="text-muted">-</span>' + dateStr;
+                        return `<span class="badge bg-success bg-opacity-75">${data}</span>` + dateStr;
+                    }
+                },
+                {
+                    data: 'user_remark',
+                    title: 'หมายเหตุผู้ใช้',
+                    width: '150px',
+                    render: function (data, type, row) {
+                        let dateStr = '';
+                        if (row.user_remark_ts) {
+                            const date = new Date(row.user_remark_ts);
+                            const options = { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' };
+                            dateStr = `<div class="text-muted mt-1 user-remark-time" style="font-size: 0.75rem;"><i class="bi bi-clock"></i> ${date.toLocaleDateString('th-TH', options)}น.</div>`;
+                        }
+                        const remarkVal = data || '';
+                        return `
+                            <div class="input-group input-group-sm">
+                                <input type="text" class="form-control user-remark" value="${remarkVal.replace(/"/g, '&quot;')}" placeholder="ระบุหมายเหตุ...">
+                                <button class="btn btn-outline-success btn-save-user-remark" type="button" data-subid="${row.sub_id}" title="บันทึกหมายเหตุ">
+                                    <i class="bi bi-floppy"></i>
+                                </button>
+                            </div>
+                            ${dateStr}
+                        `;
+                    }
                 },
                 {
                     data: null,
@@ -1112,9 +1112,9 @@ const loadGeoData = async () => {
             select: true,
             destroy: true,
             createdRow: function (row, data) {
-                if (data.check_area === 'ผ่าน' && data.check_shape === 'ผ่าน') {
+                if (data.check_shape === 'ผ่าน') {
                     $(row).addClass('row-checked-pass');
-                } else if (data.check_area === 'ไม่ผ่าน' || data.check_shape === 'ไม่ผ่าน') {
+                } else if (data.check_shape === 'ไม่ผ่าน') {
                     $(row).addClass('row-checked-fail');
                 }
             }
@@ -1137,7 +1137,6 @@ const loadGeoData = async () => {
         // ── Batch pass / fail all sub_ids of current ID ──
         $('#btn-batch-pass, #btn-batch-fail').on('click', function () {
             const val = $(this).is('#btn-batch-pass') ? 'ผ่าน' : 'ไม่ผ่าน';
-            $('#id-sub-list .deed-check-area').val(val);
             $('#id-sub-list .sub-review-row').each(function () {
                 $(this).find('.sub-check-shape').val(val);
                 $(this).removeClass('is-pass is-fail is-partial');
@@ -1211,22 +1210,18 @@ const loadGeoData = async () => {
             const rows = $('#id-sub-list .sub-review-row');
             if (!rows.length) { alert('กรุณาเลือกแปลงก่อน'); return; }
 
-            // Deed-level check_area shared across all sub_ids
-            const deedCheckArea = $('#id-sub-list .deed-check-area').val();
-
             const btn = $(this);
             btn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i> กำลังบันทึก...');
 
             const saves = [];
             rows.each(function () {
                 const subId = $(this).data('subid');
-                const checkArea = deedCheckArea;
                 const checkShape = $(this).find('.sub-check-shape').val();
                 saves.push(fetch(`/rub3/api/update_review/${tb}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ sub_id: subId, check_area: checkArea, check_shape: checkShape, remark, reviewer: displayName })
-                }).then(r => r.json()).then(data => ({ subId, checkArea, checkShape, data })));
+                    body: JSON.stringify({ sub_id: subId, check_shape: checkShape, remark, reviewer: displayName })
+                }).then(r => r.json()).then(data => ({ subId, checkShape, data })));
             });
 
             try {
@@ -1236,9 +1231,9 @@ const loadGeoData = async () => {
 
                 // For rejected sub_ids, also clear user_remark
                 const clearSaves = [];
-                results.forEach(({ subId, checkArea, checkShape, data }) => {
+                results.forEach(({ subId, checkShape, data }) => {
                     if (!data.success) { allOk = false; return; }
-                    const isRejected = checkArea === 'ไม่ผ่าน' || checkShape === 'ไม่ผ่าน';
+                    const isRejected = checkShape === 'ไม่ผ่าน';
                     if (isRejected) {
                         clearSaves.push(
                             fetch(`/rub3/api/update_user_remark/${tb}`, {
@@ -1251,13 +1246,13 @@ const loadGeoData = async () => {
                 });
                 if (clearSaves.length) await Promise.all(clearSaves);
 
-                results.forEach(({ subId, checkArea, checkShape, data }) => {
+                results.forEach(({ subId, checkShape, data }) => {
                     if (!data.success) return;
-                    const isRejected = checkArea === 'ไม่ผ่าน' || checkShape === 'ไม่ผ่าน';
+                    const isRejected = checkShape === 'ไม่ผ่าน';
                     const tableRow = dataTable.row((idx, d) => String(d.sub_id) === String(subId));
                     if (tableRow.any()) {
                         const rd = tableRow.data();
-                        rd.check_area = checkArea; rd.check_shape = checkShape;
+                        rd.check_shape = checkShape;
                         rd.remark = remark; rd.reviewer = displayName;
                         rd.review_ts = data.data?.[0]?.review_ts || new Date().toISOString();
                         if (isRejected) {
@@ -1269,7 +1264,7 @@ const loadGeoData = async () => {
                         const node = tableRow.node();
                         if (node) {
                             $(node).removeClass('row-checked-pass row-checked-fail');
-                            if (checkArea === 'ผ่าน' && checkShape === 'ผ่าน') $(node).addClass('row-checked-pass');
+                            if (checkShape === 'ผ่าน') $(node).addClass('row-checked-pass');
                             else if (isRejected) $(node).addClass('row-checked-fail');
                         }
                     }
@@ -1279,7 +1274,6 @@ const loadGeoData = async () => {
                 const now = new Date();
                 $('#id-reviewer-name').text(displayName || '-');
                 $('#id-review-time').text(now.toLocaleString('th-TH', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' น.');
-                // id-reviewer-info always visible
 
                 updateAdminStatusCounts();
                 btn.html('<i class="bi bi-check-circle-fill"></i> บันทึกแล้ว').removeClass('btn-success').addClass('btn-primary');
@@ -1461,7 +1455,6 @@ const loadGeoData = async () => {
                         id_farmer: row.id_farmer,
                         shpsplit_sqm: row.shpsplit_sqm,
                         classtype: row.classtype,
-                        check_area: row.check_area,
                         check_shape: row.check_shape,
                         remark: row.remark,
                         user_remark: row.user_remark,
@@ -1543,14 +1536,12 @@ const loadGeoData = async () => {
                 const rows = data.data.map(h => {
                     const resetTs = h.reset_ts ? new Date(h.reset_ts).toLocaleString('th-TH', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) + 'น.' : '-';
                     const reviewTs = h.review_ts ? new Date(h.review_ts).toLocaleString('th-TH', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) + 'น.' : '-';
-                    const caClass = h.check_area === 'ผ่าน' ? 'text-success fw-bold' : h.check_area === 'ไม่ผ่าน' ? 'text-danger fw-bold' : 'text-muted';
                     const csClass = h.check_shape === 'ผ่าน' ? 'text-success fw-bold' : h.check_shape === 'ไม่ผ่าน' ? 'text-danger fw-bold' : 'text-muted';
                     const reason = reasonLabels[h.reset_reason] || (h.reset_reason || '-');
                     return `<tr>
                         <td class="small text-muted text-nowrap">${resetTs}</td>
                         <td><span class="badge bg-secondary">${reason}</span></td>
                         <td class="small">${h.sub_id || '-'}</td>
-                        <td class="${caClass}">${h.check_area || '<span class="text-muted">-</span>'}</td>
                         <td class="${csClass}">${h.check_shape || '<span class="text-muted">-</span>'}</td>
                         <td class="small">${h.remark
                             ? `<span class="history-remark-cell"
@@ -1573,7 +1564,6 @@ const loadGeoData = async () => {
                                     <th>รีเซตเมื่อ</th>
                                     <th>สาเหตุ</th>
                                     <th>Sub ID</th>
-                                    <th>ตรวจโฉนด</th>
                                     <th>ตรวจประเภท</th>
                                     <th>หมายเหตุ</th>
                                     <th>ผู้ตรวจ</th>
@@ -1666,8 +1656,11 @@ const loadGeoData = async () => {
 
                     if (updatedTs) {
                         cellDiv.find('.btn-clear-user-remark').show();
+                        cellDiv.find('.btn-view-user-remark').show();
+                        cellDiv.find('.btn-view-user-remark').attr('data-remark', userRemark);
                     } else {
                         cellDiv.find('.btn-clear-user-remark').hide();
+                        cellDiv.find('.btn-view-user-remark').hide();
                     }
 
                     // Sync side panel if this row is currently shown
@@ -1709,13 +1702,26 @@ const loadGeoData = async () => {
             }
         });
 
+        // View user remark handler (Popup)
+        $('#featureTable tbody').on('click', '.btn-view-user-remark', function () {
+            const row = $(this).closest('tr');
+            const userRemark = row.find('.user-remark').val();
+            if (!userRemark) return;
+            const title = '<i class="bi bi-chat-dots-fill me-1"></i>หมายเหตุผู้ใช้';
+            $('#notePopupTitle').html(title);
+            // Replace newlines with <br> and format for display
+            const formatted = userRemark.replace(/\n/g, '<br>').replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>');
+            $('#notePopupBody').html('<div style="font-size:0.95rem; line-height:1.6;">' + formatted + '</div>');
+            const modal = new bootstrap.Modal(document.getElementById('notePopupModal'));
+            modal.show();
+        });
+
         // Save review handler
         $('#featureTable tbody').on('click', '.btn-save-review', async function () {
             const btn = $(this);
             const subId = btn.data('subid');
             const row = btn.closest('tr');
-            const checkArea = row.find('.review-check-area').val();
-            const checkShape = row.find('.review-check-shape').val();
+            const checkShape = row.find('.check-shape').val();
             const remark = row.find('.review-remark').val();
             const userRemark = row.find('.user-remark').val();
             const reviewerInput = row.find('.review-reviewer').val();
@@ -1724,18 +1730,15 @@ const loadGeoData = async () => {
             // Get reviewer name from profile
             const displayName = document.getElementById('display-name')?.textContent || '';
 
-
             // Determine if review-related fields have changed
             const dataTable = $('#featureTable').DataTable();
             const rowData = dataTable.row(row).data();
 
             const currentReviewer = rowData.reviewer || '';
-            const originalCheckArea = rowData.check_area || '';
             const originalCheckShape = rowData.check_shape || '';
             const originalRemark = rowData.remark || '';
 
-            const isReviewChanged = (checkArea !== originalCheckArea) ||
-                (checkShape !== originalCheckShape) ||
+            const isReviewChanged = (checkShape !== originalCheckShape) ||
                 (remark !== originalRemark);
 
             // If login name is available, always use it and update UI
@@ -1872,7 +1875,7 @@ const loadGeoData = async () => {
 
     } catch (error) {
         console.error('Error loading data:', error);
-        alert('Failed to load spatial data');
+        alert('Failed to load spatial data: ' + (error.message || error));
     }
 };
 
@@ -2050,10 +2053,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         document.getElementById('tb').value = tb;
-        await loadGeoData();
-        if (featureGroup.getLayers().length > 0) {
-            map.fitBounds(featureGroup.getBounds());
-        }
 
         // Invalidate map size so it fills its container
         setTimeout(() => {
@@ -2223,16 +2222,25 @@ $(document).on('click', '#btn-worker-next', () => navigatePlots(1));
 
 // ── Admin status filter cards ──
 $(document).on('click', '#adminStatusBar .admin-status-card', function () {
-    _adminNavFilter = $(this).data('status');
-    $('#adminStatusBar .admin-status-card').removeClass('active');
-    $(this).addClass('active');
+    if ($(this).hasClass('active')) {
+        _adminNavFilter = 'all';
+        $(this).removeClass('active');
+    } else {
+        _adminNavFilter = $(this).data('status');
+        $('#adminStatusBar .admin-status-card').removeClass('active');
+        $(this).addClass('active');
+    }
     // Update nav counter to reflect filtered IDs
     if ($.fn.DataTable.isDataTable('#featureTable')) {
         const allRows = $('#featureTable').DataTable().rows({ search: 'applied' }).data().toArray();
         const allUniqueIds = [...new Set(allRows.map(r => String(r.id)))];
         const filtered = _adminNavFilter === 'all'
             ? allUniqueIds
-            : allUniqueIds.filter(id => getIdStatus(allRows, id) === _adminNavFilter);
+            : allUniqueIds.filter(id => {
+                if (_adminNavFilter === 'remark') return allRows.filter(r => String(r.id) === id).some(r => !!(r.remark || r.user_remark));
+                if (_adminNavFilter === 'none') return allRows.filter(r => String(r.id) === id).every(r => !r.check_shape);
+                return getIdStatus(allRows, id) === _adminNavFilter;
+            });
         const currentIdx = _currentReviewId ? filtered.indexOf(String(_currentReviewId)) : -1;
         $('#plot-nav-count').text(`${currentIdx >= 0 ? currentIdx + 1 : '-'} / ${filtered.length}`);
     }
@@ -2240,9 +2248,14 @@ $(document).on('click', '#adminStatusBar .admin-status-card', function () {
 
 // ── Worker status filter tabs ──
 $(document).on('click', '#workerStatusFilter .worker-status-card', function () {
-    _workerStatusFilter = $(this).data('filter');
-    $('#workerStatusFilter .worker-status-card').removeClass('active');
-    $(this).addClass('active');
+    if ($(this).hasClass('active')) {
+        _workerStatusFilter = 'all';
+        $(this).removeClass('active');
+    } else {
+        _workerStatusFilter = $(this).data('filter');
+        $('#workerStatusFilter .worker-status-card').removeClass('active');
+        $(this).addClass('active');
+    }
     // filter ภายใน ID ที่เลือกอยู่เสมอ (ถ้ายังไม่เลือก ID จึงแสดงทั้งหมด)
     buildWorkerPlotList(_currentReviewId || null);
 });
@@ -2337,6 +2350,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('display-name').textContent = user.displayName;
 
             _userRole = user.role || 'worker';
+            await loadGeoData();
+            if (featureGroup.getLayers().length > 0) {
+                map.fitBounds(featureGroup.getBounds());
+            }
             _applyWorkerVisibility();
             _applyAdminVisibility();
 

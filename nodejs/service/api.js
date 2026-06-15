@@ -207,11 +207,11 @@ app.get('/api/getfeatures/:tb/:fid', async (req, res) => {
                         r.check_shape,
                         r.remark,
                         r.reviewer,
-                        t."Sqm_Rechac",
-                        t."Rai_Rechac",
-                        t."Farmer_ID",
-                        t."Name",
-                        t."Surname",
+                        t."Sqm_Rechac" AS sqm_rechac,
+                        t."Rai_Rechac" AS rai_rechac,
+                        t."Farmer_ID" AS farmer_id,
+                        t."Name" AS name,
+                        t."Surname" AS surname,
                         ST_ASGeoJSON(r.geom) AS geom,
                         ST_ASGeoJSON(st_makepoint(100, 18)) AS geom_point
                     FROM ${reclassTableName} r
@@ -224,11 +224,11 @@ app.get('/api/getfeatures/:tb/:fid', async (req, res) => {
                         t.id AS sub_id,
                         NULL AS classtype,
                         t."Sqm_Rechac" AS shpsplit_sqm,
-                        t."Sqm_Rechac",
-                        t."Rai_Rechac",
-                        t."Farmer_ID",
-                        t."Name",
-                        t."Surname",
+                        t."Sqm_Rechac" AS sqm_rechac,
+                        t."Rai_Rechac" AS rai_rechac,
+                        t."Farmer_ID" AS farmer_id,
+                        t."Name" AS name,
+                        t."Surname" AS surname,
                         ST_ASGeoJSON(t.geom) AS geom,
                         ST_ASGeoJSON(st_makepoint(100, 18)) AS geom_point
                     FROM ${tb} t
@@ -643,16 +643,12 @@ app.post('/api/updatefeatures/:tb', async (req, res) => {
                             ELSE geom_point
                         END,
                         "Sqm_Rechac" = $3,
-                        "Rai_Rechac" = $6,
-                        refinal = $4,
-                        editor = $5
+                        "Rai_Rechac" = $4
                     WHERE id = $2
                 `, [
                     geojsonStr,
                     id,
                     area,
-                    refinal,
-                    displayName,
                     areaRai
                 ]);
 
@@ -739,16 +735,16 @@ app.get('/api/getreclassfeatures/:tb', async (req, res) => {
                     a.classtype,
                     a.farmer_id,
                     b."Farmer_ID",
-                    b."Name",
-                    b."Surname",
+                    b."Name" AS name,
+                    b."Surname" AS surname,
                     CONCAT_WS(' ', b."Name", b."Surname") AS farm_name,
-                    b."Old_Year",
-                    b."Land_ID",
-                    b."Sqm_Rechac",
-                    b."Rai_Rechac",
+                    b."Old_Year" AS old_year,
+                    b."Land_ID" AS land_id,
+                    b."Sqm_Rechac" AS sqm_rechac,
+                    b."Rai_Rechac" AS rai_rechac,
                     a.shpsplit_sqm,
                     a."Rubr_Area",
-                    a.check_area,
+
                     a.check_shape,
                     a.remark,
                     a.reviewer,
@@ -776,22 +772,21 @@ app.put('/api/update_review/:tb', async (req, res) => {
         if (!tb) {
             return res.status(400).json({ error: 'Table name is required' });
         }
-        const { sub_id, check_area, check_shape, remark, reviewer, user_remark } = req.body;
+        const { sub_id, check_shape, remark, reviewer, user_remark } = req.body;
         if (!sub_id) {
             return res.status(400).json({ error: 'sub_id is required' });
         }
 
         const sql = `
             UPDATE reclass_${tb}
-            SET check_area = $1,
-                check_shape = $2,
-                remark = $3,
-                reviewer = $4,
+            SET check_shape = $1,
+                remark = $2,
+                reviewer = $3,
                 review_ts = NOW()
-            WHERE sub_id = $5
+            WHERE sub_id = $4
             RETURNING *`;
 
-        const values = [check_area || null, check_shape || null, remark || null, reviewer || null, sub_id];
+        const values = [check_shape || null, remark || null, reviewer || null, sub_id];
         const result = await pool.query(sql, values);
 
         if (result.rowCount === 0) {
@@ -818,8 +813,7 @@ app.put('/api/clear_review/:tb', async (req, res) => {
 
         const sql = `
             UPDATE reclass_${tb}
-            SET check_area = NULL,
-                check_shape = NULL,
+            SET check_shape = NULL,
                 remark = NULL,
                 reviewer = NULL,
                 review_ts = NULL
@@ -1419,7 +1413,7 @@ app.put('/api/update_landuse/:tb', async (req, res) => {
         await pool.query(`
             DO $$ BEGIN
                 UPDATE reclass_${tb}
-                SET check_area = NULL, check_shape = NULL, reviewer = NULL, review_ts = NULL
+                SET check_shape = NULL, reviewer = NULL, review_ts = NULL
                 WHERE sub_id = '${sub_id.replace(/'/g, "''")}';
             EXCEPTION WHEN undefined_column THEN NULL; END $$;
         `);
@@ -1490,7 +1484,7 @@ app.put('/api/update_geometry/:tb', async (req, res) => {
         await pool.query(`
             DO $$ BEGIN
                 UPDATE reclass_${tb}
-                SET check_area = NULL, check_shape = NULL, reviewer = NULL, review_ts = NULL
+                SET check_shape = NULL, reviewer = NULL, review_ts = NULL
                 WHERE sub_id = '${sub_id.replace(/'/g, "''")}';
             EXCEPTION WHEN undefined_column THEN NULL; END $$;
         `);
