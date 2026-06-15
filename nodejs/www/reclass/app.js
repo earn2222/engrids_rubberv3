@@ -426,6 +426,44 @@ function updateClasstypeColor(value) {
     if (value && classtypeColorMap[value]) el.classList.add(classtypeColorMap[value]);
 }
 
+// ── Classtype dropdown filter ─────────────────────────────
+// ct = "rubber" → show rubber + excluded areas (hide not-rubber / Other)
+// ct = anything else (empty/null/other) → show all options
+function filterClasstypeOptions(ct) {
+    const select = document.getElementById('classtype');
+    const savedVal = select.value;
+
+    const ALL_OPTIONS = `
+        <option value="rubber">ยางพาราที่ลงทะเบียน</option>
+        <optgroup label="พื้นที่กันออก">
+            <option value="ex_age_rubber">พื้นที่กันออก (ยางพาราต่างอายุ)</option>
+            <option value="ex_building">พื้นที่กันออก (สิ่งปลูกสร้าง)</option>
+            <option value="ex_pond">พื้นที่กันออก (บ่อน้ำ)</option>
+            <option value="ex_cr_area">พื้นที่กันออก (ถนนคอนกรีต)</option>
+            <option value="ex_ar_area">พื้นที่กันออก (ถนนลาดยาง)</option>
+            <option value="ex_other">พื้นที่กันออก (เพิ่มเติม)</option>
+        </optgroup>
+        <option value="not-rubber">ยางพาราที่ไม่ได้ลงทะเบียน</option>
+        <option value="Other">ไม่ใช่ยางพารา</option>
+    `;
+    const RUBBER_OPTIONS = `
+        <option value="rubber">ยางพาราที่ลงทะเบียน</option>
+        <optgroup label="พื้นที่กันออก">
+            <option value="ex_age_rubber">พื้นที่กันออก (ยางพาราต่างอายุ)</option>
+            <option value="ex_building">พื้นที่กันออก (สิ่งปลูกสร้าง)</option>
+            <option value="ex_pond">พื้นที่กันออก (บ่อน้ำ)</option>
+            <option value="ex_cr_area">พื้นที่กันออก (ถนนคอนกรีต)</option>
+            <option value="ex_ar_area">พื้นที่กันออก (ถนนลาดยาง)</option>
+            <option value="ex_other">พื้นที่กันออก (เพิ่มเติม)</option>
+        </optgroup>
+    `;
+
+    select.innerHTML = '<option value=""></option>';
+    select.insertAdjacentHTML('beforeend', ct === 'rubber' ? RUBBER_OPTIONS : ALL_OPTIONS);
+
+    if (savedVal) select.value = savedVal;
+}
+
 function showFeaturePanel(feature) {
     document.getElementById('sub_id').value = feature.get('sub_id') || '';
     document.getElementById('xls_id_farmer').value = feature.get('Farmer_ID') || '';
@@ -434,6 +472,7 @@ function showFeaturePanel(feature) {
     const currentArea = feature.get('shpsplit_sqm');
     document.getElementById('current_sqm').value = currentArea ? Math.round(currentArea).toLocaleString('th-TH') : '';
     const ct = feature.get('classtype');
+    filterClasstypeOptions(ct);
     document.getElementById('classtype').value = ct ? ct : '';
     updateClasstypeColor(ct);
 
@@ -903,6 +942,7 @@ document.getElementById('clear').addEventListener('click', () => {
     document.getElementById('xls_id_farmer').value = '';
 
     document.getElementById('current_sqm').value = '';
+    filterClasstypeOptions(null);
     document.getElementById('classtype').value = '';
 });
 
@@ -1592,6 +1632,8 @@ const initApp = async () => {
     }
     document.getElementById('id').value = id;
     document.getElementById('tb').value = tb;
+
+    filterClasstypeOptions(null);
 
     await loadGeoData(id);
     buildMapToolbar();
