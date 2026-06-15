@@ -17,17 +17,11 @@ const _getWorkerNavIds = (allRows) => {
     if (_workerStatusFilter === 'all') {
         return [...new Set(allRows.map(r => String(r.id)))];
     }
-    const _isPartial = r => {
-        const hasAny = r.check_area || r.check_shape;
-        const pass = r.check_area === 'ผ่าน' && r.check_shape === 'ผ่าน';
-        const fail = r.check_area === 'ไม่ผ่าน' || r.check_shape === 'ไม่ผ่าน';
-        return hasAny && !pass && !fail;
-    };
     const filtered = allRows.filter(r => {
-        if (_workerStatusFilter === 'unchecked') return !r.check_area && !r.check_shape;
-        if (_workerStatusFilter === 'pass') return r.check_area === 'ผ่าน' && r.check_shape === 'ผ่าน';
-        if (_workerStatusFilter === 'fail') return r.check_area === 'ไม่ผ่าน' || r.check_shape === 'ไม่ผ่าน';
-        if (_workerStatusFilter === 'partial') return _isPartial(r);
+        if (_workerStatusFilter === 'unchecked') return !r.check_shape;
+        if (_workerStatusFilter === 'pass') return r.check_shape === 'ผ่าน';
+        if (_workerStatusFilter === 'fail') return r.check_shape === 'ไม่ผ่าน';
+        if (_workerStatusFilter === 'remark') return !!(r.remark || r.user_remark);
         return true;
     });
     return [...new Set(filtered.map(r => String(r.id)))];
@@ -74,11 +68,9 @@ $.fn.dataTable.ext.search.push(function (settings, data, dataIndex) {
         const rowData = settings.aoData[dataIndex]._aData;
         if (!rowData) return true;
         switch (_activeFilter) {
-            case 'none': return !rowData.check_area && !rowData.check_shape;
-            case 'pass': return rowData.check_area === 'ผ่าน' && rowData.check_shape === 'ผ่าน';
-            case 'fail': return rowData.check_area === 'ไม่ผ่าน' || rowData.check_shape === 'ไม่ผ่าน';
-            case 'mixed': return (rowData.check_area === 'ผ่าน' && rowData.check_shape === 'ไม่ผ่าน') ||
-                (rowData.check_area === 'ไม่ผ่าน' && rowData.check_shape === 'ผ่าน');
+            case 'none': return !rowData.check_shape;
+            case 'pass': return rowData.check_shape === 'ผ่าน';
+            case 'fail': return rowData.check_shape === 'ไม่ผ่าน';
             case 'remark': return !!(rowData.remark || rowData.user_remark);
             default: return true;
         }
@@ -423,11 +415,11 @@ const buildWorkerPlotList = (filterId = null) => {
     // Counts = number of unique parent IDs in each status (always global, not per-ID)
     const allUniqueIds = [...new Set(allRows.map(r => String(r.id)))];
     const getSubsOf = id => allRows.filter(r => String(r.id) === id);
-    const cntAll = allUniqueIds.length;
-    const cntUnchecked = allUniqueIds.filter(id => getSubsOf(id).every(r => !r.check_shape)).length;
-    const cntPass = allUniqueIds.filter(id => getSubsOf(id).every(r => r.check_shape === 'ผ่าน')).length;
-    const cntFail = allUniqueIds.filter(id => getSubsOf(id).some(r => r.check_shape === 'ไม่ผ่าน')).length;
-    const cntRemark = allUniqueIds.filter(id => getSubsOf(id).some(r => !!(r.remark || r.user_remark))).length;
+    const cntAll = allRows.length;
+    const cntUnchecked = allRows.filter(r => !r.check_shape).length;
+    const cntPass = allRows.filter(r => r.check_shape === 'ผ่าน').length;
+    const cntFail = allRows.filter(r => r.check_shape === 'ไม่ผ่าน').length;
+    const cntRemark = allRows.filter(r => !!(r.remark || r.user_remark)).length;
     $('#wfc-pass').text(cntPass);
     $('#wfc-fail').text(cntFail);
     $('#wfc-remark').text(cntRemark);
@@ -566,26 +558,23 @@ const autoSaveUserRemark = async () => {
 const getIdStatus = (allRows, id) => {
     const subs = allRows.filter(r => String(r.id) === String(id));
     if (!subs.length) return 'none';
-    const hasAny = subs.some(r => r.check_shape);
-    if (!hasAny) return 'none';
-    const allPass = subs.every(r => r.check_shape === 'ผ่าน');
-    if (allPass) return 'pass';
     const hasFail = subs.some(r => r.check_shape === 'ไม่ผ่าน');
     if (hasFail) return 'fail';
-    return 'partial';
+    const hasPass = subs.some(r => r.check_shape === 'ผ่าน');
+    if (hasPass) return 'pass';
+    return 'none';
 };
 
 const updateAdminStatusCounts = () => {
     if (!$.fn.DataTable.isDataTable('#featureTable')) return;
     const allRows = $('#featureTable').DataTable().rows().data().toArray();
-    const uniqueIds = [...new Set(allRows.map(r => String(r.id)))];
     let cntNone = 0, cntPass = 0, cntFail = 0, cntRemark = 0;
-    uniqueIds.forEach(id => {
-        const subs = allRows.filter(r => String(r.id) === String(id));
-        if (subs.every(r => !r.check_shape)) cntNone++;
-        if (subs.every(r => r.check_shape === 'ผ่าน')) cntPass++;
-        if (subs.some(r => r.check_shape === 'ไม่ผ่าน')) cntFail++;
-        if (subs.some(r => !!(r.remark || r.user_remark))) cntRemark++;
+    allRows.forEach(r => {
+        if (!r.check_shape) cntNone++;
+        else if (r.check_shape === 'ผ่าน') cntPass++;
+        else if (r.check_shape === 'ไม่ผ่าน') cntFail++;
+
+        if (r.remark || r.user_remark) cntRemark++;
     });
     $('#asc-none').text(cntNone);
     $('#asc-pass').text(cntPass);
@@ -605,7 +594,14 @@ const navigatePlots = async (direction) => {
     const uniqueIds = _userRole === 'worker'
         ? _getWorkerNavIds(allRows)
         : (_adminNavFilter !== 'all'
-            ? allUniqueIds.filter(id => getIdStatus(allRows, id) === _adminNavFilter)
+            ? allUniqueIds.filter(id => {
+                const subs = allRows.filter(r => String(r.id) === id);
+                if (_adminNavFilter === 'remark') return subs.some(r => !!(r.remark || r.user_remark));
+                if (_adminNavFilter === 'none') return subs.some(r => !r.check_shape);
+                if (_adminNavFilter === 'pass') return subs.some(r => r.check_shape === 'ผ่าน');
+                if (_adminNavFilter === 'fail') return subs.some(r => r.check_shape === 'ไม่ผ่าน');
+                return true;
+            })
             : allUniqueIds);
 
     const currentIdIdx = _currentReviewId
@@ -1056,7 +1052,7 @@ const loadGeoData = async () => {
                         } else {
                             if (!cs) return '<span class="text-muted" style="font-size:0.75rem;">⏳ ยังไม่ตรวจ</span>';
                             const csIcon = cs === 'ผ่าน' ? '✅' : cs === 'ไม่ผ่าน' ? '❌' : '—';
-                            return `<div style="font-size:0.78rem;line-height:1.7;white-space:nowrap;">ตรวจสอบ: ${csIcon} ${cs}</div>`;
+                            return `<div style="font-size:0.78rem;line-height:1.7;white-space:nowrap;">ตรวจ: ${csIcon} ${cs}</div>`;
                         }
                     }
                 },
@@ -2264,9 +2260,12 @@ $(document).on('click', '#adminStatusBar .admin-status-card', function () {
         const filtered = _adminNavFilter === 'all'
             ? allUniqueIds
             : allUniqueIds.filter(id => {
-                if (_adminNavFilter === 'remark') return allRows.filter(r => String(r.id) === id).some(r => !!(r.remark || r.user_remark));
-                if (_adminNavFilter === 'none') return allRows.filter(r => String(r.id) === id).every(r => !r.check_shape);
-                return getIdStatus(allRows, id) === _adminNavFilter;
+                const subs = allRows.filter(r => String(r.id) === id);
+                if (_adminNavFilter === 'remark') return subs.some(r => !!(r.remark || r.user_remark));
+                if (_adminNavFilter === 'none') return subs.some(r => !r.check_shape);
+                if (_adminNavFilter === 'pass') return subs.some(r => r.check_shape === 'ผ่าน');
+                if (_adminNavFilter === 'fail') return subs.some(r => r.check_shape === 'ไม่ผ่าน');
+                return true;
             });
         const currentIdx = _currentReviewId ? filtered.indexOf(String(_currentReviewId)) : -1;
         $('#plot-nav-count').text(`${currentIdx >= 0 ? currentIdx + 1 : '-'} / ${filtered.length}`);
