@@ -1043,22 +1043,42 @@ const loadGeoData = async () => {
                     }
                 },
                 {
-                    data: null,
+                    data: 'check_shape',
                     title: 'ตรวจสอบคลาส',
                     render: (data, type, row) => {
-                        const cs = row.check_shape || '';
-                        if (!cs) return '<span class="text-muted" style="font-size:0.75rem;">⏳ ยังไม่ตรวจ</span>';
-                        const csIcon = cs === 'ผ่าน' ? '✅' : cs === 'ไม่ผ่าน' ? '❌' : '—';
-                        return `<div style="font-size:0.78rem;line-height:1.7;white-space:nowrap;">ตรวจสอบ: ${csIcon} ${cs}</div>`;
+                        const cs = data || '';
+                        if (_userRole === 'admin') {
+                            return `<select class="form-select form-select-sm check-shape" style="font-size:0.8rem;">
+                                        <option value="" ${cs === '' ? 'selected' : ''}>-- เลือก --</option>
+                                        <option value="ผ่าน" ${cs === 'ผ่าน' ? 'selected' : ''}>✅ ผ่าน</option>
+                                        <option value="ไม่ผ่าน" ${cs === 'ไม่ผ่าน' ? 'selected' : ''}>❌ ไม่ผ่าน</option>
+                                    </select>`;
+                        } else {
+                            if (!cs) return '<span class="text-muted" style="font-size:0.75rem;">⏳ ยังไม่ตรวจ</span>';
+                            const csIcon = cs === 'ผ่าน' ? '✅' : cs === 'ไม่ผ่าน' ? '❌' : '—';
+                            return `<div style="font-size:0.78rem;line-height:1.7;white-space:nowrap;">ตรวจสอบ: ${csIcon} ${cs}</div>`;
+                        }
                     }
                 },
                 {
                     data: 'remark',
                     title: 'หมายเหตุผู้เช็ก',
                     render: (data, type, row) => {
-                        if (!data) return '<span class="text-muted">-</span>';
-                        const preview = data.length > 22 ? data.substring(0, 22) + '…' : data;
-                        return `<span class="btn-note-popup" data-subid="${row.sub_id}" data-type="checker" style="cursor:pointer;color:#1d4ed8;font-size:0.8rem;" title="${data.replace(/"/g, '&quot;')}"><i class="bi bi-chat-left-text-fill me-1"></i>${preview}</span>`;
+                        const remarkVal = data || '';
+                        if (_userRole === 'admin') {
+                            return `
+                                <div class="input-group input-group-sm">
+                                    <input type="text" class="form-control review-remark" value="${remarkVal.replace(/"/g, '&quot;')}" placeholder="ระบุเหตุผล...">
+                                    <button class="btn btn-outline-primary btn-save-review" type="button" data-subid="${row.sub_id}" title="บันทึกผลการตรวจ">
+                                        <i class="bi bi-floppy"></i>
+                                    </button>
+                                </div>
+                            `;
+                        } else {
+                            if (!remarkVal) return '<span class="text-muted">-</span>';
+                            const preview = remarkVal.length > 22 ? remarkVal.substring(0, 22) + '…' : remarkVal;
+                            return `<span class="btn-note-popup" data-subid="${row.sub_id}" data-type="checker" style="cursor:pointer;color:#1d4ed8;font-size:0.8rem;" title="คลิกเพื่อดูข้อความเต็ม"><i class="bi bi-chat-left-text-fill me-1"></i>${preview}</span>`;
+                        }
                     }
                 },
                 {
@@ -1090,6 +1110,12 @@ const loadGeoData = async () => {
                         return `
                             <div class="input-group input-group-sm">
                                 <input type="text" class="form-control user-remark" value="${remarkVal.replace(/"/g, '&quot;')}" placeholder="ระบุหมายเหตุ...">
+                                <button class="btn btn-outline-info btn-view-user-remark" type="button" data-subid="${row.sub_id}" title="ดูหมายเหตุเต็ม" ${!remarkVal ? 'style="display:none;"' : ''}>
+                                    <i class="bi bi-chat-text"></i>
+                                </button>
+                                <button class="btn btn-outline-danger btn-clear-user-remark" type="button" data-subid="${row.sub_id}" title="ลบหมายเหตุ" ${!remarkVal ? 'style="display:none;"' : ''}>
+                                    <i class="bi bi-trash3"></i>
+                                </button>
                                 <button class="btn btn-outline-success btn-save-user-remark" type="button" data-subid="${row.sub_id}" title="บันทึกหมายเหตุ">
                                     <i class="bi bi-floppy"></i>
                                 </button>
@@ -1721,6 +1747,7 @@ const loadGeoData = async () => {
             const btn = $(this);
             const subId = btn.data('subid');
             const row = btn.closest('tr');
+            const checkArea = '';
             const checkShape = row.find('.check-shape').val();
             const remark = row.find('.review-remark').val();
             const userRemark = row.find('.user-remark').val();
