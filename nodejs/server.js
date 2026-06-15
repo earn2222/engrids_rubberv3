@@ -102,14 +102,16 @@ async function ensureDatabase() {
     }
 }
 
-ensureDatabase().then(() => {
-    app.use('/rub', require('./service/authen'));
-    app.use('/rub', require('./service/api'));
-    app.use('/rub', express.static('www'));
-    app.get('/health', (req, res) => res.json({ status: 'ok' }));
+app.use('/rub', require('./service/authen'));
+app.use('/rub', require('./service/api'));
+app.use('/rub', express.static('www'));
+app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
-    const port = process.env.PORT || 3400;
-    app.listen(port, () => {
-        console.log(`http://localhost:${port}`);
-    });
+const port = process.env.PORT || 3400;
+app.listen(port, () => {
+    console.log(`http://localhost:${port}`);
+});
+
+ensureDatabase().catch(err => {
+    console.error('[startup] Database initialization failed:', err.message);
 });
