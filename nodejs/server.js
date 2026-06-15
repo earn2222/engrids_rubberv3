@@ -107,7 +107,7 @@ app.use('/rub', require('./service/api'));
 app.use('/rub', express.static('www'));
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
-const port = process.env.PORT || 3400;
+const port = process.env.PORT || 3499;
 app.listen(port, () => {
     console.log(`http://localhost:${port}`);
 });

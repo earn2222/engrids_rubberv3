@@ -39,7 +39,7 @@ services:
     volumes:
       - uploads_data:/usr/src/app/uploads
     ports:
-      - "3400:3000"
+      - "3499:3000"
     networks:
       - rub-network
     command: sh -c "nodemon server.js"
@@ -72,7 +72,7 @@ services:
       - backups_data:/backups
       - ./backups:/backup-host
     ports:
-      - "8100:8100"
+      - "8199:8100"
     networks:
       - rub-network
 
