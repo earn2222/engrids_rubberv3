@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const session = require('express-session');
 const passport = require('passport');
 const { Pool } = require('pg');
@@ -24,7 +24,7 @@ app.use(session({
     saveUninitialized: false,
     proxy: true,
     cookie: {
-        secure: (process.env.GOOGLE_CALLBACK_URL || '').startsWith('https'),
+        secure: false,
         sameSite: 'lax',
     }
 }));
