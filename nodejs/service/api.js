@@ -706,9 +706,9 @@ app.get('/api/getreclassfeatures/:tb', async (req, res) => {
         await ensureReclassReviewColumns(tb);
 
         await pool.query(`
-            UPDATE reclass_${tb} 
+            UPDATE reclass_${tb}
             SET "Class_Area" = ROUND((shpsplit_sqm / 1600.0), 2)
-            WHERE "Class_Area" IS NULL AND shpsplit_sqm IS NOT NULL;
+            WHERE "Class_Area" IS NULL AND shpsplit_sqm IS NOT NULL AND "Classtype" IS NOT NULL;
         `);
 
         const sql = `SELECT a.id,
@@ -724,7 +724,7 @@ app.get('/api/getreclassfeatures/:tb', async (req, res) => {
                     b."Sqm_Rechac" AS sqm_rechac,
                     b."Rai_Rechac" AS rai_rechac,
                     a.shpsplit_sqm,
-                    a."Class_Area",
+                    CASE WHEN a."Classtype" IS NOT NULL THEN a."Class_Area" ELSE NULL END AS "Class_Area",
 
                     a.check_shape,
                     a.remark,
@@ -2130,7 +2130,9 @@ app.post('/api/upload-shapefile', upload.single('shpFile'), async (req, res) => 
                 a."Sqm_Rechac", a."Rai_Rechac",
                 a.editor AS a_editor, a.ts AS a_ts,
                 r.fid AS reclass_fid, r.sub_id AS reclass_sub_id,
-                r.shpsplit_sqm AS r_shpsplit_sqm, r."Class_Area", r."Classtype",
+                r.shpsplit_sqm AS r_shpsplit_sqm,
+                CASE WHEN r."Classtype" IS NOT NULL THEN r."Class_Area" ELSE NULL END AS "Class_Area",
+                r."Classtype",
                 r.editor AS reclass_editor, r.ts AS r_ts, r.geom
             FROM ${tb_name} AS a
             JOIN reclass_${tb_name} AS r ON a.id = r.id;
@@ -2199,7 +2201,7 @@ app.post('/api/upload-shapefile', upload.single('shpFile'), async (req, res) => 
                         RETURNING id, "Farmer_ID" AS farmer_id, "Sqm_Rechac" AS shpsplit_sqm, geom, geom_point
                     )
                     INSERT INTO reclass_${tb_name} (id, sub_id, farmer_id, shpsplit_sqm, "Class_Area", geom, geom_point, "Classtype")
-                    SELECT id, id::text, farmer_id, shpsplit_sqm, ROUND((shpsplit_sqm::numeric / 1600.0), 2), geom, geom_point, '${geom_type}' FROM main_ins;
+                    SELECT id, id::text, farmer_id, shpsplit_sqm, NULL, geom, geom_point, NULL FROM main_ins;
                 `;
                 const params = [
                     geomJson,
@@ -2371,7 +2373,9 @@ app.post('/api/create-project', async (req, res) => {
                 a."Sqm_Rechac", a."Rai_Rechac",
                 a.editor AS a_editor, a.ts AS a_ts,
                 r.fid AS reclass_fid, r.sub_id AS reclass_sub_id,
-                r.shpsplit_sqm AS r_shpsplit_sqm, r."Class_Area", r."Classtype",
+                r.shpsplit_sqm AS r_shpsplit_sqm,
+                CASE WHEN r."Classtype" IS NOT NULL THEN r."Class_Area" ELSE NULL END AS "Class_Area",
+                r."Classtype",
                 r.editor AS reclass_editor, r.ts AS r_ts, r.geom
             FROM ${safe_name} AS a
             JOIN reclass_${safe_name} AS r ON a.id = r.id;
@@ -2546,7 +2550,7 @@ app.post('/api/upload-shapefile-to-table', upload.single('shpFile'), async (req,
                         RETURNING id, "Farmer_ID" AS farmer_id, "Sqm_Rechac" AS shpsplit_sqm, geom, geom_point
                     )
                     INSERT INTO reclass_${safe_name} (id, sub_id, farmer_id, shpsplit_sqm, "Class_Area", geom, geom_point, "Classtype")
-                    SELECT id, id::text, farmer_id, shpsplit_sqm, ROUND((shpsplit_sqm::numeric / 1600.0), 2), geom, geom_point, '${geom_type}' FROM main_ins;
+                    SELECT id, id::text, farmer_id, shpsplit_sqm, NULL, geom, geom_point, NULL FROM main_ins;
                 `;
                 const params = [
                     geomJson,
@@ -2767,13 +2771,13 @@ app.post('/api/restore-from-backup/:tb/:id', async (req, res) => {
                 // ไม่มีใน reclass → INSERT row ใหม่ด้วยค่าต้นฉบับ
                 await pool.query(`
                     INSERT INTO reclass_${tb} (id, sub_id, farmer_id, shpsplit_sqm, "Class_Area", geom, "Classtype")
-                    VALUES ($1, $2::text, $3, $4, $5, 'polygon')
+                    VALUES ($1, $2::text, $3, $4, NULL, ST_GeomFromGeoJSON($5), NULL)
                     ON CONFLICT DO NOTHING
                 `, [
                     featureId,
                     featureId.toString(),
                     restoredRow['Farmer_ID'],
-                    originalShparea,           // ← ค่าเนื้อที่ต้นฉบับจาก backup
+                    originalShparea,
                     restoredRow.geom
                 ]);
                 reclassRestored = 1;
