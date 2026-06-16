@@ -19,10 +19,14 @@ const _getWorkerNavIds = (allRows) => {
     const allUniqueIds = [...new Set(allRows.map(r => String(r.id)))];
     return allUniqueIds.filter(id => {
         const subs = allRows.filter(r => String(r.id) === id);
+        const hasUnchecked = subs.some(r => !r.check_shape);
+        const hasFail = subs.some(r => r.check_shape === 'ไม่ผ่าน');
+        const hasPass = subs.some(r => r.check_shape === 'ผ่าน');
+
         if (_workerStatusFilter === 'remark') return subs.some(r => !!(r.remark || r.user_remark));
-        if (_workerStatusFilter === 'fail') return subs.some(r => r.check_shape === 'ไม่ผ่าน');
-        if (_workerStatusFilter === 'pass') return !subs.some(r => r.check_shape === 'ไม่ผ่าน') && subs.some(r => r.check_shape === 'ผ่าน');
-        if (_workerStatusFilter === 'unchecked') return !subs.some(r => r.check_shape === 'ไม่ผ่าน') && !subs.some(r => r.check_shape === 'ผ่าน');
+        if (_workerStatusFilter === 'unchecked') return hasUnchecked;
+        if (_workerStatusFilter === 'fail') return !hasUnchecked && hasFail;
+        if (_workerStatusFilter === 'pass') return !hasUnchecked && !hasFail && hasPass;
         return true;
     });
 };
@@ -34,10 +38,14 @@ const _getAdminNavIds = (allRows) => {
     const allUniqueIds = [...new Set(allRows.map(r => String(r.id)))];
     return allUniqueIds.filter(id => {
         const subs = allRows.filter(r => String(r.id) === id);
+        const hasUnchecked = subs.some(r => !r.check_shape);
+        const hasFail = subs.some(r => r.check_shape === 'ไม่ผ่าน');
+        const hasPass = subs.some(r => r.check_shape === 'ผ่าน');
+
         if (_adminNavFilter === 'remark') return subs.some(r => !!(r.remark || r.user_remark));
-        if (_adminNavFilter === 'fail') return subs.some(r => r.check_shape === 'ไม่ผ่าน');
-        if (_adminNavFilter === 'pass') return !subs.some(r => r.check_shape === 'ไม่ผ่าน') && subs.some(r => r.check_shape === 'ผ่าน');
-        if (_adminNavFilter === 'none') return !subs.some(r => r.check_shape === 'ไม่ผ่าน') && !subs.some(r => r.check_shape === 'ผ่าน');
+        if (_adminNavFilter === 'none') return hasUnchecked;
+        if (_adminNavFilter === 'fail') return !hasUnchecked && hasFail;
+        if (_adminNavFilter === 'pass') return !hasUnchecked && !hasFail && hasPass;
         return true;
     });
 };
@@ -435,9 +443,14 @@ const buildWorkerPlotList = (filterId = null) => {
         const subs = getSubsOf(id);
         if (subs.some(r => r.remark || r.user_remark)) cntRemark++;
         
-        if (subs.some(r => r.check_shape === 'ไม่ผ่าน')) cntFail++;
-        else if (subs.some(r => r.check_shape === 'ผ่าน')) cntPass++;
-        else cntUnchecked++;
+        const hasUnchecked = subs.some(r => !r.check_shape);
+        if (hasUnchecked) {
+            cntUnchecked++;
+        } else if (subs.some(r => r.check_shape === 'ไม่ผ่าน')) {
+            cntFail++;
+        } else {
+            cntPass++;
+        }
     });
 
     $('#wfc-pass').text(cntPass);
@@ -584,11 +597,11 @@ const autoSaveUserRemark = async () => {
 const getIdStatus = (allRows, id) => {
     const subs = allRows.filter(r => String(r.id) === String(id));
     if (!subs.length) return 'none';
+    const hasUnchecked = subs.some(r => !r.check_shape);
+    if (hasUnchecked) return 'none';
     const hasFail = subs.some(r => r.check_shape === 'ไม่ผ่าน');
     if (hasFail) return 'fail';
-    const hasPass = subs.some(r => r.check_shape === 'ผ่าน');
-    if (hasPass) return 'pass';
-    return 'none';
+    return 'pass';
 };
 
 const updateAdminStatusCounts = () => {
@@ -605,9 +618,14 @@ const updateAdminStatusCounts = () => {
         
         if (subs.some(r => r.remark || r.user_remark)) cntRemark++;
         
-        if (subs.some(r => r.check_shape === 'ไม่ผ่าน')) cntFail++;
-        else if (subs.some(r => r.check_shape === 'ผ่าน')) cntPass++;
-        else cntNone++;
+        const hasUnchecked = subs.some(r => !r.check_shape);
+        if (hasUnchecked) {
+            cntNone++;
+        } else if (subs.some(r => r.check_shape === 'ไม่ผ่าน')) {
+            cntFail++;
+        } else {
+            cntPass++;
+        }
     });
     
     $('#asc-none').text(cntNone);
