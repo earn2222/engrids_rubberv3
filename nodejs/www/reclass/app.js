@@ -309,7 +309,7 @@ async function updateAreaDisplay(feature) {
         document.getElementById('current_sqm').value = round.toLocaleString('th-TH');
         document.getElementById('current_rai').value = (area / 1600).toLocaleString('th-TH', { maximumFractionDigits: 4 });
         feature.set('shpsplit_sqm', area);
-        feature.set('Rubr_Area', (area / 1600).toFixed(2));
+        feature.set('class_Area', (area / 1600).toFixed(2));
     } catch (err) {
         console.error('Area calc error:', err);
     }
@@ -357,7 +357,7 @@ const loadGeoData = async (id, shouldFit = true) => {
                 sub_id: item.sub_id,
                 Farmer_ID: item.farmer_id || item['Farmer_ID'],
                 shpsplit_sqm: item.shpsplit_sqm,
-                Rubr_Area: item['Rubr_Area'] || (item.shpsplit_sqm / 1600),
+                class_Area: item['class_Area'] || (item.shpsplit_sqm / 1600),
                 classtype: item.classtype,
                 check_area: item.check_area || '',
                 check_shape: item.check_shape || '',

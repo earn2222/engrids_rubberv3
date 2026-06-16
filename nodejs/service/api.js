@@ -93,7 +93,7 @@ async function ensureReclassReviewColumns(tb) {
         { name: 'user_remark',    type: 'text' },
         { name: 'user_remark_ts', type: 'timestamp without time zone' },
         { name: 'user_name',      type: 'text' },
-        { name: '"Rubr_Area"',    type: 'numeric' },
+        { name: '"class_Area"',    type: 'numeric' },
     ];
     for (const col of cols) {
         await pool.query(`
@@ -198,11 +198,13 @@ app.get('/api/getfeatures/:tb/:fid', async (req, res) => {
 
         let sql, values;
         if (reclassTableExists) {
+            await ensureReclassReviewColumns(tb);
+
             sql = `SELECT r.id,
                         r.sub_id,
                         r.classtype,
                         r.shpsplit_sqm,
-                        r."Rubr_Area",
+                        r."class_Area",
                         r.check_area,
                         r.check_shape,
                         r.remark,
@@ -424,7 +426,7 @@ app.put('/api/restorefeatures/:tb/:id', async (req, res) => {
                         // Point: sync geom_point กลับต้นฉบับ + reset geom = NULL ใน reclass
                         await pool.query(`
                             UPDATE reclass_${tb}
-                            SET shpsplit_sqm = $1, "Rubr_Area" = ROUND(($1::numeric / 1600.0), 2),
+                            SET shpsplit_sqm = $1, "class_Area" = ROUND(($1::numeric / 1600.0), 2),
                                 geom        = NULL,
                                 geom_point  = b.geom_point
                             FROM backup_${tb} AS b
@@ -436,7 +438,7 @@ app.put('/api/restorefeatures/:tb/:id', async (req, res) => {
                         // Polygon: sync shpsplit_sqm เท่านั้น
                         await pool.query(`
                             UPDATE reclass_${tb}
-                            SET shpsplit_sqm = $1, "Rubr_Area" = ROUND(($1::numeric / 1600.0), 2)
+                            SET shpsplit_sqm = $1, "class_Area" = ROUND(($1::numeric / 1600.0), 2)
                             WHERE id = $2 AND (sub_id = $3 OR sub_id = $2::text)
                         `, [bk['Sqm_Rechac'], featureId, featureId.toString()]);
                     }
@@ -708,25 +710,12 @@ app.get('/api/getreclassfeatures/:tb', async (req, res) => {
         }
 
         // Auto-add review columns if they don't exist (for older tables)
-        const alterCols = ['check_area', 'check_shape', 'remark', 'reviewer', 'user_remark', 'review_ts', 'user_remark_ts', 'user_name', 'Rubr_Area'];
-        for (const col of alterCols) {
-            let colType = 'text';
-            if (col === 'review_ts' || col === 'user_remark_ts') colType = 'timestamp without time zone';
-            if (col === 'Rubr_Area') colType = 'numeric';
-            let colName = col === 'Rubr_Area' ? '"Rubr_Area"' : col;
-            await pool.query(`
-                DO $$ BEGIN
-                    ALTER TABLE reclass_${tb} ADD COLUMN ${colName} ${colType};
-                EXCEPTION
-                    WHEN duplicate_column THEN NULL;
-                END $$;
-            `);
-        }
+        await ensureReclassReviewColumns(tb);
 
         await pool.query(`
             UPDATE reclass_${tb} 
-            SET "Rubr_Area" = ROUND((shpsplit_sqm / 1600.0), 2)
-            WHERE "Rubr_Area" IS NULL AND shpsplit_sqm IS NOT NULL;
+            SET "class_Area" = ROUND((shpsplit_sqm / 1600.0), 2)
+            WHERE "class_Area" IS NULL AND shpsplit_sqm IS NOT NULL;
         `);
 
         const sql = `SELECT a.id,
@@ -743,7 +732,7 @@ app.get('/api/getreclassfeatures/:tb', async (req, res) => {
                     b."Sqm_Rechac" AS sqm_rechac,
                     b."Rai_Rechac" AS rai_rechac,
                     a.shpsplit_sqm,
-                    a."Rubr_Area",
+                    a."class_Area",
 
                     a.check_shape,
                     a.remark,
@@ -1037,7 +1026,7 @@ app.post('/api/create_reclass_feature/:tb', async (req, res) => {
                 WHERE id = $1
                 RETURNING id
             )
-            INSERT INTO reclass_${tb} (id, sub_id, farmer_id, shpsplit_sqm, "Rubr_Area", geom)
+            INSERT INTO reclass_${tb} (id, sub_id, farmer_id, shpsplit_sqm, "class_Area", geom)
             SELECT id, $2, "Farmer_ID", "Sqm_Rechac", ROUND(("Sqm_Rechac"::numeric / 1600.0), 2), geom
             FROM ${tb}
             WHERE id = $1
@@ -1086,7 +1075,7 @@ app.post('/api/create_reclass_layer', async (req, res) => {
                 sub_id text COLLATE pg_catalog."default",
                 id_farmer text COLLATE pg_catalog."default",
                 shpsplit_sqm numeric,
-                "Rubr_Area" numeric,
+                "class_Area" numeric,
                 geom geometry(MultiPolygon,4326),
                 classtype text COLLATE pg_catalog."default",
                 editor text COLLATE pg_catalog."default",
@@ -1149,7 +1138,7 @@ app.post('/api/create_reclass_layer', async (req, res) => {
                     r.sub_id        AS reclass_sub_id,
                      r.id_farmer     AS reclass_id_farmer,
                     r.shpsplit_sqm,
-                    r."Rubr_Area",
+                    r."class_Area",
                     r.classtype,
                     r.editor        AS reclass_editor,
                     r.ts            AS r_ts,
@@ -1279,7 +1268,7 @@ app.post('/api/splitfeature/:tb', async (req, res) => {
                 FROM proportional
             ),
             inserted AS (
-                INSERT INTO reclass_${tb} (farmer_id, geom, sub_id, id, classtype, shpsplit_sqm, "Rubr_Area", editor)
+                INSERT INTO reclass_${tb} (farmer_id, geom, sub_id, id, classtype, shpsplit_sqm, "class_Area", editor)
                 SELECT
                     $4,
                     ST_Multi(geom_4326),
@@ -1292,7 +1281,7 @@ app.post('/api/splitfeature/:tb', async (req, res) => {
                 FROM final_areas
                 RETURNING *
             )
-            SELECT id, sub_id, classtype, farmer_id, shpsplit_sqm, "Rubr_Area",
+            SELECT id, sub_id, classtype, farmer_id, shpsplit_sqm, "class_Area",
                    ST_AsGeoJSON(geom, 15) AS geom
             FROM inserted
         `, [
@@ -1354,12 +1343,12 @@ app.post('/api/unsplit_feature/:tb', async (req, res) => {
 
             // 2) Re-insert แปลงเดิมจาก main table (sub_id = id.toString())
             const inserted = await client.query(`
-                INSERT INTO reclass_${tb} (id, sub_id, farmer_id, shpsplit_sqm, "Rubr_Area", geom, classtype, editor)
+                INSERT INTO reclass_${tb} (id, sub_id, farmer_id, shpsplit_sqm, "class_Area", geom, classtype, editor)
                 SELECT id,
                        id::text AS sub_id,
                        "Farmer_ID",
                        "Sqm_Rechac" AS shpsplit_sqm,
-                       ROUND(("Sqm_Rechac"::numeric / 1600.0), 2) AS "Rubr_Area",
+                       ROUND(("Sqm_Rechac"::numeric / 1600.0), 2) AS "class_Area",
                        ST_Multi(geom) AS geom,
                        NULL AS classtype,
                        $2 AS editor
@@ -1543,7 +1532,7 @@ app.get('/api/download/reshape/:tb', async (req, res) => {
                                                 WHEN 'ex_other' THEN 'พื้นที่กันออก (เพิ่มเติม)'
                                                 ELSE r.classtype
                                             END,
-                            'Rubr_Area',    r."Rubr_Area",
+                            'class_Area',    r."class_Area",
                             'id',           r.id,
                             'Farmer_ID',    TRANSLATE(m."Farmer_ID"::text, '๐๑๒๓๔๕๖๗๘๙', '0123456789'),
                             'Land_ID',      m."Land_ID",
@@ -1575,7 +1564,7 @@ app.get('/api/download/reshape/:tb', async (req, res) => {
                             'ts',           r.ts
                         )
                     ) AS feat,
-                    m."Farmer_ID" AS regis_no
+                    m."Farm_ID" AS regis_no
                     FROM reclass_${baseTb} r
                     JOIN ${baseTb} m ON r.id = m.id
                     WHERE r.geom IS NOT NULL ${extraTypeCondition}
@@ -1625,7 +1614,7 @@ app.get('/api/download/reshape/:tb', async (req, res) => {
                             'ts',           m.ts
                         )
                     ) AS feat,
-                    m."Farmer_ID" AS regis_no
+                    m."Farm_ID" AS regis_no
                     FROM ${tb} m
                     WHERE m.geom IS NOT NULL
                 ) f;
@@ -2159,7 +2148,7 @@ app.post('/api/upload-shapefile', upload.single('shpFile'), async (req, res) => 
             CREATE INDEX idx_${tb_name}_geom_point ON ${tb_name} USING GIST(geom_point);
 
             CREATE TABLE reclass_${tb_name} (
-                fid SERIAL PRIMARY KEY, id INTEGER, sub_id TEXT, farmer_id TEXT, shpsplit_sqm NUMERIC, "Rubr_Area" NUMERIC, geom GEOMETRY(MultiPolygon, 4326), geom_point GEOMETRY(Point, 4326), classtype TEXT, editor TEXT, ts TIMESTAMP DEFAULT NOW()
+                fid SERIAL PRIMARY KEY, id INTEGER, sub_id TEXT, farmer_id TEXT, shpsplit_sqm NUMERIC, "class_Area" NUMERIC, geom GEOMETRY(MultiPolygon, 4326), geom_point GEOMETRY(Point, 4326), classtype TEXT, editor TEXT, ts TIMESTAMP DEFAULT NOW()
             );
             CREATE INDEX idx_reclass_${tb_name}_geom ON reclass_${tb_name} USING GIST(geom);
 
@@ -2175,7 +2164,7 @@ app.post('/api/upload-shapefile', upload.single('shpFile'), async (req, res) => 
                 a.refinal, a.classified,
                 a.editor AS a_editor, a.ts AS a_ts,
                 r.fid AS reclass_fid, r.sub_id AS reclass_sub_id,
-                r.shpsplit_sqm AS r_shpsplit_sqm, r."Rubr_Area", r.classtype,
+                r.shpsplit_sqm AS r_shpsplit_sqm, r."class_Area", r.classtype,
                 r.editor AS reclass_editor, r.ts AS r_ts, r.geom
             FROM ${tb_name} AS a
             JOIN reclass_${tb_name} AS r ON a.id = r.id;
@@ -2245,7 +2234,7 @@ app.post('/api/upload-shapefile', upload.single('shpFile'), async (req, res) => 
                         )
                         RETURNING id, "Farmer_ID" AS farmer_id, "Sqm_Rechac" AS shpsplit_sqm, geom, geom_point
                     )
-                    INSERT INTO reclass_${tb_name} (id, sub_id, farmer_id, shpsplit_sqm, "Rubr_Area", geom, geom_point, classtype)
+                    INSERT INTO reclass_${tb_name} (id, sub_id, farmer_id, shpsplit_sqm, "class_Area", geom, geom_point, classtype)
                     SELECT id, id::text, farmer_id, shpsplit_sqm, ROUND((shpsplit_sqm::numeric / 1600.0), 2), geom, geom_point, '${geom_type}' FROM main_ins;
                 `;
                 const params = [
@@ -2396,7 +2385,7 @@ app.post('/api/create-project', async (req, res) => {
                 sub_id       TEXT,
                 farmer_id    TEXT,
                 shpsplit_sqm NUMERIC,
-                "Rubr_Area" NUMERIC,
+                "class_Area" NUMERIC,
                 geom         GEOMETRY(MultiPolygon, 4326),
                 geom_point   GEOMETRY(Point, 4326),
                 classtype    TEXT,
@@ -2422,7 +2411,7 @@ app.post('/api/create-project', async (req, res) => {
                 a.refinal, a.classified,
                 a.editor AS a_editor, a.ts AS a_ts,
                 r.fid AS reclass_fid, r.sub_id AS reclass_sub_id,
-                r.shpsplit_sqm AS r_shpsplit_sqm, r."Rubr_Area", r.classtype,
+                r.shpsplit_sqm AS r_shpsplit_sqm, r."class_Area", r.classtype,
                 r.editor AS reclass_editor, r.ts AS r_ts, r.geom
             FROM ${safe_name} AS a
             JOIN reclass_${safe_name} AS r ON a.id = r.id;
@@ -2478,10 +2467,10 @@ app.post('/api/upload-shapefile-to-table', upload.single('shpFile'), async (req,
             return res.status(404).json({ error: `Table "${tb_name}" not found. Please create the project first.` });
         }
 
-        // Ensure reclass table has Rubr_Area before uploading
+        // Ensure reclass table has class_Area before uploading
         await pool.query(`
             DO $$ BEGIN
-                ALTER TABLE reclass_${safe_name} ADD COLUMN "Rubr_Area" numeric;
+                ALTER TABLE reclass_${safe_name} ADD COLUMN "class_Area" numeric;
             EXCEPTION
                 WHEN duplicate_column THEN NULL;
                 WHEN undefined_table THEN NULL;
@@ -2590,7 +2579,7 @@ app.post('/api/upload-shapefile-to-table', upload.single('shpFile'), async (req,
                         )
                         RETURNING id, "Farmer_ID" AS farmer_id, "Sqm_Rechac" AS shpsplit_sqm, geom, geom_point
                     )
-                    INSERT INTO reclass_${safe_name} (id, sub_id, farmer_id, shpsplit_sqm, "Rubr_Area", geom, geom_point, classtype)
+                    INSERT INTO reclass_${safe_name} (id, sub_id, farmer_id, shpsplit_sqm, "class_Area", geom, geom_point, classtype)
                     SELECT id, id::text, farmer_id, shpsplit_sqm, ROUND((shpsplit_sqm::numeric / 1600.0), 2), geom, geom_point, '${geom_type}' FROM main_ins;
                 `;
                 const params = [
@@ -2812,7 +2801,7 @@ app.post('/api/restore-from-backup/:tb/:id', async (req, res) => {
             if (reclassExists.rowCount === 0) {
                 // ไม่มีใน reclass → INSERT row ใหม่ด้วยค่าต้นฉบับ
                 await pool.query(`
-                    INSERT INTO reclass_${tb} (id, sub_id, farmer_id, shpsplit_sqm, "Rubr_Area", geom, classtype)
+                    INSERT INTO reclass_${tb} (id, sub_id, farmer_id, shpsplit_sqm, "class_Area", geom, classtype)
                     VALUES ($1, $2::text, $3, $4, $5, 'polygon')
                     ON CONFLICT DO NOTHING
                 `, [
@@ -2827,7 +2816,7 @@ app.post('/api/restore-from-backup/:tb/:id', async (req, res) => {
                 // มีอยู่ใน reclass → UPDATE shpsplit_sqm กลับเป็นค่าต้นฉบับ
                 await pool.query(`
                     UPDATE reclass_${tb}
-                    SET shpsplit_sqm = $1, "Rubr_Area" = ROUND(($1::numeric / 1600.0), 2),
+                    SET shpsplit_sqm = $1, "class_Area" = ROUND(($1::numeric / 1600.0), 2),
                         geom        = $2
                     WHERE id = $3
                       AND (sub_id = $4 OR sub_id = $3::text)
