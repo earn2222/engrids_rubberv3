@@ -298,9 +298,8 @@ async function updateAreaDisplay(feature) {
     try {
         const geomGeoJSON = featureToGeoJSON(feature);
         const area = await calculateArea(geomGeoJSON.geometry);
-        const round = Math.round(area);
-        document.getElementById('current_sqm').value = round.toLocaleString('th-TH');
-        document.getElementById('current_rai').value = (area / 1600).toLocaleString('th-TH', { maximumFractionDigits: 4 });
+        document.getElementById('current_sqm').value = Number(area).toLocaleString('th-TH', { maximumFractionDigits: 2 });
+        document.getElementById('current_rai').value = (area / 1600).toLocaleString('th-TH', { maximumFractionDigits: 2 });
         feature.set('shpsplit_sqm', area);
         feature.set('Class_Area', (area / 1600).toFixed(2));
     } catch (err) {
@@ -419,9 +418,9 @@ function showFeaturePanel(feature) {
     document.getElementById('xls_id_farmer').value = feature.get('Farmer_ID') || '';
 
     const currentArea = feature.get('shpsplit_sqm');
-    document.getElementById('current_sqm').value = currentArea ? Math.round(currentArea).toLocaleString('th-TH') : '';
+    document.getElementById('current_sqm').value = currentArea ? Number(currentArea).toLocaleString('th-TH', { maximumFractionDigits: 2 }) : '';
     const classAreaRai = feature.get('Class_Area');
-    document.getElementById('current_rai').value = classAreaRai !== undefined && classAreaRai !== null ? Number(classAreaRai).toLocaleString('th-TH', { maximumFractionDigits: 4 }) : '';
+    document.getElementById('current_rai').value = classAreaRai !== undefined && classAreaRai !== null ? Number(classAreaRai).toLocaleString('th-TH', { maximumFractionDigits: 2 }) : '';
 
     const ct = feature.get('Classtype');
     filterClasstypeOptions(ct);
@@ -1068,7 +1067,7 @@ function startEditMode() {
         const listener = geomSel.on('change', () => {
             if (isReverting) return;
             const area = ol.sphere.getArea(geomSel, { projection: 'EPSG:3857' });
-            document.getElementById('current_sqm').value = Math.round(area).toLocaleString('th-TH');
+            document.getElementById('current_sqm').value = Number(area).toLocaleString('th-TH', { maximumFractionDigits: 2 });
         });
         geomChangeListeners.push(listener);
     });
