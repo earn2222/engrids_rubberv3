@@ -1044,7 +1044,7 @@ const loadGeoData = async () => {
                 {
                     data: 'Class_Area',
                     title: 'เนื้อที่ขณะนี้ไร่',
-                    render: (data) => `<span class="area-num">${Number(data || 0).toLocaleString('th-TH', { maximumFractionDigits: 4 })}</span>`
+                    render: (data) => `<span class="area-num">${Number(data || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 })}</span>`
                 },
                 {
                     data: 'Classtype',
