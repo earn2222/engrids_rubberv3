@@ -90,7 +90,6 @@ async function ensureReclassReviewColumns(tb) {
         { name: 'review_ts',      type: 'timestamp without time zone' },
         { name: 'user_remark',    type: 'text' },
         { name: 'user_remark_ts', type: 'timestamp without time zone' },
-        { name: 'user_name',      type: 'text' },
         { name: '"Class_Area"',    type: 'numeric' },
     ];
     for (const col of cols) {
@@ -270,7 +269,6 @@ app.get('/api/getfeaturesv3/:tb', async (req, res) => {
                 "Name"       AS name,
                 "Surname"    AS surname,
                 "Old_Year"   AS old_year,
-                refinal,
                 "Farmer_ID"  AS farmer_id,
                 "Sqm_Rechac" AS sqm_rechac,
                 "Rai_Rechac" AS rai_rechac,
@@ -278,7 +276,6 @@ app.get('/api/getfeaturesv3/:tb', async (req, res) => {
                 "Rai_Area"   AS rai_area,
                 "Land_ID"    AS land_id,
                 "Zone"       AS zone,
-                classified,
                 ST_AsGeoJSON(geom) AS geom,
                 ${geomPointSelect}
             FROM ${tb}
@@ -542,7 +539,7 @@ app.post('/api/updatefeatures/:tb', async (req, res) => {
             return res.status(400).json({ error: 'Table name is required' });
         }
 
-        const { id, refinal, features, displayName, geometryChanged, currentShpareaSq } = req.body;
+        const { id, features, displayName, geometryChanged, currentShpareaSq } = req.body;
 
         const client = await pool.connect();
 
@@ -716,7 +713,6 @@ app.get('/api/getreclassfeatures/:tb', async (req, res) => {
 
         const sql = `SELECT a.id,
                     a.sub_id,
-                    b.refinal,
                     a."Classtype",
                     a.farmer_id,
                     b."Farmer_ID",
@@ -734,7 +730,6 @@ app.get('/api/getreclassfeatures/:tb', async (req, res) => {
                     a.remark,
                     a.reviewer,
                     a.user_remark,
-                    a.user_name,
                     a.user_remark_ts,
                     a.review_ts,
                     a.ts,
@@ -849,7 +844,7 @@ app.put('/api/update_user_remark/:tb', async (req, res) => {
         if (!tb) {
             return res.status(400).json({ error: 'Table name is required' });
         }
-        const { sub_id, user_remark, user_name } = req.body;
+        const { sub_id, user_remark } = req.body;
         if (!sub_id) {
             return res.status(400).json({ error: 'sub_id is required' });
         }
@@ -857,12 +852,11 @@ app.put('/api/update_user_remark/:tb', async (req, res) => {
         const sql = `
             UPDATE reclass_${tb}
             SET user_remark = $1,
-                user_name = $2,
                 user_remark_ts = CASE WHEN $1::text IS NULL THEN NULL ELSE NOW() END
-            WHERE sub_id = $3
+            WHERE sub_id = $2
             RETURNING *`;
 
-        const values = [user_remark || null, user_name || null, sub_id];
+        const values = [user_remark || null, sub_id];
         const result = await pool.query(sql, values);
 
         if (result.rowCount === 0) {
@@ -963,7 +957,17 @@ app.get('/api/countsfeatures/:tb', async (req, res) => {
         const query = `
         SELECT 
             (SELECT COUNT(*) FROM ${tb}) AS total,
-            (SELECT COUNT(*) FROM ${tb} WHERE classified = TRUE) AS reclass,
+            (
+                CASE 
+                    WHEN to_regclass('reclass_${tb}') IS NOT NULL THEN (
+                        SELECT COUNT(DISTINCT r.id) 
+                        FROM reclass_${tb} r
+                        JOIN ${tb} m ON r.id = m.id
+                        WHERE r."Classtype" IS NOT NULL
+                    )
+                    ELSE 0 
+                END
+            ) AS reclass,
             (
                 CASE 
                     WHEN to_regclass('reclass_${tb}') IS NOT NULL THEN (
@@ -1035,19 +1039,7 @@ app.post('/api/create_reclass_feature/:tb', async (req, res) => {
             return res.status(404).json({ error: 'Feature not found in source table' });
         }
 
-        // uudate reclass column
-        const updateSql = `
-            UPDATE ${tb}
-            SET classified = FALSE
-            WHERE id = $1
-            RETURNING *;
-        `;
-
-        const updateValues = [id];
-        const updateResult = await pool.query(updateSql, updateValues);
-        if (updateResult.rowCount === 0) {
-            return res.status(404).json({ error: 'Feature not found in reclass table' });
-        }
+        // Note: No longer updating classified column since it was removed
 
         res.status(200).json({ success: true, data: result.rows });
 
@@ -1124,10 +1116,8 @@ app.post('/api/create_reclass_layer', async (req, res) => {
                     a.chk,
                     a.diff_chk,
                     a.remark        AS a_remark,
-                    a.refinal       AS a_refinal,
                     a.editor        AS a_editor,
                     a.ts            AS a_ts,
-                    a.classified,
                     a.shparea_sq,
                     r.fid           AS reclass_fid,
                     r.id            AS reclass_parent_id,
@@ -1403,14 +1393,7 @@ app.put('/api/update_landuse/:tb', async (req, res) => {
             EXCEPTION WHEN undefined_column THEN NULL; END $$;
         `);
 
-        const updateReshape = `
-            UPDATE ${tb}
-            SET classified = TRUE
-            WHERE id = $1
-            RETURNING *;
-        `;
-        const updateReshapeValues = [id];
-        const updateResult = await pool.query(updateReshape, updateReshapeValues);
+        // Note: No longer updating classified column since it was removed
 
         if (result.rowCount === 0) {
             return res.status(404).json({ error: 'Feature not found' });
@@ -2035,7 +2018,6 @@ const normalizeProperties = (props) => {
     normalized.UTM_North  = parseFloat(sourceLower.utm_north)  || 0;
     normalized.Sqm_Rechac = parseFloat(sourceLower.sqm_rechac) || 0;
     normalized.Rai_Rechac = parseFloat(sourceLower.rai_rechac) || 0;
-    normalized.refinal    = sourceLower.refinal    || '';
 
     return normalized;
 };
@@ -2135,8 +2117,6 @@ app.post('/api/upload-shapefile', upload.single('shpFile'), async (req, res) => 
                 "Rai_Rechac"   numeric,
                 geom           GEOMETRY(MultiPolygon, 4326),
                 geom_point     GEOMETRY(Point, 4326),
-                refinal        text,
-                classified     boolean DEFAULT FALSE,
                 editor         text,
                 ts             timestamp DEFAULT NOW()
             );
@@ -2157,7 +2137,6 @@ app.post('/api/upload-shapefile', upload.single('shpFile'), async (req, res) => 
                 a."Plant_Year", a."Old_Year", a."DEM", a."Class_Age", a."Stratum",
                 a."Area_SqM", a."Rai_Area", a."UTM_East", a."UTM_North",
                 a."Sqm_Rechac", a."Rai_Rechac",
-                a.refinal, a.classified,
                 a.editor AS a_editor, a.ts AS a_ts,
                 r.fid AS reclass_fid, r.sub_id AS reclass_sub_id,
                 r.shpsplit_sqm AS r_shpsplit_sqm, r."Class_Area", r."Classtype",
@@ -2215,7 +2194,6 @@ app.post('/api/upload-shapefile', upload.single('shpFile'), async (req, res) => 
                             "Plant_Year", "Old_Year", "DEM", "Class_Age", "Stratum",
                             "Area_SqM", "Rai_Area", "UTM_East", "UTM_North",
                             "Sqm_Rechac", "Rai_Rechac",
-                            refinal,
                             geom, geom_point
                         )
                         VALUES (
@@ -2225,7 +2203,6 @@ app.post('/api/upload-shapefile', upload.single('shpFile'), async (req, res) => 
                             $18,$19,$20,$21,$22,
                             $23,$24,$25,$26,
                             $27,$28,
-                            $29,
                             ${geomVal}, ${geomPointVal}
                         )
                         RETURNING id, "Farmer_ID" AS farmer_id, "Sqm_Rechac" AS shpsplit_sqm, geom, geom_point
@@ -2240,8 +2217,7 @@ app.post('/api/upload-shapefile', upload.single('shpFile'), async (req, res) => 
                     norm.Rai, norm.Land_Type, norm.Area_Rai, norm.Area_Ngan, norm.Area_sqwa,
                     norm.Plant_Year, norm.Old_Year, norm.DEM, norm.Class_Age, norm.Stratum,
                     norm.Area_SqM, norm.Rai_Area, norm.UTM_East, norm.UTM_North,
-                    norm.Sqm_Rechac, norm.Rai_Rechac,
-                    norm.refinal
+                    norm.Sqm_Rechac, norm.Rai_Rechac
                 ];
                 await client.query(insertSql, params);
             }
@@ -2363,8 +2339,6 @@ app.post('/api/create-project', async (req, res) => {
                 "Rai_Rechac"   numeric,
                 geom           GEOMETRY(MultiPolygon, 4326),
                 geom_point     GEOMETRY(Point, 4326),
-                refinal        text,
-                classified     boolean DEFAULT FALSE,
                 editor         text,
                 ts             timestamp DEFAULT NOW()
             );
@@ -2404,7 +2378,6 @@ app.post('/api/create-project', async (req, res) => {
                 a."Plant_Year", a."Old_Year", a."DEM", a."Class_Age", a."Stratum",
                 a."Area_SqM", a."Rai_Area", a."UTM_East", a."UTM_North",
                 a."Sqm_Rechac", a."Rai_Rechac",
-                a.refinal, a.classified,
                 a.editor AS a_editor, a.ts AS a_ts,
                 r.fid AS reclass_fid, r.sub_id AS reclass_sub_id,
                 r.shpsplit_sqm AS r_shpsplit_sqm, r."Class_Area", r."Classtype",
@@ -2560,7 +2533,6 @@ app.post('/api/upload-shapefile-to-table', upload.single('shpFile'), async (req,
                             "Plant_Year", "Old_Year", "DEM", "Class_Age", "Stratum",
                             "Area_SqM", "Rai_Area", "UTM_East", "UTM_North",
                             "Sqm_Rechac", "Rai_Rechac",
-                            refinal,
                             geom, geom_point
                         )
                         VALUES (
@@ -2570,7 +2542,6 @@ app.post('/api/upload-shapefile-to-table', upload.single('shpFile'), async (req,
                             $18,$19,$20,$21,$22,
                             $23,$24,$25,$26,
                             $27,$28,
-                            $29,
                             ${geomVal}, ${geomPointVal}
                         )
                         RETURNING id, "Farmer_ID" AS farmer_id, "Sqm_Rechac" AS shpsplit_sqm, geom, geom_point
@@ -2585,8 +2556,7 @@ app.post('/api/upload-shapefile-to-table', upload.single('shpFile'), async (req,
                     norm.Rai, norm.Land_Type, norm.Area_Rai, norm.Area_Ngan, norm.Area_sqwa,
                     norm.Plant_Year, norm.Old_Year, norm.DEM, norm.Class_Age, norm.Stratum,
                     norm.Area_SqM, norm.Rai_Area, norm.UTM_East, norm.UTM_North,
-                    norm.Sqm_Rechac, norm.Rai_Rechac,
-                    norm.refinal
+                    norm.Sqm_Rechac, norm.Rai_Rechac
                 ];
                 await client.query(insertSql, params);
             }
@@ -3028,13 +2998,6 @@ app.get('/api/task-progress/:tb', async (req, res) => {
             return res.json({ success: true, data: [] });
         }
 
-        // ตรวจว่า main table มี classified column
-        const colCheck = await pool.query(
-            `SELECT column_name FROM information_schema.columns
-             WHERE table_name=$1 AND column_name='classified'`, [tb]
-        );
-        const hasClassified = colCheck.rowCount > 0;
-
         // ตรวจว่า reclass table มีอยู่
         const reclassCheck = await pool.query(
             `SELECT EXISTS(SELECT 1 FROM information_schema.tables
@@ -3049,10 +3012,11 @@ app.get('/api/task-progress/:tb', async (req, res) => {
 
             // นับ classified
             let done = 0;
-            if (hasClassified) {
+            if (hasReclass) {
                 const doneRes = await pool.query(
-                    `SELECT COUNT(*) AS cnt FROM ${tb}
-                     WHERE id >= $1 AND id <= $2 AND classified = TRUE`,
+                    `SELECT COUNT(DISTINCT r.id) AS cnt FROM ${tb} m
+                     JOIN reclass_${tb} r ON m.id = r.id
+                     WHERE m.id >= $1 AND m.id <= $2 AND r."Classtype" IS NOT NULL`,
                     [a.id_from, a.id_to]
                 );
                 done = parseInt(doneRes.rows[0].cnt) || 0;
@@ -3343,7 +3307,10 @@ app.get('/api/checker-summary/:tb', async (req, res) => {
                 SELECT reviewer,
                     COUNT(*) AS sub_plot_count,
                     COUNT(DISTINCT id) AS farmer_count,
-                    ROUND(COALESCE(SUM(shpsplit_sqm), 0)::numeric, 2) AS class_sqm
+                    COUNT(CASE WHEN "Classtype" = 'rubber' THEN 1 END) AS rubber_sub_plot_count,
+                    COUNT(DISTINCT CASE WHEN "Classtype" = 'rubber' THEN id END) AS rubber_farmer_count,
+                    ROUND(COALESCE(SUM(shpsplit_sqm), 0)::numeric, 2) AS class_sqm,
+                    ROUND(COALESCE(SUM(CASE WHEN "Classtype" = 'rubber' THEN shpsplit_sqm ELSE 0 END), 0)::numeric, 2) AS rubber_sqm
                 FROM reclass_${tb}
                 WHERE reviewer IS NOT NULL AND reviewer != ''
                 GROUP BY reviewer
@@ -3351,8 +3318,7 @@ app.get('/api/checker-summary/:tb', async (req, res) => {
             `),
             pool.query(`
                 SELECT r.reviewer,
-                    ROUND(COALESCE(SUM(t."Sqm_Rechac"), 0)::numeric, 2) AS deed_sqm,
-                    ROUND(COALESCE(SUM(t."Sqm_Rechac"), 0)::numeric, 2) AS rubber_sqm
+                    ROUND(COALESCE(SUM(t."Sqm_Rechac"), 0)::numeric, 2) AS deed_sqm
                 FROM (
                     SELECT DISTINCT reviewer, id
                     FROM reclass_${tb}
@@ -3366,25 +3332,27 @@ app.get('/api/checker-summary/:tb', async (req, res) => {
         const deedMap = {};
         deedRes.rows.forEach(r => {
             deedMap[r.reviewer] = {
-                deed_sqm:   parseFloat(r.deed_sqm)   || 0,
-                rubber_sqm: parseFloat(r.rubber_sqm) || 0
+                deed_sqm:   parseFloat(r.deed_sqm)   || 0
             };
         });
 
         const data = classRes.rows.map(r => {
-            const d = deedMap[r.reviewer] || { deed_sqm: 0, rubber_sqm: 0 };
+            const d = deedMap[r.reviewer] || { deed_sqm: 0 };
             const class_sqm = parseFloat(r.class_sqm) || 0;
+            const rubber_sqm = parseFloat(r.rubber_sqm) || 0;
             return {
                 reviewer:       r.reviewer,
                 photo:          photoMap[r.reviewer] || null,
-                sub_plot_count: parseInt(r.sub_plot_count),
-                farmer_count:   parseInt(r.farmer_count),
+                sub_plot_count: parseInt(r.sub_plot_count) || 0,
+                farmer_count:   parseInt(r.farmer_count) || 0,
+                rubber_sub_plot_count: parseInt(r.rubber_sub_plot_count) || 0,
+                rubber_farmer_count: parseInt(r.rubber_farmer_count) || 0,
                 class_sqm,
                 class_rai:   class_sqm / 1600,
                 deed_sqm:    d.deed_sqm,
                 deed_rai:    d.deed_sqm / 1600,
-                rubber_sqm:  d.rubber_sqm,
-                rubber_rai:  d.rubber_sqm / 1600
+                rubber_sqm:  rubber_sqm,
+                rubber_rai:  rubber_sqm / 1600
             };
         });
 

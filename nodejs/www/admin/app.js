@@ -1498,7 +1498,7 @@ function renderCheckerPaymentTable() {
     }
 
     const unitLabels = {
-        class_rai:  'บาท/ไร่ (พื้นที่คลาส)',
+        class_rai:  'บาท/ไร่ (พื้นที่คลาสทั้งหมด)',
         deed_rai:   'บาท/ไร่ (พื้นที่โฉนด)',
         rubber_rai: 'บาท/ไร่ (พื้นที่ยางพารา)',
         plot:       'บาท/แปลง (ID)',
@@ -1524,8 +1524,9 @@ function renderCheckerPaymentTable() {
                 onerror="this.onerror=null;this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(r.reviewer)}&background=e1f5fe&color=0277bd&rounded=true'">`
             : `<img src="https://ui-avatars.com/api/?name=${encodeURIComponent(r.reviewer)}&background=e1f5fe&color=0277bd&rounded=true" class="pay-avatar">`;
 
-        const areaBadge = (sqm) =>
-            `<div class="pay-area-badge">${fmtRai(sqm || 0)}</div>
+        const areaBadge = (sqm, count) =>
+            `${count !== undefined ? `<div class="text-muted small mb-1">${count.toLocaleString()} รายการ</div>` : ''}
+             <div class="pay-area-badge">${fmtRai(sqm || 0)}</div>
              <div class="pay-area-sub">${Math.round(sqm || 0).toLocaleString('th-TH')} ตร.ม.</div>`;
 
         return `<tr>
@@ -1538,9 +1539,9 @@ function renderCheckerPaymentTable() {
             </td>
             <td class="text-center align-middle">${(r.sub_plot_count || 0).toLocaleString()} รายการ</td>
             <td class="text-center align-middle">${(r.farmer_count || 0).toLocaleString()} แปลง</td>
-            <td class="text-center align-middle" style="${isDeed ? hl : ''}">${areaBadge(r.deed_sqm)}</td>
-            <td class="text-center align-middle" style="${isClass ? hl : ''}">${areaBadge(r.class_sqm)}</td>
-            <td class="text-center align-middle" style="${isRubber ? hl : ''}">${areaBadge(r.rubber_sqm)}</td>
+            <td class="text-center align-middle" style="${isDeed ? hl : ''}">-</td>
+            <td class="text-center align-middle" style="${isClass ? hl : ''}">${areaBadge(r.class_sqm, r.sub_plot_count)}</td>
+            <td class="text-center align-middle" style="${isRubber ? hl : ''}">${areaBadge(r.rubber_sqm, r.rubber_sub_plot_count)}</td>
             <td class="text-end fw-bold align-middle pay-amount">${pay.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})} บาท</td>
         </tr>`;
     }).join('');
@@ -1550,6 +1551,7 @@ function renderCheckerPaymentTable() {
     const totalDeedSqm  = data.reduce((s, r) => s + (r.deed_sqm    || 0), 0);
     const totalClassSqm = data.reduce((s, r) => s + (r.class_sqm   || 0), 0);
     const totalRubrSqm  = data.reduce((s, r) => s + (r.rubber_sqm  || 0), 0);
+    const totalRubSubplot = data.reduce((s, r) => s + (r.rubber_sub_plot_count || 0), 0);
 
     let totalPay = 0;
     if (unit === 'class_rai')  totalPay = (totalClassSqm / 1600) * rate;
@@ -1558,8 +1560,9 @@ function renderCheckerPaymentTable() {
     if (unit === 'plot')       totalPay = totalPlot    * rate;
     if (unit === 'subplot')    totalPay = totalSubplot * rate;
 
-    const areaBadge = (sqm) =>
-        `<div class="pay-area-badge">${fmtRai(sqm || 0)}</div>
+    const areaBadgeTotal = (sqm, count) =>
+        `${count !== undefined ? `<div class="text-muted small mb-1">${count.toLocaleString()} รายการ</div>` : ''}
+         <div class="pay-area-badge">${fmtRai(sqm || 0)}</div>
          <div class="pay-area-sub">${Math.round(sqm || 0).toLocaleString('th-TH')} ตร.ม.</div>`;
 
     wrap.innerHTML = `
@@ -1576,7 +1579,7 @@ function renderCheckerPaymentTable() {
                 </tr>
                 <tr>
                     <th class="text-center" style="${isDeed   ? hl : ''}">📄 โฉนด</th>
-                    <th class="text-center" style="${isClass  ? hl : ''}">🗂️ คลาส</th>
+                    <th class="text-center" style="${isClass  ? hl : ''}">🗂️ คลาสทั้งหมด</th>
                     <th class="text-center" style="${isRubber ? hl : ''}">🌿 ยางพารา</th>
                 </tr>
             </thead>
@@ -1586,9 +1589,9 @@ function renderCheckerPaymentTable() {
                     <td colspan="4" class="fw-bold align-middle">รวมทั้งหมด
                         <span class="ms-2 text-muted fw-normal small">${totalSubplot.toLocaleString()} รายการ / ${totalPlot.toLocaleString()} แปลง</span>
                     </td>
-                    <td class="text-center" style="${isDeed   ? hl : ''}">${areaBadge(totalDeedSqm)}</td>
-                    <td class="text-center" style="${isClass  ? hl : ''}">${areaBadge(totalClassSqm)}</td>
-                    <td class="text-center" style="${isRubber ? hl : ''}">${areaBadge(totalRubrSqm)}</td>
+                    <td class="text-center" style="${isDeed   ? hl : ''}">-</td>
+                    <td class="text-center" style="${isClass  ? hl : ''}">${areaBadgeTotal(totalClassSqm, totalSubplot)}</td>
+                    <td class="text-center" style="${isRubber ? hl : ''}">${areaBadgeTotal(totalRubrSqm, totalRubSubplot)}</td>
                     <td class="text-end fw-bold align-middle pay-total-amount">${totalPay.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})} บาท</td>
                 </tr>
             </tfoot>

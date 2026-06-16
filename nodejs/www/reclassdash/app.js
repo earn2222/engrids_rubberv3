@@ -569,7 +569,7 @@ const autoSaveUserRemark = async () => {
         const res = await fetch(`/rub3/api/update_user_remark/${tb}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sub_id: subId, user_remark: userRemark, user_name: displayName })
+            body: JSON.stringify({ sub_id: subId, user_remark: userRemark })
         });
         const data = await res.json();
         if (data.success) {
@@ -579,7 +579,6 @@ const autoSaveUserRemark = async () => {
             if (tableRow.any()) {
                 const rowData = tableRow.data();
                 rowData.user_remark = userRemark;
-                rowData.user_name = displayName;
                 rowData.user_remark_ts = updatedTs;
                 tableRow.data(rowData).draw(false);
             }
@@ -818,9 +817,9 @@ const showFeaturePanel = (feature, layer) => {
     }
 
     // ── User: "บันทึกล่าสุด" footer ──
-    if (props.user_name || props.user_remark) {
+    if (props.user_remark || props.user_remark_ts) {
         $('#panel-user-info').show();
-        $('#panel-user-name').text(props.user_name || '-');
+        $('#panel-user-name').hide();
         if (props.user_remark_ts) {
             const d = new Date(props.user_remark_ts);
             $('#panel-user-time').text(d.toLocaleString('th-TH', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' น.');
@@ -829,7 +828,7 @@ const showFeaturePanel = (feature, layer) => {
         }
     } else {
         $('#panel-user-info').show();
-        $('#panel-user-name').text('ยังไม่มีการบันทึก');
+        $('#panel-user-name').hide();
         $('#panel-user-time').text('');
     }
 
@@ -997,7 +996,6 @@ const loadGeoData = async () => {
         const tableData = data.map(item => ({
             id: item.id,
             sub_id: item.sub_id,
-            refinal: item.refinal,
             geom: JSON.parse(item.geom),
             id_farmer: item.farmer_id || '',
             name: item.name || '',
@@ -1012,7 +1010,6 @@ const loadGeoData = async () => {
             remark: item.remark || '',
             reviewer: item.reviewer || '',
             user_remark: item.user_remark || '',
-            user_name: item.user_name || '',
             user_remark_ts: item.user_remark_ts || '',
             review_ts: item.review_ts || ''
         }));
@@ -1319,7 +1316,7 @@ const loadGeoData = async () => {
                             fetch(`/rub3/api/update_user_remark/${tb}`, {
                                 method: 'PUT',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ sub_id: subId, user_remark: '', user_name: '' })
+                                body: JSON.stringify({ sub_id: subId, user_remark: '' })
                             }).then(r => r.json()).then(() => subId).catch(() => subId)
                         );
                     }
@@ -1338,7 +1335,6 @@ const loadGeoData = async () => {
                         if (isRejected) {
                             rd.user_remark = '';
                             rd.user_remark_ts = '';
-                            rd.user_name = '';
                         }
                         tableRow.data(rd).draw(false);
                         const node = tableRow.node();
@@ -1385,8 +1381,7 @@ const loadGeoData = async () => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         sub_id: subId,
-                        user_remark: userRemark,
-                        user_name: displayName
+                        user_remark: userRemark
                     })
                 });
 
@@ -1402,7 +1397,6 @@ const loadGeoData = async () => {
                     if (tableRow.any()) {
                         const rowData = tableRow.data();
                         rowData.user_remark = userRemark;
-                        rowData.user_name = displayName;
                         rowData.user_remark_ts = data.data && data.data[0] ? data.data[0].user_remark_ts : new Date().toISOString();
                         tableRow.data(rowData).draw(false);
                         // Re-populate panel but preserve dirty=false
@@ -1531,7 +1525,6 @@ const loadGeoData = async () => {
                     properties: {
                         id: row.id,
                         sub_id: row.sub_id,
-                        refinal: row.refinal,
                         id_farmer: row.id_farmer,
                         shpsplit_sqm: row.shpsplit_sqm,
                         Classtype: row.Classtype,
@@ -1721,7 +1714,6 @@ const loadGeoData = async () => {
                     const rowData = dataTable.row(row).data();
                     rowData.user_remark = userRemark;
                     rowData.user_remark_ts = updatedTs;
-                    if (displayName) rowData.user_name = displayName;
                     dataTable.row(row).data(rowData);
 
                     let dateStr = '';
@@ -1860,7 +1852,7 @@ const loadGeoData = async () => {
                             await fetch(`/rub3/api/update_user_remark/${tb}`, {
                                 method: 'PUT',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ sub_id: subId, user_remark: '', user_name: '' })
+                                body: JSON.stringify({ sub_id: subId, user_remark: '' })
                             });
                         } catch (_) { }
                     }
@@ -1890,7 +1882,6 @@ const loadGeoData = async () => {
                     if (isRejected) {
                         rowData.user_remark = '';
                         rowData.user_remark_ts = '';
-                        rowData.user_name = '';
                         // Clear the input in the table row visually
                         row.find('.user-remark').val('');
                         row.find('.user-remark-time').remove();
@@ -2272,7 +2263,7 @@ $(document).on('click', '#worker-sel-delete', async function () {
         const res = await fetch(`/rub3/api/update_user_remark/${tb}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sub_id: subId, user_remark: '', user_name: displayName })
+            body: JSON.stringify({ sub_id: subId, user_remark: '' })
         });
         const data = await res.json();
         if (data.success) {
@@ -2283,7 +2274,7 @@ $(document).on('click', '#worker-sel-delete', async function () {
                 const tableRow = dt.row((idx, d) => String(d.sub_id) === subId);
                 if (tableRow.any()) {
                     const rd = tableRow.data();
-                    rd.user_remark = ''; rd.user_name = ''; rd.user_remark_ts = '';
+                    rd.user_remark = ''; rd.user_remark_ts = '';
                     tableRow.data(rd).draw(false);
                 }
             }
@@ -2394,7 +2385,7 @@ $(document).on('click', '#worker-sel-save', async function () {
         const res = await fetch(`/rub3/api/update_user_remark/${tb}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sub_id: subId, user_remark: remark, user_name: displayName })
+            body: JSON.stringify({ sub_id: subId, user_remark: remark })
         });
         const data = await res.json();
         if (data.success) {
@@ -2405,7 +2396,7 @@ $(document).on('click', '#worker-sel-save', async function () {
                 const tableRow = dt.row((idx, d) => String(d.sub_id) === subId);
                 if (tableRow.any()) {
                     const rd = tableRow.data();
-                    rd.user_remark = remark; rd.user_name = displayName; rd.user_remark_ts = updatedTs;
+                    rd.user_remark = remark; rd.user_remark_ts = updatedTs;
                     tableRow.data(rd).draw(false);
                 }
             }
