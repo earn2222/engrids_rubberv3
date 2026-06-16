@@ -12,13 +12,14 @@ let _currentReviewId = null;
 let _focusedLayer = null;      // { layer, originalStyle } — currently zoomed-to polygon
 let _focusedSubId = null;
 
+const _workerClassTypes = ['rubber', 'Other'];
+
 const _getWorkerNavIds = (allRows) => {
-    if (_workerStatusFilter === 'all') {
-        return [...new Set(allRows.map(r => String(r.id)))];
-    }
     const allUniqueIds = [...new Set(allRows.map(r => String(r.id)))];
     return allUniqueIds.filter(id => {
-        const subs = allRows.filter(r => String(r.id) === id);
+        const subs = allRows.filter(r => String(r.id) === id && _workerClassTypes.includes(r.Classtype));
+        if (subs.length === 0) return false;
+        if (_workerStatusFilter === 'all') return true;
         const hasUnchecked = subs.some(r => !r.check_shape);
         const hasFail = subs.some(r => r.check_shape === 'ไม่ผ่าน');
         const hasPass = subs.some(r => r.check_shape === 'ผ่าน');
@@ -32,12 +33,11 @@ const _getWorkerNavIds = (allRows) => {
 };
 
 const _getAdminNavIds = (allRows) => {
-    if (_adminNavFilter === 'all') {
-        return [...new Set(allRows.map(r => String(r.id)))];
-    }
     const allUniqueIds = [...new Set(allRows.map(r => String(r.id)))];
     return allUniqueIds.filter(id => {
-        const subs = allRows.filter(r => String(r.id) === id);
+        const subs = allRows.filter(r => String(r.id) === id && _workerClassTypes.includes(r.Classtype));
+        if (subs.length === 0) return false;
+        if (_adminNavFilter === 'all') return true;
         const hasUnchecked = subs.some(r => !r.check_shape);
         const hasFail = subs.some(r => r.check_shape === 'ไม่ผ่าน');
         const hasPass = subs.some(r => r.check_shape === 'ผ่าน');
@@ -447,9 +447,10 @@ const buildWorkerPlotList = (filterId = null) => {
     
     let cntUnchecked = 0, cntPass = 0, cntFail = 0, cntRemark = 0;
     allUniqueIds.forEach(id => {
-        const subs = getSubsOf(id);
+        const subs = getSubsOf(id).filter(r => _workerClassTypes.includes(r.Classtype));
+        if (subs.length === 0) return;
         if (subs.some(r => r.remark || r.user_remark)) cntRemark++;
-        
+
         const hasUnchecked = subs.some(r => !r.check_shape);
         if (hasUnchecked) {
             cntUnchecked++;
@@ -619,9 +620,10 @@ const updateAdminStatusCounts = () => {
     
     let cntNone = 0, cntPass = 0, cntFail = 0, cntRemark = 0;
     
+    const workerTypes = ['rubber', 'not-rubber'];
     uniqueIds.forEach(id => {
-        const subs = allRows.filter(r => String(r.id) === id && r.Classtype && r.Classtype.trim() !== '');
-        if (subs.length === 0) return; // If all subs are unclassed, don't count for Admin at all
+        const subs = allRows.filter(r => String(r.id) === id && workerTypes.includes(r.Classtype));
+        if (subs.length === 0) return; // No worker-classified subs yet, skip admin count
         
         if (subs.some(r => r.remark || r.user_remark)) cntRemark++;
         
@@ -1114,7 +1116,9 @@ const loadGeoData = async () => {
                                         <option value="ไม่ผ่าน" ${cs === 'ไม่ผ่าน' ? 'selected' : ''}>❌ ไม่ผ่าน</option>
                                     </select>`;
                         } else {
-                            if (!cs) return '<span class="text-muted" style="font-size:0.75rem;">⏳ ยังไม่ตรวจ</span>';
+                            if (!cs) return _workerClassTypes.includes(row.Classtype)
+                                ? '<span class="text-muted" style="font-size:0.75rem;">⏳ รอตรวจ</span>'
+                                : '<span class="text-muted" style="font-size:0.75rem;">-</span>';
                             const csIcon = cs === 'ผ่าน' ? '✅' : cs === 'ไม่ผ่าน' ? '❌' : '—';
                             return `<div style="font-size:0.78rem;line-height:1.7;white-space:nowrap;">ตรวจ: ${csIcon} ${cs}</div>`;
                         }

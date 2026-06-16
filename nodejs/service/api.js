@@ -2436,10 +2436,18 @@ app.post('/api/upload-shapefile-to-table', upload.single('shpFile'), async (req,
             return res.status(404).json({ error: `Table "${tb_name}" not found. Please create the project first.` });
         }
 
-        // Ensure reclass table has Class_Area before uploading
+        // Ensure reclass table has required columns before uploading
         await pool.query(`
             DO $$ BEGIN
                 ALTER TABLE reclass_${safe_name} ADD COLUMN "Class_Area" numeric;
+            EXCEPTION
+                WHEN duplicate_column THEN NULL;
+                WHEN undefined_table THEN NULL;
+            END $$;
+        `);
+        await pool.query(`
+            DO $$ BEGIN
+                ALTER TABLE reclass_${safe_name} ADD COLUMN "Classtype" text;
             EXCEPTION
                 WHEN duplicate_column THEN NULL;
                 WHEN undefined_table THEN NULL;
