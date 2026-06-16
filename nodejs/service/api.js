@@ -1564,7 +1564,7 @@ app.get('/api/download/reshape/:tb', async (req, res) => {
                             'ts',           r.ts
                         )
                     ) AS feat,
-                    m."Farmer_ID" AS regis_no
+                    m."Farm_ID" AS regis_no
                     FROM reclass_${baseTb} r
                     JOIN ${baseTb} m ON r.id = m.id
                     WHERE r.geom IS NOT NULL ${extraTypeCondition}
@@ -1614,7 +1614,7 @@ app.get('/api/download/reshape/:tb', async (req, res) => {
                             'ts',           m.ts
                         )
                     ) AS feat,
-                    m."Farmer_ID" AS regis_no
+                    m."Farm_ID" AS regis_no
                     FROM ${tb} m
                     WHERE m.geom IS NOT NULL
                 ) f;
