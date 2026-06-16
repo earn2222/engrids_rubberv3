@@ -1,4 +1,4 @@
-﻿/* ================================================================
+/* ================================================================
    Admin App  –  Two-step project workflow
    1) "สร้าง Project" → create empty table (no upload)
    2) "เพิ่มข้อมูล"   → upload shapefile (polygon / point) to existing table
@@ -170,12 +170,7 @@ const initApp = async () => {
                                         <span>Download Reclassify (ยางลงทะเบียน)</span>
                                     </a>
                                 </li>
-                                <li>
-                                    <a class="dropdown-item classify_download_all_rubber" href="javascript:void(0);" data-tb="${tb_name}">
-                                        <div class="icon-wrapper" style="color: #6a1b9a !important; background: #f3e5f5 !important;"><i class="bi bi-cloud-download"></i></div>
-                                        <span>Download Reclassify (ยางลงทะเบียน+พื้นที่กันออกทั้งหมด)</span>
-                                    </a>
-                                </li>
+
                             </ul>
                         </div>
                         <button class="btn btn-payment layer-btn payBtn mt-1" data-tb="${tb_name}" title="คำนวณค่าจ้าง">
@@ -277,7 +272,6 @@ const initApp = async () => {
                 downloadFile(`/rub3/api/download/reshape/${tb}`, `pacel_yang_${tb}.geojson`);
                 downloadFile(`/rub3/api/download/reshape/v_reclass_${tb}`, `v_reclass_LU_${tb}.geojson`);
                 downloadFile(`/rub3/api/download/reshape/v_reclass_${tb}?type=rubber`, `v_reclass_rubber_${tb}.geojson`);
-                downloadFile(`/rub3/api/download/reshape/v_reclass_${tb}?type=rubber_and_ex`, `v_reclass_rubber_ex_${tb}.geojson`);
             });
         });
 
@@ -308,14 +302,6 @@ const initApp = async () => {
             });
         });
 
-        /* ── Download reclassify (ลงทะเบียน+พื้นที่กันออกทั้งหมด) ── */
-        document.querySelectorAll('.classify_download_all_rubber').forEach(btn => {
-            btn.addEventListener('click', function (e) {
-                e.preventDefault();
-                const tb = this.getAttribute('data-tb');
-                downloadFile(`/rub3/api/download/reshape/v_reclass_${tb}?type=rubber_and_ex`, `v_reclass_rubber_ex_${tb}.geojson`);
-            });
-        });
 
         /* ── คำนวณค่าจ้าง ── */
         document.querySelectorAll('.payBtn').forEach(btn => {
