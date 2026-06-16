@@ -1,4 +1,4 @@
-﻿// Initialize map and feature group
+// Initialize map and feature group
 const map = L.map('map', { maxZoom: 22 }).setView([18.819620993471577, 100.8784385963758], 13);
 const featureGroup = L.featureGroup();
 const lddFeatureGroup = L.featureGroup();
@@ -163,7 +163,6 @@ const baseLayers = {
 
 const overlayMaps = {
     "แปลงยาง": featureGroup.addTo(map),
-    "แปลงยาง (เดิม)": shpallLayer,
     "Longdo Map": longdoLayer.addTo(map),
 };
 
@@ -323,9 +322,9 @@ const onEachFeature = (feature, layer) => {
         selectedLayer = layer;
     });
 
-    layer.on('pm:edit pm:dragend', () => {
-        // view-only — no editing
-        updateAreaLabel(); // uses selectedLayer internally
+    layer.on('pm:edit pm:dragend pm:change', () => {
+        layerEdited = true;
+        updateAreaLabel();
     });
 }
 
@@ -549,11 +548,12 @@ document.getElementById('dashboard').addEventListener('click', (e) => {
     window.location.href = url;
 });
 
-document.getElementById('classify').addEventListener('click', () => {
+document.getElementById('classify').addEventListener('click', async () => {
     const id = document.getElementById('id').value;
     const tb = document.getElementById('tb').value;
     if (!id || !tb) { alert('กรุณาเลือกแปลงก่อน'); return; }
 
+    const displayName = document.getElementById('displayName').value || '';
     const urlParams = new URLSearchParams(window.location.search);
     const id_from = urlParams.get('id_from');
     const id_to = urlParams.get('id_to');
@@ -563,7 +563,52 @@ document.getElementById('classify').addEventListener('click', () => {
     if (id_from && id_to && assignee) {
         url += `&id_from=${id_from}&id_to=${id_to}&assignee=${encodeURIComponent(assignee)}`;
     }
-    window.location.href = url;
+
+    try {
+        const btn = document.getElementById('classify');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>กำลังดำเนินการ...';
+
+        // 1. If edited, we MUST save the new geometry first
+        if (layerEdited && selectedLayer) {
+            let geom;
+            if (selectedLayer instanceof L.Marker) {
+                geom = { type: 'Point', coordinates: [selectedLayer.getLatLng().lng, selectedLayer.getLatLng().lat] };
+            } else {
+                geom = selectedLayer.toGeoJSON().geometry;
+            }
+
+            const res = await fetch(`/rub3/api/updatefeatures/${tb}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: id,
+                    features: [{ type: 'Feature', geometry: geom, properties: { id: id } }],
+                    displayName: displayName,
+                    geometryChanged: true
+                })
+            });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'Failed to update geometry');
+        }
+
+        // 2. ALWAYS Unsplit to reset reclass table (start classifying fresh)
+        const resUnsplit = await fetch(`/rub3/api/unsplit_feature/${tb}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: id, displayName: displayName })
+        });
+        const dataUnsplit = await resUnsplit.json();
+        if (!dataUnsplit.success) throw new Error(dataUnsplit.error || 'Failed to unsplit feature');
+
+        layerEdited = false; // Reset state
+        window.location.href = url;
+    } catch (err) {
+        alert('เกิดข้อผิดพลาด: ' + err.message);
+        const btn = document.getElementById('classify');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-diagram-3-fill me-1"></i>Classify แปลงที่นี้';
+    }
 });
 
 const initApp = async () => {

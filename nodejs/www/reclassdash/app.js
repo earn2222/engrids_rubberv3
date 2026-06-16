@@ -234,7 +234,6 @@ const baseLayers = {
 const overlayMaps = {
     "แปลงยาง (reclass)": featureGroup.addTo(map),
     "แปลงยาง (reshape)": reshapeFeatureGroup,
-    "แปลงยาง (เดิม)": shpallLayer,
     "Longdo Map": longdoLayer.addTo(map)
 };
 

@@ -142,7 +142,7 @@ const splitLineLayer = new ol.layer.Vector({
 const map = new ol.Map({
     target: 'map',
     layers: [gmapSatLayer, gmapRoadLayer, gmapHybrid, gmapTerrain, longdoLayer,
-        ndviWms, shpallLayer, vectorLayer, splitLineLayer],
+        ndviWms, vectorLayer, splitLineLayer],
     view: new ol.View({
         center: ol.proj.fromLonLat([100.8784385963758, 18.819620993471577]),
         zoom: 13,
@@ -419,33 +419,13 @@ function filterClasstypeOptions(ct) {
     const select = document.getElementById('classtype');
     const savedVal = select.value;
 
-    const ALL_OPTIONS = `
+    const OPTIONS = `
         <option value="rubber">ยางพาราที่ลงทะเบียน</option>
-        <optgroup label="พื้นที่กันออก">
-            <option value="ex_age_rubber">พื้นที่กันออก (ยางพาราต่างอายุ)</option>
-            <option value="ex_building">พื้นที่กันออก (สิ่งปลูกสร้าง)</option>
-            <option value="ex_pond">พื้นที่กันออก (บ่อน้ำ)</option>
-            <option value="ex_cr_area">พื้นที่กันออก (ถนนคอนกรีต)</option>
-            <option value="ex_ar_area">พื้นที่กันออก (ถนนลาดยาง)</option>
-            <option value="ex_other">พื้นที่กันออก (เพิ่มเติม)</option>
-        </optgroup>
-        <option value="not-rubber">ยางพาราที่ไม่ได้ลงทะเบียน</option>
         <option value="Other">ไม่ใช่ยางพารา</option>
-    `;
-    const RUBBER_OPTIONS = `
-        <option value="rubber">ยางพาราที่ลงทะเบียน</option>
-        <optgroup label="พื้นที่กันออก">
-            <option value="ex_age_rubber">พื้นที่กันออก (ยางพาราต่างอายุ)</option>
-            <option value="ex_building">พื้นที่กันออก (สิ่งปลูกสร้าง)</option>
-            <option value="ex_pond">พื้นที่กันออก (บ่อน้ำ)</option>
-            <option value="ex_cr_area">พื้นที่กันออก (ถนนคอนกรีต)</option>
-            <option value="ex_ar_area">พื้นที่กันออก (ถนนลาดยาง)</option>
-            <option value="ex_other">พื้นที่กันออก (เพิ่มเติม)</option>
-        </optgroup>
     `;
 
     select.innerHTML = '<option value=""></option>';
-    select.insertAdjacentHTML('beforeend', ct === 'rubber' ? RUBBER_OPTIONS : ALL_OPTIONS);
+    select.insertAdjacentHTML('beforeend', OPTIONS);
 
     if (savedVal) select.value = savedVal;
 }
@@ -1495,7 +1475,7 @@ function buildLegend() {
 
 // ── 19. Layer switcher (base=radio, overlay=checkbox) ────
 const BASE_LAYERS = [gmapSatLayer, gmapRoadLayer, gmapHybrid, gmapTerrain, longdoLayer];
-const OVERLAY_LAYERS = [ndviWms, shpallLayer];
+const OVERLAY_LAYERS = [ndviWms];
 
 function buildLayerSwitcher() {
     const ctrl = document.createElement('div');
@@ -1553,7 +1533,6 @@ function buildLayerSwitcher() {
 
     // ── Overlay layers (checkbox, multiple) ───────────────
     const overlayItems = [
-        { layer: shpallLayer, label: 'แปลง (เดิม)' },
     ];
 
     const sep = document.createElement('div');
