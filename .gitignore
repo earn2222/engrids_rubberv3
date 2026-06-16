@@ -137,5 +137,6 @@ dist
 
 gee-key.json
 *.sql
+!postgis/*.sql
 
 backups/
