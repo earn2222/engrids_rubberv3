@@ -86,10 +86,17 @@ const _applyAdminVisibility = () => {
 // Custom DataTable search filter for status buttons
 $.fn.dataTable.ext.search.push(function (settings, data, dataIndex) {
     if (settings.nTable.id !== 'featureTable') return true;
-    if (!_activeFilter) return true;
     try {
         const rowData = settings.aoData[dataIndex]._aData;
         if (!rowData) return true;
+
+        // Admin cannot see unclassified parcels at all
+        if (_userRole === 'admin' && (!rowData.Classtype || rowData.Classtype.trim() === '')) {
+            return false;
+        }
+
+        if (!_activeFilter) return true;
+
         switch (_activeFilter) {
             case 'none': return !rowData.check_shape;
             case 'pass': return rowData.check_shape === 'ผ่าน';
@@ -613,7 +620,8 @@ const updateAdminStatusCounts = () => {
     let cntNone = 0, cntPass = 0, cntFail = 0, cntRemark = 0;
     
     uniqueIds.forEach(id => {
-        const subs = allRows.filter(r => String(r.id) === id);
+        const subs = allRows.filter(r => String(r.id) === id && r.Classtype && r.Classtype.trim() !== '');
+        if (subs.length === 0) return; // If all subs are unclassed, don't count for Admin at all
         
         if (subs.some(r => r.remark || r.user_remark)) cntRemark++;
         
@@ -969,7 +977,7 @@ const loadGeoData = async () => {
 
         let data = result.data;
         if (!isNaN(id_from) && !isNaN(id_to)) {
-            data = result.data.filter(item => item.id >= id_from && item.id <= id_to);
+            data = data.filter(item => item.id >= id_from && item.id <= id_to);
             console.log(`Filtering for ${assignee}: IDs ${id_from} - ${id_to}. Found ${data.length} records.`);
 
             const infoEl = document.getElementById('assignmentInfo');
@@ -1005,6 +1013,7 @@ const loadGeoData = async () => {
             rai_rechac: item.rai_rechac || 0,
             current_sqm: item.sqm_rechac || item.shpsplit_sqm || 0,
             shpsplit_sqm: item.shpsplit_sqm,
+            Class_Area: item['Class_Area'] || (item.shpsplit_sqm / 1600),
             Classtype: item.Classtype,
             check_shape: item.check_shape || '',
             remark: item.remark || '',
@@ -1063,12 +1072,12 @@ const loadGeoData = async () => {
                     render: (data) => data ? `<b>${data}</b>` : '<span class="text-muted">-</span>'
                 },
                 {
-                    data: 'sqm_rechac',
+                    data: 'shpsplit_sqm',
                     title: 'เนื้อที่ขณะนี้ตารางเมตร',
                     render: (data) => `<span class="area-num">${Number(data || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 })}</span>`
                 },
                 {
-                    data: 'rai_rechac',
+                    data: 'Class_Area',
                     title: 'เนื้อที่ขณะนี้ไร่',
                     render: (data) => `<span class="area-num">${Number(data || 0).toLocaleString('th-TH', { maximumFractionDigits: 4 })}</span>`
                 },

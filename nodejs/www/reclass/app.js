@@ -435,7 +435,8 @@ function showFeaturePanel(feature) {
 
     const currentArea = feature.get('shpsplit_sqm');
     document.getElementById('current_sqm').value = currentArea ? Math.round(currentArea).toLocaleString('th-TH') : '';
-    document.getElementById('current_rai').value = currentArea ? (currentArea / 1600).toLocaleString('th-TH', { maximumFractionDigits: 4 }) : '';
+    const classAreaRai = feature.get('Class_Area');
+    document.getElementById('current_rai').value = classAreaRai !== undefined && classAreaRai !== null ? Number(classAreaRai).toLocaleString('th-TH', { maximumFractionDigits: 4 }) : '';
 
     const ct = feature.get('Classtype');
     filterClasstypeOptions(ct);
