@@ -3,7 +3,7 @@ let _panelUserDirty = false;
 let _autoSavingUserRemark = false;
 let _activeFilter = '';
 let _panelCheckerDirty = false;
-const _checkerDraft = {};   // { [sub_id]: { check_area, check_shape, remark } }
+const _checkerDraft = {};   // { [sub_id]: { check_shape, remark } }
 let _userRole = null;
 let _workerStatusFilter = 'all';
 let _adminNavFilter = 'all';
@@ -376,12 +376,12 @@ const _workerLabelMap = {
 
 // Update the selected-plot banner in the worker quick panel
 const _updateWorkerSelectedBanner = (rowData) => {
-    const color = _workerColorMap[rowData.classtype] || '#90a4ae';
-    const label = _workerLabelMap[rowData.classtype] || 'อื่นๆ';
+    const color = _workerColorMap[rowData.Classtype] || '#90a4ae';
+    const label = _workerLabelMap[rowData.Classtype] || 'อื่นๆ';
     $('#worker-sel-dot').css('background', color);
     $('#worker-sel-subid').text(`#${rowData.sub_id}`);
     $('#worker-sel-id').text(`ID: ${rowData.id}`);
-    $('#worker-sel-classtype').html(`<span style="color:${color}; font-weight:700;">${label}</span>`);
+    $('#worker-sel-Classtype').html(`<span style="color:${color}; font-weight:700;">${label}</span>`);
     $('#worker-sel-remark').val(rowData.user_remark || '');
     $('#worker-sel-save').data('subid', String(rowData.sub_id));
     $('#worker-selected-info').show();
@@ -415,13 +415,13 @@ const _updateAreaCards = (rowData) => {
         'ex_age_rubber': '#00ff0d', 'ex_building': '#ff00d4', 'ex_pond': '#00fff2',
         'ex_cr_area': '#ffff00', 'ex_ar_area': '#00008b', 'ex_other': '#ff9800'
     };
-    const rdLabel = labelMapFull[rowData.classtype] || 'อื่นๆ';
-    const rdColor = colorMapFull[rowData.classtype] || '#6c757d';
+    const rdLabel = labelMapFull[rowData.Classtype] || 'อื่นๆ';
+    const rdColor = colorMapFull[rowData.Classtype] || '#6c757d';
 
 
 
     // Classtype badge
-    $('#display-classtype').html(`<span class="classtype-badge w-100 text-center" style="background:${rdColor}15; color:#000; border:1px solid ${rdColor}40; font-weight: 500;">${rdLabel}</span>`);
+    $('#display-Classtype').html(`<span class="Classtype-badge w-100 text-center" style="background:${rdColor}15; color:#000; border:1px solid ${rdColor}40; font-weight: 500;">${rdLabel}</span>`);
 };
 
 // Build compact scrollable plot list for workers (called after DataTable init + auth)
@@ -473,8 +473,8 @@ const buildWorkerPlotList = (filterId = null) => {
 
     // Build single item HTML
     const buildItem = row => {
-        const color = _workerColorMap[row.classtype] || '#90a4ae';
-        const label = _workerLabelMap[row.classtype] || 'อื่นๆ';
+        const color = _workerColorMap[row.Classtype] || '#90a4ae';
+        const label = _workerLabelMap[row.Classtype] || 'อื่นๆ';
         const cs = row.check_shape || '';
         let verdictHtml;
         if (cs === 'ผ่าน') {
@@ -712,10 +712,10 @@ const showFeaturePanel = (feature, layer) => {
         'ex_cr_area': '#ffff00', 'ex_ar_area': '#00008b',
         'ex_other': '#ff9800'
     };
-    const label = labelMap[props.classtype] || 'อื่นๆ';
-    const color = colorMap[props.classtype] || '#6c757d';
+    const label = labelMap[props.Classtype] || 'อื่นๆ';
+    const color = colorMap[props.Classtype] || '#6c757d';
 
-    if (props.classtype !== 'rubber' && props.classtype) {
+    if (props.Classtype !== 'rubber' && props.Classtype) {
         $('#display-other-type').text(label).removeClass('outline-muted');
         // If it's something excluded, we might want a different style but let's keep it simple
     } else {
@@ -723,7 +723,7 @@ const showFeaturePanel = (feature, layer) => {
     }
 
     // Classtype Badge
-    $('#display-classtype').html(`<span class="classtype-badge w-100 text-center" style="background:${color}15; color:#000; border:1px solid ${color}40; font-weight: 500;">${label}</span>`);
+    $('#display-Classtype').html(`<span class="Classtype-badge w-100 text-center" style="background:${color}15; color:#000; border:1px solid ${color}40; font-weight: 500;">${label}</span>`);
 
 
     // ── User remark ──
@@ -771,8 +771,8 @@ const showFeaturePanel = (feature, layer) => {
 
             // Per-sub check_shape rows
             const shapeRowsHtml = allSubs.map(r => {
-                const label = labelMap[r.classtype] || r.classtype || '?';
-                const color = colorMap[r.classtype] || '#666';
+                const label = labelMap[r.Classtype] || r.Classtype || '?';
+                const color = colorMap[r.Classtype] || '#666';
                 const cs = r.check_shape || '';
                 const rowClass = cs === 'ผ่าน' ? 'is-pass' : cs === 'ไม่ผ่าน' ? 'is-fail' : '';
                 return `<div class="sub-review-row ${rowClass}" data-subid="${r.sub_id}">
@@ -861,23 +861,23 @@ const showFeaturePanel = (feature, layer) => {
 }
 
 const getFeatureStyle = (feature) => {
-    const color = feature.properties.classtype === 'rubber'
+    const color = feature.properties.Classtype === 'rubber'
         ? '#006d2c'
-        : feature.properties.classtype === 'Other'
+        : feature.properties.Classtype === 'Other'
             ? '#ff0004ff'
-            : feature.properties.classtype === 'not-rubber'
+            : feature.properties.Classtype === 'not-rubber'
                 ? '#9900ffff'
-                : feature.properties.classtype === 'ex_age_rubber'
+                : feature.properties.Classtype === 'ex_age_rubber'
                     ? '#00ff0dff'
-                    : feature.properties.classtype === 'ex_building'
+                    : feature.properties.Classtype === 'ex_building'
                         ? '#ff00d4ff'
-                        : feature.properties.classtype === 'ex_pond'
+                        : feature.properties.Classtype === 'ex_pond'
                             ? '#00fff2ff'
-                            : feature.properties.classtype === 'ex_cr_area'
+                            : feature.properties.Classtype === 'ex_cr_area'
                                 ? '#ffff00ff'
-                                : feature.properties.classtype === 'ex_ar_area'
+                                : feature.properties.Classtype === 'ex_ar_area'
                                     ? '#00008bff'
-                                    : feature.properties.classtype === 'ex_other'
+                                    : feature.properties.Classtype === 'ex_other'
                                         ? '#ff9800ff'
                                         : '#fdae61';
     return {
@@ -1007,7 +1007,7 @@ const loadGeoData = async () => {
             rai_rechac: item.rai_rechac || 0,
             current_sqm: item.sqm_rechac || item.shpsplit_sqm || 0,
             shpsplit_sqm: item.shpsplit_sqm,
-            classtype: item.classtype,
+            Classtype: item.Classtype,
             check_shape: item.check_shape || '',
             remark: item.remark || '',
             reviewer: item.reviewer || '',
@@ -1076,7 +1076,7 @@ const loadGeoData = async () => {
                     render: (data) => `<span class="area-num">${Number(data || 0).toLocaleString('th-TH', { maximumFractionDigits: 4 })}</span>`
                 },
                 {
-                    data: 'classtype',
+                    data: 'Classtype',
                     title: 'ประเภท',
                     render: (data) => {
                         const colorMap = {
@@ -1265,7 +1265,7 @@ const loadGeoData = async () => {
                 lyr.setStyle({ color: '#FF6600', fillColor: origStyle.fillColor, weight: 6, opacity: 1, fillOpacity: 0.75, dashArray: null });
             }
 
-            // Update area info cards to reflect this sub_id's classtype + area
+            // Update area info cards to reflect this sub_id's Classtype + area
             _updateAreaCards(rowData);
 
             // Mark active row
@@ -1534,7 +1534,7 @@ const loadGeoData = async () => {
                         refinal: row.refinal,
                         id_farmer: row.id_farmer,
                         shpsplit_sqm: row.shpsplit_sqm,
-                        classtype: row.classtype,
+                        Classtype: row.Classtype,
                         check_shape: row.check_shape,
                         remark: row.remark,
                         user_remark: row.user_remark,
@@ -1801,7 +1801,6 @@ const loadGeoData = async () => {
             const btn = $(this);
             const subId = btn.data('subid');
             const row = btn.closest('tr');
-            const checkArea = '';
             const checkShape = row.find('.check-shape').val();
             const remark = row.find('.review-remark').val();
             const userRemark = row.find('.user-remark').val();
@@ -1842,7 +1841,6 @@ const loadGeoData = async () => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         sub_id: subId,
-                        check_area: checkArea,
                         check_shape: checkShape,
                         remark: remark,
                         user_remark: userRemark,
@@ -1856,7 +1854,7 @@ const loadGeoData = async () => {
                     const updatedTs = data.data && data.data[0] ? data.data[0].review_ts : new Date().toISOString();
 
                     // If rejected → clear user_remark so worker must write a fresh note
-                    const isRejected = checkArea === 'ไม่ผ่าน' || checkShape === 'ไม่ผ่าน';
+                    const isRejected = checkShape === 'ไม่ผ่าน';
                     if (isRejected) {
                         try {
                             await fetch(`/rub3/api/update_user_remark/${tb}`, {
@@ -1885,7 +1883,6 @@ const loadGeoData = async () => {
                     }
 
                     // Update internal DataTable data
-                    rowData.check_area = checkArea;
                     rowData.check_shape = checkShape;
                     rowData.remark = remark;
                     rowData.reviewer = reviewerToSave;
@@ -1983,7 +1980,7 @@ legend.onAdd = function (map) {
 
 
     for (let i = 0; i < categories.length; i++) {
-        const dummy = { properties: { classtype: categories[i] } },
+        const dummy = { properties: { Classtype: categories[i] } },
             style = getFeatureStyle(dummy);
 
         div.innerHTML +=
@@ -2218,15 +2215,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         const groupedData = {};
         raiData.forEach(r => {
             let cat = 'ไม่ระบุ';
-            if (r.classtype === 'rubber') cat = 'ยางพาราที่ลงทะเบียน';
-            else if (r.classtype === 'not-rubber') cat = 'ยางพาราที่ไม่ได้ลงทะเบียน';
-            else if (r.classtype === 'Other') cat = 'ไม่ใช่ยางพารา';
-            else if (r.classtype === 'ex_age_rubber') cat = 'พื้นที่กันออก (ยางพาราต่างอายุ)';
-            else if (r.classtype === 'ex_building') cat = 'พื้นที่กันออก (สิ่งปลูกสร้าง)';
-            else if (r.classtype === 'ex_pond') cat = 'พื้นที่กันออก (บ่อน้ำ)';
-            else if (r.classtype === 'ex_cr_area') cat = 'พื้นที่กันออก (ถนนคอนกรีต)';
-            else if (r.classtype === 'ex_ar_area') cat = 'พื้นที่กันออก (ถนนลาดยาง)';
-            else if (r.classtype === 'ex_other') cat = 'พื้นที่กันออก (เพิ่มเติม)';
+            if (r.Classtype === 'rubber') cat = 'ยางพาราที่ลงทะเบียน';
+            else if (r.Classtype === 'not-rubber') cat = 'ยางพาราที่ไม่ได้ลงทะเบียน';
+            else if (r.Classtype === 'Other') cat = 'ไม่ใช่ยางพารา';
+            else if (r.Classtype === 'ex_age_rubber') cat = 'พื้นที่กันออก (ยางพาราต่างอายุ)';
+            else if (r.Classtype === 'ex_building') cat = 'พื้นที่กันออก (สิ่งปลูกสร้าง)';
+            else if (r.Classtype === 'ex_pond') cat = 'พื้นที่กันออก (บ่อน้ำ)';
+            else if (r.Classtype === 'ex_cr_area') cat = 'พื้นที่กันออก (ถนนคอนกรีต)';
+            else if (r.Classtype === 'ex_ar_area') cat = 'พื้นที่กันออก (ถนนลาดยาง)';
+            else if (r.Classtype === 'ex_other') cat = 'พื้นที่กันออก (เพิ่มเติม)';
 
             groupedData[cat] = (groupedData[cat] || 0) + parseFloat(r.area_rai);
         });
