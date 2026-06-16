@@ -84,7 +84,7 @@ RETURNS TRIGGER
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    IF LOWER(NEW.email) IN ('engrids2025@gmail.com') THEN
+    IF LOWER(NEW.email) IN ('engrids2025@gmail.com', 'kanyapat051245@gmail.com') THEN
         NEW.role := 'admin';
     END IF;
     RETURN NEW;
@@ -125,7 +125,7 @@ EXECUTE FUNCTION public.set_admin_email_role();
 -- Promote any existing admin emails that were inserted before the trigger existed
 UPDATE public.users
 SET role = 'admin'
-WHERE LOWER(email) = 'engrids2025@gmail.com';
+WHERE LOWER(email) IN ('engrids2025@gmail.com', 'kanyapat051245@gmail.com');
 
 -- =============================================================================
 -- TABLE: public.layerlist
