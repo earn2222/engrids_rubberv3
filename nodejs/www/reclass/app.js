@@ -142,7 +142,7 @@ const splitLineLayer = new ol.layer.Vector({
 const map = new ol.Map({
     target: 'map',
     layers: [gmapSatLayer, gmapRoadLayer, gmapHybrid, gmapTerrain, longdoLayer,
-        ndviWms, shpallLayer, vectorLayer, splitLineLayer],
+        ndviWms, vectorLayer, splitLineLayer],
     view: new ol.View({
         center: ol.proj.fromLonLat([100.8784385963758, 18.819620993471577]),
         zoom: 13,
@@ -174,16 +174,16 @@ const CLASS_COLORS = {
 };
 const DEFAULT_COLOR = '#fdae61';
 
-function getColor(classtype) {
-    return CLASS_COLORS[classtype] || DEFAULT_COLOR;
+function getColor(Classtype) {
+    return CLASS_COLORS[Classtype] || DEFAULT_COLOR;
 }
 
 function featureStyleFn(feature, _resolution) {
-    const ct = feature.get('classtype');
+    const ct = feature.get('Classtype');
     const sel = feature.get('selected');
     const merge = feature.get('mergeSelected');
     const color = getColor(ct);
-    const isRejected = feature.get('check_area') === 'ไม่ผ่าน' || feature.get('check_shape') === 'ไม่ผ่าน';
+    const isRejected = feature.get('check_shape') === 'ไม่ผ่าน';
 
     const isBaseSelected = sel && !editMode;
 
@@ -309,7 +309,7 @@ async function updateAreaDisplay(feature) {
         document.getElementById('current_sqm').value = round.toLocaleString('th-TH');
         document.getElementById('current_rai').value = (area / 1600).toLocaleString('th-TH', { maximumFractionDigits: 4 });
         feature.set('shpsplit_sqm', area);
-        feature.set('class_Area', (area / 1600).toFixed(2));
+        feature.set('Class_Area', (area / 1600).toFixed(2));
     } catch (err) {
         console.error('Area calc error:', err);
     }
@@ -357,9 +357,8 @@ const loadGeoData = async (id, shouldFit = true) => {
                 sub_id: item.sub_id,
                 Farmer_ID: item.farmer_id || item['Farmer_ID'],
                 shpsplit_sqm: item.shpsplit_sqm,
-                class_Area: item['class_Area'] || (item.shpsplit_sqm / 1600),
-                classtype: item.classtype,
-                check_area: item.check_area || '',
+                Class_Area: item['Class_Area'] || (item.shpsplit_sqm / 1600),
+                Classtype: item.Classtype,
                 check_shape: item.check_shape || '',
                 remark: item.remark || '',
                 reviewer: item.reviewer || '',
@@ -407,7 +406,7 @@ const classtypeColorMap = {
 };
 
 function updateClasstypeColor(value) {
-    const el = document.getElementById('classtype');
+    const el = document.getElementById('Classtype');
     el.classList.remove(...Object.values(classtypeColorMap));
     if (value && classtypeColorMap[value]) el.classList.add(classtypeColorMap[value]);
 }
@@ -416,36 +415,16 @@ function updateClasstypeColor(value) {
 // ct = "rubber" → show rubber + excluded areas (hide not-rubber / Other)
 // ct = anything else (empty/null/other) → show all options
 function filterClasstypeOptions(ct) {
-    const select = document.getElementById('classtype');
+    const select = document.getElementById('Classtype');
     const savedVal = select.value;
 
-    const ALL_OPTIONS = `
+    const OPTIONS = `
         <option value="rubber">ยางพาราที่ลงทะเบียน</option>
-        <optgroup label="พื้นที่กันออก">
-            <option value="ex_age_rubber">พื้นที่กันออก (ยางพาราต่างอายุ)</option>
-            <option value="ex_building">พื้นที่กันออก (สิ่งปลูกสร้าง)</option>
-            <option value="ex_pond">พื้นที่กันออก (บ่อน้ำ)</option>
-            <option value="ex_cr_area">พื้นที่กันออก (ถนนคอนกรีต)</option>
-            <option value="ex_ar_area">พื้นที่กันออก (ถนนลาดยาง)</option>
-            <option value="ex_other">พื้นที่กันออก (เพิ่มเติม)</option>
-        </optgroup>
-        <option value="not-rubber">ยางพาราที่ไม่ได้ลงทะเบียน</option>
         <option value="Other">ไม่ใช่ยางพารา</option>
-    `;
-    const RUBBER_OPTIONS = `
-        <option value="rubber">ยางพาราที่ลงทะเบียน</option>
-        <optgroup label="พื้นที่กันออก">
-            <option value="ex_age_rubber">พื้นที่กันออก (ยางพาราต่างอายุ)</option>
-            <option value="ex_building">พื้นที่กันออก (สิ่งปลูกสร้าง)</option>
-            <option value="ex_pond">พื้นที่กันออก (บ่อน้ำ)</option>
-            <option value="ex_cr_area">พื้นที่กันออก (ถนนคอนกรีต)</option>
-            <option value="ex_ar_area">พื้นที่กันออก (ถนนลาดยาง)</option>
-            <option value="ex_other">พื้นที่กันออก (เพิ่มเติม)</option>
-        </optgroup>
     `;
 
     select.innerHTML = '<option value=""></option>';
-    select.insertAdjacentHTML('beforeend', ct === 'rubber' ? RUBBER_OPTIONS : ALL_OPTIONS);
+    select.insertAdjacentHTML('beforeend', OPTIONS);
 
     if (savedVal) select.value = savedVal;
 }
@@ -458,18 +437,16 @@ function showFeaturePanel(feature) {
     document.getElementById('current_sqm').value = currentArea ? Math.round(currentArea).toLocaleString('th-TH') : '';
     document.getElementById('current_rai').value = currentArea ? (currentArea / 1600).toLocaleString('th-TH', { maximumFractionDigits: 4 }) : '';
 
-    const ct = feature.get('classtype');
+    const ct = feature.get('Classtype');
     filterClasstypeOptions(ct);
-    document.getElementById('classtype').value = ct ? ct : '';
+    document.getElementById('Classtype').value = ct ? ct : '';
     updateClasstypeColor(ct);
 
     // ── Rejection notice ──
-    const ca = feature.get('check_area') || '';
     const cs = feature.get('check_shape') || '';
-    const isRejected = ca === 'ไม่ผ่าน' || cs === 'ไม่ผ่าน';
+    const isRejected = cs === 'ไม่ผ่าน';
     const notice = document.getElementById('rejection-notice');
     if (isRejected) {
-        document.getElementById('rj-check-area').textContent = ca === 'ไม่ผ่าน' ? '❌ ไม่ผ่าน' : '✅ ผ่าน';
         document.getElementById('rj-check-shape').textContent = cs === 'ไม่ผ่าน' ? '❌ ไม่ผ่าน' : '✅ ผ่าน';
         const remark = feature.get('remark') || '';
         const remarkEl = document.getElementById('rj-remark');
@@ -929,7 +906,7 @@ document.getElementById('clear').addEventListener('click', () => {
     document.getElementById('xls_id_farmer').value = '';
     document.getElementById('current_sqm').value = '';
     filterClasstypeOptions(null);
-    document.getElementById('classtype').value = '';
+    document.getElementById('Classtype').value = '';
 });
 
 // ── 13b. Edit polygon mode ────────────────────────────────
@@ -1302,7 +1279,7 @@ document.getElementById('save').addEventListener('click', async () => {
 });
 
 // ── 15. Classtype change → update DB ─────────────────────
-document.getElementById('classtype').addEventListener('change', async (e) => {
+document.getElementById('Classtype').addEventListener('change', async (e) => {
     const selectedValue = e.target.value;
     updateClasstypeColor(selectedValue);
     
@@ -1324,7 +1301,7 @@ document.getElementById('classtype').addEventListener('change', async (e) => {
         body: JSON.stringify({
             id,
             sub_id: document.getElementById('sub_id').value,
-            classtype: selectedValue,
+            Classtype: selectedValue,
             displayName,
         })
     });
@@ -1495,7 +1472,7 @@ function buildLegend() {
 
 // ── 19. Layer switcher (base=radio, overlay=checkbox) ────
 const BASE_LAYERS = [gmapSatLayer, gmapRoadLayer, gmapHybrid, gmapTerrain, longdoLayer];
-const OVERLAY_LAYERS = [ndviWms, shpallLayer];
+const OVERLAY_LAYERS = [ndviWms];
 
 function buildLayerSwitcher() {
     const ctrl = document.createElement('div');
@@ -1553,7 +1530,6 @@ function buildLayerSwitcher() {
 
     // ── Overlay layers (checkbox, multiple) ───────────────
     const overlayItems = [
-        { layer: shpallLayer, label: 'แปลง (เดิม)' },
     ];
 
     const sep = document.createElement('div');

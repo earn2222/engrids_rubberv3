@@ -1,4 +1,4 @@
-﻿const initUser = async () => {
+const initUser = async () => {
     try {
         const response = await fetch(`/rub3/api/users`);
         if (!response.ok) { console.error('users API:', response.status); return; }
@@ -326,12 +326,7 @@ const initApp = async () => {
                                         <span>Download Reclassify (ยางลงทะเบียน)</span>
                                     </a>
                                 </li>
-                                <li>
-                                    <a class="dropdown-item classify_download_all_rubber" href="javascript:void(0);" data-tb="${tb_name}">
-                                        <div class="icon-wrapper" style="color: #6a1b9a !important; background: #f3e5f5 !important;"><i class="bi bi-cloud-download"></i></div>
-                                        <span>Download Reclassify (ยางลงทะเบียน+พื้นที่กันออกทั้งหมด)</span>
-                                    </a>
-                                </li>
+
                             </ul>
                         </div>
                     </div>
@@ -392,14 +387,6 @@ const initApp = async () => {
             });
         }
 
-        const classify_download_all_rubber = document.getElementsByClassName('classify_download_all_rubber');
-        for (let i = 0; i < classify_download_all_rubber.length; i++) {
-            classify_download_all_rubber[i].addEventListener('click', function (e) {
-                e.preventDefault();
-                const tb = this.getAttribute('data-tb');
-                downloadFile(`/rub3/api/download/reshape/v_reclass_${tb}?type=rubber_and_ex`, `v_reclass_rubber_ex_${tb}.geojson`);
-            });
-        }
 
         const download_all = document.getElementsByClassName('download_all');
         for (let i = 0; i < download_all.length; i++) {
@@ -409,7 +396,6 @@ const initApp = async () => {
                 downloadFile(`/rub3/api/download/reshape/${tb}`, `pacel_yang_${tb}.geojson`);
                 downloadFile(`/rub3/api/download/reshape/v_reclass_${tb}`, `v_reclass_LU_${tb}.geojson`);
                 downloadFile(`/rub3/api/download/reshape/v_reclass_${tb}?type=rubber`, `v_reclass_rubber_${tb}.geojson`);
-                downloadFile(`/rub3/api/download/reshape/v_reclass_${tb}?type=rubber_and_ex`, `v_reclass_rubber_ex_${tb}.geojson`);
             });
         }
 

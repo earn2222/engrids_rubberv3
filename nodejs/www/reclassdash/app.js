@@ -3,7 +3,7 @@ let _panelUserDirty = false;
 let _autoSavingUserRemark = false;
 let _activeFilter = '';
 let _panelCheckerDirty = false;
-const _checkerDraft = {};   // { [sub_id]: { check_area, check_shape, remark } }
+const _checkerDraft = {};   // { [sub_id]: { check_shape, remark } }
 let _userRole = null;
 let _workerStatusFilter = 'all';
 let _adminNavFilter = 'all';
@@ -12,19 +12,42 @@ let _currentReviewId = null;
 let _focusedLayer = null;      // { layer, originalStyle } — currently zoomed-to polygon
 let _focusedSubId = null;
 
-// Returns unique parent IDs filtered by current _workerStatusFilter
 const _getWorkerNavIds = (allRows) => {
     if (_workerStatusFilter === 'all') {
         return [...new Set(allRows.map(r => String(r.id)))];
     }
-    const filtered = allRows.filter(r => {
-        if (_workerStatusFilter === 'unchecked') return !r.check_shape;
-        if (_workerStatusFilter === 'pass') return r.check_shape === 'ผ่าน';
-        if (_workerStatusFilter === 'fail') return r.check_shape === 'ไม่ผ่าน';
-        if (_workerStatusFilter === 'remark') return !!(r.remark || r.user_remark);
+    const allUniqueIds = [...new Set(allRows.map(r => String(r.id)))];
+    return allUniqueIds.filter(id => {
+        const subs = allRows.filter(r => String(r.id) === id);
+        const hasUnchecked = subs.some(r => !r.check_shape);
+        const hasFail = subs.some(r => r.check_shape === 'ไม่ผ่าน');
+        const hasPass = subs.some(r => r.check_shape === 'ผ่าน');
+
+        if (_workerStatusFilter === 'remark') return subs.some(r => !!(r.remark || r.user_remark));
+        if (_workerStatusFilter === 'unchecked') return hasUnchecked;
+        if (_workerStatusFilter === 'fail') return !hasUnchecked && hasFail;
+        if (_workerStatusFilter === 'pass') return !hasUnchecked && !hasFail && hasPass;
         return true;
     });
-    return [...new Set(filtered.map(r => String(r.id)))];
+};
+
+const _getAdminNavIds = (allRows) => {
+    if (_adminNavFilter === 'all') {
+        return [...new Set(allRows.map(r => String(r.id)))];
+    }
+    const allUniqueIds = [...new Set(allRows.map(r => String(r.id)))];
+    return allUniqueIds.filter(id => {
+        const subs = allRows.filter(r => String(r.id) === id);
+        const hasUnchecked = subs.some(r => !r.check_shape);
+        const hasFail = subs.some(r => r.check_shape === 'ไม่ผ่าน');
+        const hasPass = subs.some(r => r.check_shape === 'ผ่าน');
+
+        if (_adminNavFilter === 'remark') return subs.some(r => !!(r.remark || r.user_remark));
+        if (_adminNavFilter === 'none') return hasUnchecked;
+        if (_adminNavFilter === 'fail') return !hasUnchecked && hasFail;
+        if (_adminNavFilter === 'pass') return !hasUnchecked && !hasFail && hasPass;
+        return true;
+    });
 };
 
 const _resetHighlights = () => {
@@ -234,7 +257,6 @@ const baseLayers = {
 const overlayMaps = {
     "แปลงยาง (reclass)": featureGroup.addTo(map),
     "แปลงยาง (reshape)": reshapeFeatureGroup,
-    "แปลงยาง (เดิม)": shpallLayer,
     "Longdo Map": longdoLayer.addTo(map)
 };
 
@@ -354,12 +376,12 @@ const _workerLabelMap = {
 
 // Update the selected-plot banner in the worker quick panel
 const _updateWorkerSelectedBanner = (rowData) => {
-    const color = _workerColorMap[rowData.classtype] || '#90a4ae';
-    const label = _workerLabelMap[rowData.classtype] || 'อื่นๆ';
+    const color = _workerColorMap[rowData.Classtype] || '#90a4ae';
+    const label = _workerLabelMap[rowData.Classtype] || 'อื่นๆ';
     $('#worker-sel-dot').css('background', color);
     $('#worker-sel-subid').text(`#${rowData.sub_id}`);
     $('#worker-sel-id').text(`ID: ${rowData.id}`);
-    $('#worker-sel-classtype').html(`<span style="color:${color}; font-weight:700;">${label}</span>`);
+    $('#worker-sel-Classtype').html(`<span style="color:${color}; font-weight:700;">${label}</span>`);
     $('#worker-sel-remark').val(rowData.user_remark || '');
     $('#worker-sel-save').data('subid', String(rowData.sub_id));
     $('#worker-selected-info').show();
@@ -393,13 +415,13 @@ const _updateAreaCards = (rowData) => {
         'ex_age_rubber': '#00ff0d', 'ex_building': '#ff00d4', 'ex_pond': '#00fff2',
         'ex_cr_area': '#ffff00', 'ex_ar_area': '#00008b', 'ex_other': '#ff9800'
     };
-    const rdLabel = labelMapFull[rowData.classtype] || 'อื่นๆ';
-    const rdColor = colorMapFull[rowData.classtype] || '#6c757d';
+    const rdLabel = labelMapFull[rowData.Classtype] || 'อื่นๆ';
+    const rdColor = colorMapFull[rowData.Classtype] || '#6c757d';
 
 
 
     // Classtype badge
-    $('#display-classtype').html(`<span class="classtype-badge w-100 text-center" style="background:${rdColor}15; color:#000; border:1px solid ${rdColor}40; font-weight: 500;">${rdLabel}</span>`);
+    $('#display-Classtype').html(`<span class="Classtype-badge w-100 text-center" style="background:${rdColor}15; color:#000; border:1px solid ${rdColor}40; font-weight: 500;">${rdLabel}</span>`);
 };
 
 // Build compact scrollable plot list for workers (called after DataTable init + auth)
@@ -415,36 +437,44 @@ const buildWorkerPlotList = (filterId = null) => {
     // Counts = number of unique parent IDs in each status (always global, not per-ID)
     const allUniqueIds = [...new Set(allRows.map(r => String(r.id)))];
     const getSubsOf = id => allRows.filter(r => String(r.id) === id);
-    const cntAll = allRows.length;
-    const cntUnchecked = allRows.filter(r => !r.check_shape).length;
-    const cntPass = allRows.filter(r => r.check_shape === 'ผ่าน').length;
-    const cntFail = allRows.filter(r => r.check_shape === 'ไม่ผ่าน').length;
-    const cntRemark = allRows.filter(r => !!(r.remark || r.user_remark)).length;
+    
+    let cntUnchecked = 0, cntPass = 0, cntFail = 0, cntRemark = 0;
+    allUniqueIds.forEach(id => {
+        const subs = getSubsOf(id);
+        if (subs.some(r => r.remark || r.user_remark)) cntRemark++;
+        
+        const hasUnchecked = subs.some(r => !r.check_shape);
+        if (hasUnchecked) {
+            cntUnchecked++;
+        } else if (subs.some(r => r.check_shape === 'ไม่ผ่าน')) {
+            cntFail++;
+        } else {
+            cntPass++;
+        }
+    });
+
     $('#wfc-pass').text(cntPass);
     $('#wfc-fail').text(cntFail);
     $('#wfc-remark').text(cntRemark);
     $('#wfc-unchecked').text(cntUnchecked);
 
-    // List display: filter by current ID (if selected), then apply status filter
-    const baseRows = filterId ? allRows.filter(r => String(r.id) === String(filterId)) : allRows;
+    // 1. Get filtered parent IDs based on _workerStatusFilter
+    const filteredParentIds = _getWorkerNavIds(allRows);
 
-    // Apply status filter by admin verdict
-    const displayRows = baseRows.filter(r => {
-        if (_workerStatusFilter === 'unchecked') return !r.check_shape;
-        if (_workerStatusFilter === 'pass') return r.check_shape === 'ผ่าน';
-        if (_workerStatusFilter === 'fail') return r.check_shape === 'ไม่ผ่าน';
-        if (_workerStatusFilter === 'remark') return !!(r.remark || r.user_remark);
-        return true;
-    });
+    // 2. We want to show ALL sub-plots for any valid parent ID
+    const validRows = allRows.filter(r => filteredParentIds.includes(String(r.id)));
 
-    // Apply ID search filter from input
+    // 3. If `filterId` is provided (slider is locked), only show rows for that parent ID
+    const displayRows = filterId ? validRows.filter(r => String(r.id) === String(filterId)) : validRows;
+
+    // 4. Apply ID search filter from input
     const idSearch = ($('#worker-id-search').val() || '').trim();
     const finalRows = idSearch ? displayRows.filter(r => String(r.id).includes(idSearch)) : displayRows;
 
     // Build single item HTML
     const buildItem = row => {
-        const color = _workerColorMap[row.classtype] || '#90a4ae';
-        const label = _workerLabelMap[row.classtype] || 'อื่นๆ';
+        const color = _workerColorMap[row.Classtype] || '#90a4ae';
+        const label = _workerLabelMap[row.Classtype] || 'อื่นๆ';
         const cs = row.check_shape || '';
         let verdictHtml;
         if (cs === 'ผ่าน') {
@@ -479,15 +509,24 @@ const buildWorkerPlotList = (filterId = null) => {
             if (!groups[key]) groups[key] = [];
             groups[key].push(row);
         });
-        html = Object.entries(groups).map(([id, rows]) =>
-            `<div class="worker-id-group">
-                <div class="worker-id-group-header">
-                    <i class="bi bi-folder2-open me-1"></i>ID: ${id}
-                    <span class="ms-1" style="font-size:0.68rem;opacity:0.75;">(${rows.length} แปลง)</span>
+        html = Object.entries(groups).map(([id, rows]) => {
+            const status = getIdStatus(allRows, id);
+            let badgeHtml = '';
+            if (status === 'fail') badgeHtml = '<span class="badge bg-danger ms-auto" style="font-size:0.65rem;"><i class="bi bi-x-circle"></i> ไม่ผ่าน</span>';
+            else if (status === 'pass') badgeHtml = '<span class="badge bg-success ms-auto" style="font-size:0.65rem;"><i class="bi bi-check-circle"></i> ผ่าน</span>';
+            else badgeHtml = '<span class="badge bg-secondary ms-auto" style="font-size:0.65rem;"><i class="bi bi-hourglass-split"></i> ยังไม่ตรวจ</span>';
+            
+            return `<div class="worker-id-group">
+                <div class="worker-id-group-header d-flex align-items-center">
+                    <div>
+                        <i class="bi bi-folder2-open me-1"></i>ID: ${id}
+                        <span class="ms-1" style="font-size:0.68rem;opacity:0.75;">(${rows.length} แปลง)</span>
+                    </div>
+                    ${badgeHtml}
                 </div>
                 ${rows.map(buildItem).join('')}
-            </div>`
-        ).join('');
+            </div>`;
+        }).join('');
     } else {
         html = finalRows.map(buildItem).join('');
     }
@@ -558,24 +597,37 @@ const autoSaveUserRemark = async () => {
 const getIdStatus = (allRows, id) => {
     const subs = allRows.filter(r => String(r.id) === String(id));
     if (!subs.length) return 'none';
+    const hasUnchecked = subs.some(r => !r.check_shape);
+    if (hasUnchecked) return 'none';
     const hasFail = subs.some(r => r.check_shape === 'ไม่ผ่าน');
     if (hasFail) return 'fail';
-    const hasPass = subs.some(r => r.check_shape === 'ผ่าน');
-    if (hasPass) return 'pass';
-    return 'none';
+    return 'pass';
 };
 
 const updateAdminStatusCounts = () => {
     if (!$.fn.DataTable.isDataTable('#featureTable')) return;
     const allRows = $('#featureTable').DataTable().rows().data().toArray();
+    
+    // Group rows by unique ID
+    const uniqueIds = [...new Set(allRows.map(r => String(r.id)))];
+    
     let cntNone = 0, cntPass = 0, cntFail = 0, cntRemark = 0;
-    allRows.forEach(r => {
-        if (!r.check_shape) cntNone++;
-        else if (r.check_shape === 'ผ่าน') cntPass++;
-        else if (r.check_shape === 'ไม่ผ่าน') cntFail++;
-
-        if (r.remark || r.user_remark) cntRemark++;
+    
+    uniqueIds.forEach(id => {
+        const subs = allRows.filter(r => String(r.id) === id);
+        
+        if (subs.some(r => r.remark || r.user_remark)) cntRemark++;
+        
+        const hasUnchecked = subs.some(r => !r.check_shape);
+        if (hasUnchecked) {
+            cntNone++;
+        } else if (subs.some(r => r.check_shape === 'ไม่ผ่าน')) {
+            cntFail++;
+        } else {
+            cntPass++;
+        }
     });
+    
     $('#asc-none').text(cntNone);
     $('#asc-pass').text(cntPass);
     $('#asc-fail').text(cntFail);
@@ -593,16 +645,7 @@ const navigatePlots = async (direction) => {
     // Apply nav filter: worker uses _workerStatusFilter, admin uses _adminNavFilter
     const uniqueIds = _userRole === 'worker'
         ? _getWorkerNavIds(allRows)
-        : (_adminNavFilter !== 'all'
-            ? allUniqueIds.filter(id => {
-                const subs = allRows.filter(r => String(r.id) === id);
-                if (_adminNavFilter === 'remark') return subs.some(r => !!(r.remark || r.user_remark));
-                if (_adminNavFilter === 'none') return subs.some(r => !r.check_shape);
-                if (_adminNavFilter === 'pass') return subs.some(r => r.check_shape === 'ผ่าน');
-                if (_adminNavFilter === 'fail') return subs.some(r => r.check_shape === 'ไม่ผ่าน');
-                return true;
-            })
-            : allUniqueIds);
+        : _getAdminNavIds(allRows);
 
     const currentIdIdx = _currentReviewId
         ? uniqueIds.indexOf(String(_currentReviewId))
@@ -630,6 +673,21 @@ const showFeaturePanel = (feature, layer) => {
     $('#display-farmer-id').text(props.id_farmer || '-');
     $('#panel-sub-id').val(props.sub_id || '');
 
+    // Overall Status Badge
+    if ($.fn.DataTable.isDataTable('#featureTable')) {
+        const allRows = $('#featureTable').DataTable().rows().data().toArray();
+        const status = getIdStatus(allRows, props.id);
+        const $statusBadge = $('#display-id-status');
+        $statusBadge.removeClass('d-none bg-success bg-danger bg-warning bg-secondary');
+        if (status === 'fail') {
+            $statusBadge.addClass('bg-danger').html('<i class="bi bi-x-circle"></i> ไม่ผ่าน');
+        } else if (status === 'pass') {
+            $statusBadge.addClass('bg-success').html('<i class="bi bi-check-circle"></i> ผ่าน');
+        } else {
+            $statusBadge.addClass('bg-secondary').html('<i class="bi bi-hourglass-split"></i> ยังไม่ตรวจ');
+        }
+    }
+
     // Area land (sqm_rechac = current area)
     const currLandSqm = Number(props.current_sqm || 0);
     $('#curr-land-sqm').text(currLandSqm.toLocaleString('th-TH', { maximumFractionDigits: 0 }));
@@ -654,10 +712,10 @@ const showFeaturePanel = (feature, layer) => {
         'ex_cr_area': '#ffff00', 'ex_ar_area': '#00008b',
         'ex_other': '#ff9800'
     };
-    const label = labelMap[props.classtype] || 'อื่นๆ';
-    const color = colorMap[props.classtype] || '#6c757d';
+    const label = labelMap[props.Classtype] || 'อื่นๆ';
+    const color = colorMap[props.Classtype] || '#6c757d';
 
-    if (props.classtype !== 'rubber' && props.classtype) {
+    if (props.Classtype !== 'rubber' && props.Classtype) {
         $('#display-other-type').text(label).removeClass('outline-muted');
         // If it's something excluded, we might want a different style but let's keep it simple
     } else {
@@ -665,7 +723,7 @@ const showFeaturePanel = (feature, layer) => {
     }
 
     // Classtype Badge
-    $('#display-classtype').html(`<span class="classtype-badge w-100 text-center" style="background:${color}15; color:#000; border:1px solid ${color}40; font-weight: 500;">${label}</span>`);
+    $('#display-Classtype').html(`<span class="Classtype-badge w-100 text-center" style="background:${color}15; color:#000; border:1px solid ${color}40; font-weight: 500;">${label}</span>`);
 
 
     // ── User remark ──
@@ -713,8 +771,8 @@ const showFeaturePanel = (feature, layer) => {
 
             // Per-sub check_shape rows
             const shapeRowsHtml = allSubs.map(r => {
-                const label = labelMap[r.classtype] || r.classtype || '?';
-                const color = colorMap[r.classtype] || '#666';
+                const label = labelMap[r.Classtype] || r.Classtype || '?';
+                const color = colorMap[r.Classtype] || '#666';
                 const cs = r.check_shape || '';
                 const rowClass = cs === 'ผ่าน' ? 'is-pass' : cs === 'ไม่ผ่าน' ? 'is-fail' : '';
                 return `<div class="sub-review-row ${rowClass}" data-subid="${r.sub_id}">
@@ -790,12 +848,12 @@ const showFeaturePanel = (feature, layer) => {
     try {
         const dt = $('#featureTable').DataTable();
         const allRows = dt.rows({ search: 'applied' }).data().toArray();
-        const uniqueIds = [...new Set(allRows.map(r => String(r.id)))];
+        const uniqueIds = _userRole === 'worker' ? _getWorkerNavIds(allRows) : _getAdminNavIds(allRows);
         const currentIdIdx = uniqueIds.indexOf(String(props.id));
         if (currentIdIdx !== -1) {
             $('#plot-nav-count').text(`${currentIdIdx + 1} / ${uniqueIds.length}`);
         } else {
-            $('#plot-nav-count').text(`0 / ${uniqueIds.length}`);
+            $('#plot-nav-count').text(`- / ${uniqueIds.length}`);
         }
     } catch (e) {
         console.warn('DataTable not ready for counter');
@@ -803,23 +861,23 @@ const showFeaturePanel = (feature, layer) => {
 }
 
 const getFeatureStyle = (feature) => {
-    const color = feature.properties.classtype === 'rubber'
+    const color = feature.properties.Classtype === 'rubber'
         ? '#006d2c'
-        : feature.properties.classtype === 'Other'
+        : feature.properties.Classtype === 'Other'
             ? '#ff0004ff'
-            : feature.properties.classtype === 'not-rubber'
+            : feature.properties.Classtype === 'not-rubber'
                 ? '#9900ffff'
-                : feature.properties.classtype === 'ex_age_rubber'
+                : feature.properties.Classtype === 'ex_age_rubber'
                     ? '#00ff0dff'
-                    : feature.properties.classtype === 'ex_building'
+                    : feature.properties.Classtype === 'ex_building'
                         ? '#ff00d4ff'
-                        : feature.properties.classtype === 'ex_pond'
+                        : feature.properties.Classtype === 'ex_pond'
                             ? '#00fff2ff'
-                            : feature.properties.classtype === 'ex_cr_area'
+                            : feature.properties.Classtype === 'ex_cr_area'
                                 ? '#ffff00ff'
-                                : feature.properties.classtype === 'ex_ar_area'
+                                : feature.properties.Classtype === 'ex_ar_area'
                                     ? '#00008bff'
-                                    : feature.properties.classtype === 'ex_other'
+                                    : feature.properties.Classtype === 'ex_other'
                                         ? '#ff9800ff'
                                         : '#fdae61';
     return {
@@ -949,7 +1007,7 @@ const loadGeoData = async () => {
             rai_rechac: item.rai_rechac || 0,
             current_sqm: item.sqm_rechac || item.shpsplit_sqm || 0,
             shpsplit_sqm: item.shpsplit_sqm,
-            classtype: item.classtype,
+            Classtype: item.Classtype,
             check_shape: item.check_shape || '',
             remark: item.remark || '',
             reviewer: item.reviewer || '',
@@ -1018,7 +1076,7 @@ const loadGeoData = async () => {
                     render: (data) => `<span class="area-num">${Number(data || 0).toLocaleString('th-TH', { maximumFractionDigits: 4 })}</span>`
                 },
                 {
-                    data: 'classtype',
+                    data: 'Classtype',
                     title: 'ประเภท',
                     render: (data) => {
                         const colorMap = {
@@ -1207,7 +1265,7 @@ const loadGeoData = async () => {
                 lyr.setStyle({ color: '#FF6600', fillColor: origStyle.fillColor, weight: 6, opacity: 1, fillOpacity: 0.75, dashArray: null });
             }
 
-            // Update area info cards to reflect this sub_id's classtype + area
+            // Update area info cards to reflect this sub_id's Classtype + area
             _updateAreaCards(rowData);
 
             // Mark active row
@@ -1476,7 +1534,7 @@ const loadGeoData = async () => {
                         refinal: row.refinal,
                         id_farmer: row.id_farmer,
                         shpsplit_sqm: row.shpsplit_sqm,
-                        classtype: row.classtype,
+                        Classtype: row.Classtype,
                         check_shape: row.check_shape,
                         remark: row.remark,
                         user_remark: row.user_remark,
@@ -1743,7 +1801,6 @@ const loadGeoData = async () => {
             const btn = $(this);
             const subId = btn.data('subid');
             const row = btn.closest('tr');
-            const checkArea = '';
             const checkShape = row.find('.check-shape').val();
             const remark = row.find('.review-remark').val();
             const userRemark = row.find('.user-remark').val();
@@ -1784,7 +1841,6 @@ const loadGeoData = async () => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         sub_id: subId,
-                        check_area: checkArea,
                         check_shape: checkShape,
                         remark: remark,
                         user_remark: userRemark,
@@ -1798,7 +1854,7 @@ const loadGeoData = async () => {
                     const updatedTs = data.data && data.data[0] ? data.data[0].review_ts : new Date().toISOString();
 
                     // If rejected → clear user_remark so worker must write a fresh note
-                    const isRejected = checkArea === 'ไม่ผ่าน' || checkShape === 'ไม่ผ่าน';
+                    const isRejected = checkShape === 'ไม่ผ่าน';
                     if (isRejected) {
                         try {
                             await fetch(`/rub3/api/update_user_remark/${tb}`, {
@@ -1827,7 +1883,6 @@ const loadGeoData = async () => {
                     }
 
                     // Update internal DataTable data
-                    rowData.check_area = checkArea;
                     rowData.check_shape = checkShape;
                     rowData.remark = remark;
                     rowData.reviewer = reviewerToSave;
@@ -1925,7 +1980,7 @@ legend.onAdd = function (map) {
 
 
     for (let i = 0; i < categories.length; i++) {
-        const dummy = { properties: { classtype: categories[i] } },
+        const dummy = { properties: { Classtype: categories[i] } },
             style = getFeatureStyle(dummy);
 
         div.innerHTML +=
@@ -2160,15 +2215,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         const groupedData = {};
         raiData.forEach(r => {
             let cat = 'ไม่ระบุ';
-            if (r.classtype === 'rubber') cat = 'ยางพาราที่ลงทะเบียน';
-            else if (r.classtype === 'not-rubber') cat = 'ยางพาราที่ไม่ได้ลงทะเบียน';
-            else if (r.classtype === 'Other') cat = 'ไม่ใช่ยางพารา';
-            else if (r.classtype === 'ex_age_rubber') cat = 'พื้นที่กันออก (ยางพาราต่างอายุ)';
-            else if (r.classtype === 'ex_building') cat = 'พื้นที่กันออก (สิ่งปลูกสร้าง)';
-            else if (r.classtype === 'ex_pond') cat = 'พื้นที่กันออก (บ่อน้ำ)';
-            else if (r.classtype === 'ex_cr_area') cat = 'พื้นที่กันออก (ถนนคอนกรีต)';
-            else if (r.classtype === 'ex_ar_area') cat = 'พื้นที่กันออก (ถนนลาดยาง)';
-            else if (r.classtype === 'ex_other') cat = 'พื้นที่กันออก (เพิ่มเติม)';
+            if (r.Classtype === 'rubber') cat = 'ยางพาราที่ลงทะเบียน';
+            else if (r.Classtype === 'not-rubber') cat = 'ยางพาราที่ไม่ได้ลงทะเบียน';
+            else if (r.Classtype === 'Other') cat = 'ไม่ใช่ยางพารา';
+            else if (r.Classtype === 'ex_age_rubber') cat = 'พื้นที่กันออก (ยางพาราต่างอายุ)';
+            else if (r.Classtype === 'ex_building') cat = 'พื้นที่กันออก (สิ่งปลูกสร้าง)';
+            else if (r.Classtype === 'ex_pond') cat = 'พื้นที่กันออก (บ่อน้ำ)';
+            else if (r.Classtype === 'ex_cr_area') cat = 'พื้นที่กันออก (ถนนคอนกรีต)';
+            else if (r.Classtype === 'ex_ar_area') cat = 'พื้นที่กันออก (ถนนลาดยาง)';
+            else if (r.Classtype === 'ex_other') cat = 'พื้นที่กันออก (เพิ่มเติม)';
 
             groupedData[cat] = (groupedData[cat] || 0) + parseFloat(r.area_rai);
         });
@@ -2256,17 +2311,20 @@ $(document).on('click', '#adminStatusBar .admin-status-card', function () {
     // Update nav counter to reflect filtered IDs
     if ($.fn.DataTable.isDataTable('#featureTable')) {
         const allRows = $('#featureTable').DataTable().rows({ search: 'applied' }).data().toArray();
-        const allUniqueIds = [...new Set(allRows.map(r => String(r.id)))];
-        const filtered = _adminNavFilter === 'all'
-            ? allUniqueIds
-            : allUniqueIds.filter(id => {
-                const subs = allRows.filter(r => String(r.id) === id);
-                if (_adminNavFilter === 'remark') return subs.some(r => !!(r.remark || r.user_remark));
-                if (_adminNavFilter === 'none') return subs.some(r => !r.check_shape);
-                if (_adminNavFilter === 'pass') return subs.some(r => r.check_shape === 'ผ่าน');
-                if (_adminNavFilter === 'fail') return subs.some(r => r.check_shape === 'ไม่ผ่าน');
-                return true;
-            });
+        const filtered = _getAdminNavIds(allRows);
+        
+        // Auto-jump to the first valid ID if the current one is no longer in the filtered list
+        if (_currentReviewId && !filtered.includes(String(_currentReviewId))) {
+            if (filtered.length > 0) {
+                const firstRow = allRows.find(r => String(r.id) === filtered[0]);
+                _currentReviewId = null; // force update
+                focusPlot(firstRow);
+                return; // focusPlot handles updating the nav counter
+            } else {
+                _currentReviewId = null;
+            }
+        }
+        
         const currentIdx = _currentReviewId ? filtered.indexOf(String(_currentReviewId)) : -1;
         $('#plot-nav-count').text(`${currentIdx >= 0 ? currentIdx + 1 : '-'} / ${filtered.length}`);
     }
@@ -2282,6 +2340,25 @@ $(document).on('click', '#workerStatusFilter .worker-status-card', function () {
         $('#workerStatusFilter .worker-status-card').removeClass('active');
         $(this).addClass('active');
     }
+    
+    // Auto-jump to the first ID in this filter if the current ID is no longer valid
+    if ($.fn.DataTable.isDataTable('#featureTable')) {
+        const dt = $('#featureTable').DataTable();
+        const allRows = dt.rows({ search: 'applied' }).data().toArray();
+        const validIds = _getWorkerNavIds(allRows);
+        
+        if (_currentReviewId && !validIds.includes(String(_currentReviewId))) {
+            if (validIds.length > 0) {
+                const firstRow = allRows.find(r => String(r.id) === validIds[0]);
+                _currentReviewId = null; // force update in focusPlot
+                focusPlot(firstRow);
+                return; // focusPlot will call buildWorkerPlotList
+            } else {
+                _currentReviewId = null; // clear selection if list is empty
+            }
+        }
+    }
+    
     // filter ภายใน ID ที่เลือกอยู่เสมอ (ถ้ายังไม่เลือก ID จึงแสดงทั้งหมด)
     buildWorkerPlotList(_currentReviewId || null);
 });
