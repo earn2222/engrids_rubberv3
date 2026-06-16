@@ -164,13 +164,6 @@ buildLayerSwitcher();
 const CLASS_COLORS = {
     'rubber': '#006d2c',
     'Other': '#ff0004',
-    'not-rubber': '#9900ff',
-    'ex_age_rubber': '#00ff0d',
-    'ex_building': '#ff00d4',
-    'ex_pond': '#00fff2',
-    'ex_cr_area': '#ffff00',
-    'ex_ar_area': '#00008b',
-    'ex_other': '#ff9900',
 };
 const DEFAULT_COLOR = '#fdae61';
 
@@ -395,14 +388,7 @@ const loadGeoData = async (id, shouldFit = true) => {
 // ── 10. Feature panel ────────────────────────────────────
 const classtypeColorMap = {
     'rubber': 'ct-rubber',
-    'not-rubber': 'ct-not-rubber',
     'Other': 'ct-Other',
-    'ex_age_rubber': 'ct-ex_age_rubber',
-    'ex_building': 'ct-ex_building',
-    'ex_pond': 'ct-ex_pond',
-    'ex_cr_area': 'ct-ex_cr_area',
-    'ex_ar_area': 'ct-ex_ar_area',
-    'ex_other': 'ct-ex_other',
 };
 
 function updateClasstypeColor(value) {
@@ -412,7 +398,6 @@ function updateClasstypeColor(value) {
 }
 
 // ── Classtype dropdown filter ─────────────────────────────
-// ct = "rubber" → show rubber + excluded areas (hide not-rubber / Other)
 // ct = anything else (empty/null/other) → show all options
 function filterClasstypeOptions(ct) {
     const select = document.getElementById('Classtype');
@@ -1454,14 +1439,7 @@ document.getElementById('collectedBtn').addEventListener('click', async () => {
 function buildLegend() {
     const entries = [
         { ct: 'rubber', label: 'ยางพาราที่ลงทะเบียน' },
-        { ct: 'not-rubber', label: 'ยางพาราที่ไม่ได้ลงทะเบียน' },
         { ct: 'Other', label: 'ไม่ใช่ยางพารา' },
-        { ct: 'ex_age_rubber', label: 'พื้นที่กันออก (ยางพาราต่างอายุ)' },
-        { ct: 'ex_building', label: 'พื้นที่กันออก (สิ่งปลูกสร้าง)' },
-        { ct: 'ex_pond', label: 'พื้นที่กันออก (บ่อน้ำ)' },
-        { ct: 'ex_cr_area', label: 'พื้นที่กันออก (ถนนคอนกรีต)' },
-        { ct: 'ex_ar_area', label: 'พื้นที่กันออก (ถนนลาดยาง)' },
-        { ct: 'ex_other', label: 'พื้นที่กันออก (เพิ่มเติม)' },
     ];
     const div = document.createElement('div');
     div.className = 'legend ol-unselectable';
