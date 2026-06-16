@@ -300,7 +300,7 @@ function showFeaturePanel(feature, layer) {
     document.getElementById('current_sqm').value =
         Number(feature.properties.sqm_rechac || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 });
     document.getElementById('current_rai').value =
-        Number(feature.properties.rai_rechac || 0).toLocaleString('th-TH', { maximumFractionDigits: 4 });
+        Number(feature.properties.rai_rechac || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 });
     document.getElementById('classify').disabled = false;
 }
 
@@ -421,7 +421,7 @@ const loadGeoData = async () => {
                 {
                     data: 'rai_rechac',
                     title: 'เนื้อที่ขณะนี้ (ไร่)',
-                    render: (data) => Number(data || 0).toLocaleString('th-TH', { maximumFractionDigits: 4 })
+                    render: (data) => Number(data || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 })
                 }
             ],
             pageLength: 10,
