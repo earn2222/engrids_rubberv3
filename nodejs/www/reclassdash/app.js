@@ -369,16 +369,11 @@ const focusPlot = (rowData) => {
 
 // ── Shared color/label maps for worker panel ──
 const _workerColorMap = {
-    'rubber': '#006d2c', 'not-rubber': '#9900ff', 'Other': '#ff0004',
-    'ex_age_rubber': '#00c853', 'ex_building': '#ff00d4', 'ex_pond': '#00bcd4',
-    'ex_cr_area': '#f9a825', 'ex_ar_area': '#00008b', 'ex_other': '#ff9800'
+    'rubber': '#006d2c', 'Other': '#ff0004'
 };
 const _workerLabelMap = {
-    'rubber': 'ยางพาราที่ลงทะเบียน', 'not-rubber': 'ยางพาราที่ไม่ได้ลงทะเบียน',
-    'Other': 'ไม่ใช่ยางพารา', 'ex_age_rubber': 'กันออก (อายุ)',
-    'ex_building': 'กันออก (สิ่งปลูกสร้าง)', 'ex_pond': 'กันออก (บ่อน้ำ)',
-    'ex_cr_area': 'กันออก (คสล.)', 'ex_ar_area': 'กันออก (ลาดยาง)',
-    'ex_other': 'กันออก (อื่นๆ)'
+    'rubber': 'ยางพาราที่ลงทะเบียน',
+    'Other': 'ไม่ใช่ยางพารา'
 };
 
 // Update the selected-plot banner in the worker quick panel
@@ -410,17 +405,11 @@ const _updateAreaCards = (rowData) => {
     if (!rowData) return;
 
     const labelMapFull = {
-        'rubber': 'ยางพาราที่ลงทะเบียน', 'not-rubber': 'ยางพาราที่ไม่ได้ลงทะเบียน',
-        'Other': 'ไม่ใช่ยางพารา', 'ex_age_rubber': 'พื้นที่กันออก (ยางพาราต่างอายุ)',
-        'ex_building': 'พื้นที่กันออก (สิ่งปลูกสร้าง)', 'ex_pond': 'พื้นที่กันออก (บ่อน้ำ)',
-        'ex_cr_area': 'พื้นที่กันออก (ถนนคอนกรีต)',
-        'ex_ar_area': 'พื้นที่กันออก (ถนนลาดยาง)',
-        'ex_other': 'พื้นที่กันออก (เพิ่มเติม)'
+        'rubber': 'ยางพาราที่ลงทะเบียน',
+        'Other': 'ไม่ใช่ยางพารา'
     };
     const colorMapFull = {
-        'rubber': '#006d2c', 'not-rubber': '#9900ff', 'Other': '#ff0004',
-        'ex_age_rubber': '#00ff0d', 'ex_building': '#ff00d4', 'ex_pond': '#00fff2',
-        'ex_cr_area': '#ffff00', 'ex_ar_area': '#00008b', 'ex_other': '#ff9800'
+        'rubber': '#006d2c', 'Other': '#ff0004'
     };
     const rdLabel = labelMapFull[rowData.Classtype] || 'อื่นๆ';
     const rdColor = colorMapFull[rowData.Classtype] || '#6c757d';
@@ -620,7 +609,7 @@ const updateAdminStatusCounts = () => {
     
     let cntNone = 0, cntPass = 0, cntFail = 0, cntRemark = 0;
     
-    const workerTypes = ['rubber', 'not-rubber'];
+    const workerTypes = ['rubber', 'Other'];
     uniqueIds.forEach(id => {
         const subs = allRows.filter(r => String(r.id) === id && workerTypes.includes(r.Classtype));
         if (subs.length === 0) return; // No worker-classified subs yet, skip admin count
@@ -708,18 +697,11 @@ const showFeaturePanel = (feature, layer) => {
 
     // Classtype Label & Color
     const labelMap = {
-        'rubber': 'ยางพาราที่ลงทะเบียน', 'not-rubber': 'ยางพาราที่ไม่ได้ลงทะเบียน',
-        'Other': 'ไม่ใช่ยางพารา', 'ex_age_rubber': 'พื้นที่กันออก (ยางพาราต่างอายุ)',
-        'ex_building': 'พื้นที่กันออก (สิ่งปลูกสร้าง)', 'ex_pond': 'พื้นที่กันออก (บ่อน้ำ)',
-        'ex_cr_area': 'พื้นที่กันออก (ถนนคอนกรีต)',
-        'ex_ar_area': 'พื้นที่กันออก (ถนนลาดยาง)',
-        'ex_other': 'พื้นที่กันออก (เพิ่มเติม)'
+        'rubber': 'ยางพาราที่ลงทะเบียน',
+        'Other': 'ไม่ใช่ยางพารา'
     };
     const colorMap = {
-        'rubber': '#006d2c', 'not-rubber': '#9900ff', 'Other': '#ff0004',
-        'ex_age_rubber': '#00ff0d', 'ex_building': '#ff00d4', 'ex_pond': '#00fff2',
-        'ex_cr_area': '#ffff00', 'ex_ar_area': '#00008b',
-        'ex_other': '#ff9800'
+        'rubber': '#006d2c', 'Other': '#ff0004'
     };
     const label = labelMap[props.Classtype] || 'อื่นๆ';
     const color = colorMap[props.Classtype] || '#6c757d';
@@ -763,15 +745,10 @@ const showFeaturePanel = (feature, layer) => {
 
             // Build sub_id rows
             const labelMap = {
-                'rubber': 'ยางพารา', 'not-rubber': 'ไม่ลงทะเบียน', 'Other': 'ไม่ใช่ยาง',
-                'ex_age_rubber': 'กันออก(อายุ)', 'ex_building': 'กันออก(สิ่งปลูก)',
-                'ex_pond': 'กันออก(บ่อ)', 'ex_cr_area': 'กันออก(คสล.)',
-                'ex_ar_area': 'กันออก(ลาดยาง)', 'ex_other': 'กันออก(อื่นๆ)'
+                'rubber': 'ยางพารา', 'Other': 'ไม่ใช่ยาง'
             };
             const colorMap = {
-                'rubber': '#006d2c', 'not-rubber': '#9900ff', 'Other': '#ff0004',
-                'ex_age_rubber': '#00c853', 'ex_building': '#ff00d4', 'ex_pond': '#00bcd4',
-                'ex_cr_area': '#f9a825', 'ex_ar_area': '#00008b', 'ex_other': '#ff9800'
+                'rubber': '#006d2c', 'Other': '#ff0004'
             };
 
             const mkOpts = (val) => ['', 'ผ่าน', 'ไม่ผ่าน'].map(v =>
@@ -874,21 +851,7 @@ const getFeatureStyle = (feature) => {
         ? '#006d2c'
         : feature.properties.Classtype === 'Other'
             ? '#ff0004ff'
-            : feature.properties.Classtype === 'not-rubber'
-                ? '#9900ffff'
-                : feature.properties.Classtype === 'ex_age_rubber'
-                    ? '#00ff0dff'
-                    : feature.properties.Classtype === 'ex_building'
-                        ? '#ff00d4ff'
-                        : feature.properties.Classtype === 'ex_pond'
-                            ? '#00fff2ff'
-                            : feature.properties.Classtype === 'ex_cr_area'
-                                ? '#ffff00ff'
-                                : feature.properties.Classtype === 'ex_ar_area'
-                                    ? '#00008bff'
-                                    : feature.properties.Classtype === 'ex_other'
-                                        ? '#ff9800ff'
-                                        : '#fdae61';
+            : '#fdae61';
     return {
         fillColor: color,
         weight: 2,
@@ -1088,15 +1051,10 @@ const loadGeoData = async () => {
                     title: 'ประเภท',
                     render: (data) => {
                         const colorMap = {
-                            'rubber': '#006d2c', 'not-rubber': '#9900ff', 'Other': '#ff0004',
-                            'ex_age_rubber': '#00c853', 'ex_building': '#ff00d4', 'ex_pond': '#00bcd4',
-                            'ex_cr_area': '#f9a825', 'ex_ar_area': '#00008b', 'ex_other': '#ff9800'
+                            'rubber': '#006d2c', 'Other': '#ff0004'
                         };
                         const labelMap = {
-                            'rubber': 'ยางพารา', 'not-rubber': 'ไม่ลงทะเบียน', 'Other': 'ไม่ใช่ยาง',
-                            'ex_age_rubber': 'กันออก(อายุ)', 'ex_building': 'กันออก(สิ่งปลูก)',
-                            'ex_pond': 'กันออก(บ่อ)', 'ex_cr_area': 'กันออก(คสล.)',
-                            'ex_ar_area': 'กันออก(ลาดยาง)', 'ex_other': 'กันออก(อื่นๆ)'
+                            'rubber': 'ยางพารา', 'Other': 'ไม่ใช่ยาง'
                         };
                         if (!data) return '<span class="text-muted">-</span>';
                         const color = colorMap[data] || '#6c757d';
@@ -1965,17 +1923,10 @@ const legend = L.control({ position: 'bottomright' });
 
 legend.onAdd = function (map) {
     const div = L.DomUtil.create('div', 'legend'),
-        categories = ['rubber', 'not-rubber', 'Other', 'ex_age_rubber', 'ex_building', 'ex_pond', 'ex_cr_area', 'ex_ar_area', 'ex_other'],
+        categories = ['rubber', 'Other'],
         labels = [
             'ยางพาราที่ลงทะเบียน',
-            'ยางพาราที่ไม่ได้ลงทะเบียน',
             'ไม่ใช่ยางพารา',
-            'พื้นที่กันออก (ยางพาราต่างอายุ)',
-            'พื้นที่กันออก (สิ่งปลูกสร้าง)',
-            'พื้นที่กันออก (บ่อน้ำ)',
-            'พื้นที่กันออก (ถนนคอนกรีต)',
-            'พื้นที่กันออก (ถนนลาดยาง)',
-            'พื้นที่กันออก (เพิ่มเติม)',
             'ขอบเขต Reshape'
         ];
 
@@ -2220,14 +2171,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         raiData.forEach(r => {
             let cat = 'ไม่ระบุ';
             if (r.Classtype === 'rubber') cat = 'ยางพาราที่ลงทะเบียน';
-            else if (r.Classtype === 'not-rubber') cat = 'ยางพาราที่ไม่ได้ลงทะเบียน';
             else if (r.Classtype === 'Other') cat = 'ไม่ใช่ยางพารา';
-            else if (r.Classtype === 'ex_age_rubber') cat = 'พื้นที่กันออก (ยางพาราต่างอายุ)';
-            else if (r.Classtype === 'ex_building') cat = 'พื้นที่กันออก (สิ่งปลูกสร้าง)';
-            else if (r.Classtype === 'ex_pond') cat = 'พื้นที่กันออก (บ่อน้ำ)';
-            else if (r.Classtype === 'ex_cr_area') cat = 'พื้นที่กันออก (ถนนคอนกรีต)';
-            else if (r.Classtype === 'ex_ar_area') cat = 'พื้นที่กันออก (ถนนลาดยาง)';
-            else if (r.Classtype === 'ex_other') cat = 'พื้นที่กันออก (เพิ่มเติม)';
 
             groupedData[cat] = (groupedData[cat] || 0) + parseFloat(r.area_rai);
         });

@@ -1485,8 +1485,6 @@ app.get('/api/download/reshape/:tb', async (req, res) => {
             let extraTypeCondition = '';
             if (typeFilter === 'rubber') {
                 extraTypeCondition = `AND LOWER(TRIM(r."Classtype")) = 'rubber'`;
-            } else if (typeFilter === 'rubber_and_ex') {
-                extraTypeCondition = `AND LOWER(TRIM(r."Classtype")) IN ('rubber', 'ex_age_rubber', 'ex_building', 'ex_pond', 'ex_cr_area', 'ex_ar_area', 'ex_other')`;
             }
 
             sql = `
@@ -1501,14 +1499,7 @@ app.get('/api/download/reshape/:tb', async (req, res) => {
                         'properties', json_build_object(
                             'Classtype',    CASE r."Classtype"
                                                 WHEN 'rubber' THEN 'ยางพาราที่ลงทะเบียน'
-                                                WHEN 'not-rubber' THEN 'ยางพาราที่ไม่ได้ลงทะเบียน'
                                                 WHEN 'Other' THEN 'ไม่ใช่ยางพารา'
-                                                WHEN 'ex_age_rubber' THEN 'พื้นที่กันออก (ยางพาราต่างอายุ)'
-                                                WHEN 'ex_building' THEN 'พื้นที่กันออก (สิ่งปลูกสร้าง)'
-                                                WHEN 'ex_pond' THEN 'พื้นที่กันออก (บ่อน้ำ)'
-                                                WHEN 'ex_cr_area' THEN 'พื้นที่กันออก (ถนนคอนกรีต)'
-                                                WHEN 'ex_ar_area' THEN 'พื้นที่กันออก (ถนนลาดยาง)'
-                                                WHEN 'ex_other' THEN 'พื้นที่กันออก (เพิ่มเติม)'
                                                 ELSE r."Classtype"
                                             END,
                             'Class_Area',    r."Class_Area",
