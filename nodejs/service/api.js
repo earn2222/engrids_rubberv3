@@ -991,7 +991,7 @@ app.get('/api/countsrai/:tb', async (req, res) => {
             return res.status(400).json({ error: 'Table name is required' });
         }
         const sql = `SELECT
-                        Classtype,
+                        "Classtype",
                         ROUND(SUM(shpsplit_sqm) / 1600.0, 0) AS area_rai
                     FROM ${tb}
                     GROUP BY "Classtype"
