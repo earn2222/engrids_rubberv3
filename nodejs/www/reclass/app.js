@@ -1606,6 +1606,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function checkMyAssignment(displayName) {
     const tb = document.getElementById('tb').value;
+    const currentId = parseInt(document.getElementById('id').value, 10);
     const alertEl = document.getElementById('myAssignmentAlert');
     const rangeText = document.getElementById('myAssignmentRange');
     if (!alertEl || !rangeText || !tb) return;
@@ -1616,11 +1617,32 @@ async function checkMyAssignment(displayName) {
         
         if (!data || data.length === 0) return;
 
-        // Find assignment for current user
-        const mine = data.find(a => a.assignee_name && a.assignee_name.toLowerCase().includes(displayName.toLowerCase()));
+        // Find all assignments for current user
+        const myAssignments = data.filter(a => a.assignee_name && a.assignee_name.toLowerCase().includes(displayName.toLowerCase()));
         
-        if (mine) {
-            rangeText.textContent = `ID ${mine.id_from} – ${mine.id_to}`;
+        if (myAssignments.length === 0) return;
+
+        // 1. Try to find the specific assignment range that covers the current ID
+        let currentAssignment = myAssignments.find(a => !isNaN(currentId) && currentId >= a.id_from && currentId <= a.id_to);
+        
+        // 2. If not found by current ID, check if URL params have id_from and id_to
+        if (!currentAssignment) {
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlIdFrom = parseInt(urlParams.get('id_from'), 10);
+            const urlIdTo = parseInt(urlParams.get('id_to'), 10);
+            
+            if (!isNaN(urlIdFrom) && !isNaN(urlIdTo)) {
+                currentAssignment = myAssignments.find(a => a.id_from === urlIdFrom && a.id_to === urlIdTo);
+            }
+        }
+        
+        // 3. Fallback to the first assignment if still not found
+        if (!currentAssignment) {
+            currentAssignment = myAssignments[0];
+        }
+        
+        if (currentAssignment) {
+            rangeText.textContent = `ID ${currentAssignment.id_from} – ${currentAssignment.id_to}`;
             alertEl.style.display = 'block';
         }
     } catch (e) {
