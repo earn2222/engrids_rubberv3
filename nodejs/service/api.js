@@ -1696,19 +1696,21 @@ app.get('/api/my-assignment/:tb', async (req, res) => {
                  OR LOWER(assignee_email) = LOWER($3)
                  OR (user_id IS NULL AND LOWER(assignee_name) = LOWER($4))
                )
-             ORDER BY id_from LIMIT 1`,
+             ORDER BY id_from`,
             [tb, sessionUser.id, sessionUser.email || '', sessionUser.displayName || '']
         );
-        const row = result.rows[0] || null;
+        const rows = result.rows;
         // Backfill user_id และ email ทันทีที่เจอ เพื่อให้ครั้งต่อไปค้นด้วย id/email ได้เลย
-        if (row && sessionUser.email && (!row.user_id || !row.assignee_email)) {
+        rows.filter(row => sessionUser.email && (!row.user_id || !row.assignee_email)).forEach(row => {
             pool.query(
                 `UPDATE task_assignments SET user_id = $1, assignee_email = $2
                  WHERE id = $3`,
                 [sessionUser.id, sessionUser.email, row.id]
             ).catch(e => console.error('[BACKFILL-ROW]', e.message));
-        }
-        res.json({ success: true, data: row });
+        });
+        // หนึ่งอีเมลอาจได้รับมอบหมายหลายช่วง ID ในตารางเดียวกัน (เช่น 1-200 และ 601-800)
+        // จึงคืนค่าทุกช่วงที่ตรงกัน ไม่ใช่แค่ช่วงแรก
+        res.json({ success: true, data: rows[0] || null, assignments: rows });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: err.message });

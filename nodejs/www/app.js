@@ -58,7 +58,7 @@ async function showAssigneeSelect(event, tb, targetType) {
     const role = window.currentUser?.role || 'worker';
     const subPath = targetType === 'reshape' ? 'reshape' : 'reclassdash';
 
-    // Worker: ดึง assignment ของตัวเองและ navigate ตรง ไม่ต้องเปิด modal
+    // Worker: ดึง assignment ของตัวเอง (อาจมีได้หลายช่วง ID ในตารางเดียวกัน เช่น 1-200 และ 601-800)
     if (role === 'worker') {
         try {
             const res = await fetch(`/rub3/api/my-assignment/${tb}`);
@@ -67,12 +67,23 @@ async function showAssigneeSelect(event, tb, targetType) {
                 window.location.reload();
                 return;
             }
-            const { data } = await res.json();
-            if (data) {
-                window.location.href = `./${subPath}/index.html?tb=${tb}&id_from=${data.id_from}&id_to=${data.id_to}&assignee=${encodeURIComponent(data.assignee_name)}`;
-            } else {
+            const { assignments } = await res.json();
+            const myAssignments = assignments || [];
+
+            if (myAssignments.length === 0) {
                 alert('คุณยังไม่ได้รับมอบหมายงานในโครงการนี้\nกรุณาติดต่อ Admin');
+                return;
             }
+
+            // มีงานเดียว -> ไปต่อตรงเหมือนเดิม ไม่ต้องเปิด modal ให้เลือก
+            if (myAssignments.length === 1) {
+                const a = myAssignments[0];
+                window.location.href = `./${subPath}/index.html?tb=${tb}&id_from=${a.id_from}&id_to=${a.id_to}&assignee=${encodeURIComponent(a.assignee_name)}`;
+                return;
+            }
+
+            // มีหลายช่วง -> เปิด modal ให้เลือกว่าจะทำช่วงไหน
+            showMyAssignmentSelect(myAssignments, tb, subPath);
         } catch (e) {
             alert('เกิดข้อผิดพลาดในการตรวจสอบงานที่ได้รับมอบหมาย');
         }
@@ -217,6 +228,47 @@ async function showAssigneeSelect(event, tb, targetType) {
     }
 }
 
+
+/**
+ * Worker มีงานที่ได้รับมอบหมายมากกว่า 1 ช่วง ID ในตารางเดียวกัน (เช่น 1-200 และ 601-800)
+ * เปิด modal ให้เลือกว่าจะเข้าไปทำช่วงไหน
+ */
+function showMyAssignmentSelect(myAssignments, tb, subPath) {
+    const modalEl = document.getElementById('selectionModal');
+    const listEl = document.getElementById('assigneeList');
+    if (!modalEl || !listEl) return;
+
+    const modal = new bootstrap.Modal(modalEl);
+    listEl.innerHTML = `
+        <div class="small text-muted mb-3 text-center">
+            <i class="bi bi-info-circle me-1"></i>คุณได้รับมอบหมาย ${myAssignments.length} ช่วง ID กรุณาเลือกช่วงที่ต้องการทำ
+        </div>
+    `;
+
+    myAssignments.forEach(a => {
+        const btn = document.createElement('button');
+        btn.className = 'btn w-100 text-start d-flex align-items-center mb-2 px-3 py-2 border-0 shadow-sm';
+        btn.style.cssText = 'border-radius:15px; background:linear-gradient(135deg,#5ea36a,#4a7c59); box-shadow:0 4px 12px rgba(74,124,89,0.3);';
+        btn.innerHTML = `
+            <div class="rounded-circle d-flex align-items-center justify-content-center text-white me-3"
+                 style="width:42px;height:42px;background:rgba(255,255,255,0.2);">
+                <i class="bi bi-person-fill" style="font-size:1.2rem;"></i>
+            </div>
+            <div class="flex-grow-1">
+                <div class="fw-bold text-white" style="font-size:0.9rem;">ID ${a.id_from}–${a.id_to}</div>
+                ${a.note ? `<div class="text-white-50" style="font-size:0.72rem;">${a.note}</div>` : ''}
+            </div>
+            <i class="bi bi-chevron-right text-white ms-2" style="font-size:1.1rem;"></i>
+        `;
+        btn.onclick = () => {
+            modal.hide();
+            window.location.href = `./${subPath}/index.html?tb=${tb}&id_from=${a.id_from}&id_to=${a.id_to}&assignee=${encodeURIComponent(a.assignee_name)}`;
+        };
+        listEl.appendChild(btn);
+    });
+
+    modal.show();
+}
 
 /* ── Load assignments for home project cards ── */
 async function loadAssignmentHome(tb_name) {
