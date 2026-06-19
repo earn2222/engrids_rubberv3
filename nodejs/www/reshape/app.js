@@ -378,6 +378,8 @@ const loadGeoData = async () => {
                 id_farmer: item.farmer_id || '',
                 name: item.name || '',
                 surname: item.surname || '',
+                old_year: item.old_year || '',
+                classtype: item.classtype || '',
                 sqm_rechac: item.sqm_rechac || 0,
                 rai_rechac: item.rai_rechac || 0,
             };
@@ -413,6 +415,20 @@ const loadGeoData = async () => {
                     render: (data) => data || '<span class="text-muted">-</span>'
                 },
                 { data: 'id_farmer', title: 'เลขเกษตรกร' },
+                {
+                    data: 'old_year',
+                    title: 'อายุ',
+                    render: (data) => data || '<span class="text-muted">-</span>'
+                },
+                {
+                    data: 'classtype',
+                    title: 'สถานะ Class',
+                    render: (data) => {
+                        return data
+                            ? '<span class="text-success">คลาสแล้ว</span>'
+                            : '<span class="text-danger">ยังไม่ได้คลาส</span>';
+                    }
+                },
                 {
                     data: 'sqm_rechac',
                     title: 'เนื้อที่ขณะนี้ (m²)',
