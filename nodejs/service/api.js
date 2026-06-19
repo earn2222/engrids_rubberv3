@@ -261,11 +261,27 @@ app.get('/api/getfeaturesv3/:tb', async (req, res) => {
         );
         const hasGeomPoint = colCheck.rowCount > 0;
 
-        const geomPointSelect = hasGeomPoint ? 'ST_AsGeoJSON(geom_point) AS geom_point' : "NULL::json AS geom_point";
-        const whereClause = hasGeomPoint ? 'WHERE geom IS NOT NULL OR geom_point IS NOT NULL' : 'WHERE geom IS NOT NULL';
+        const geomPointSelect = hasGeomPoint ? `ST_AsGeoJSON(${tb}.geom_point) AS geom_point` : "NULL::json AS geom_point";
+        const whereClause = hasGeomPoint
+            ? `WHERE ${tb}.geom IS NOT NULL OR ${tb}.geom_point IS NOT NULL`
+            : `WHERE ${tb}.geom IS NOT NULL`;
+
+        const reclassCheck = await pool.query(
+            `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = $1)`,
+            [`reclass_${tb}`]
+        );
+        const hasReclass = reclassCheck.rows[0].exists;
+        const classtypeSelect = hasReclass ? 'r.classtype' : 'NULL AS classtype';
+        const reclassJoin = hasReclass
+            ? `LEFT JOIN (
+                SELECT id, MAX("Classtype") AS classtype
+                FROM reclass_${tb}
+                GROUP BY id
+            ) r ON r.id = ${tb}.id`
+            : '';
 
         const sql = `
-            SELECT id,
+            SELECT ${tb}.id,
                 "Name"       AS name,
                 "Surname"    AS surname,
                 "Old_Year"   AS old_year,
@@ -276,9 +292,11 @@ app.get('/api/getfeaturesv3/:tb', async (req, res) => {
                 "Rai_Area"   AS rai_area,
                 "Land_ID"    AS land_id,
                 "Zone"       AS zone,
-                ST_AsGeoJSON(geom) AS geom,
+                ${classtypeSelect},
+                ST_AsGeoJSON(${tb}.geom) AS geom,
                 ${geomPointSelect}
             FROM ${tb}
+            ${reclassJoin}
             ${whereClause}
         `;
         const result = await pool.query(sql);
@@ -1144,6 +1162,37 @@ app.post('/api/create_reclass_layer', async (req, res) => {
     }
 })
 
+async function generateUniqueFarmerId(tb) {
+    let candidate;
+    let exists = true;
+    while (exists) {
+        candidate = String(Math.floor(1000000000 + Math.random() * 9000000000)); // 10-digit random number
+        const check = await pool.query(
+            `SELECT 1 FROM ${tb} WHERE "Farmer_ID" = $1
+             UNION
+             SELECT 1 FROM reclass_${tb} WHERE farmer_id = $1
+             LIMIT 1`,
+            [candidate]
+        );
+        exists = check.rowCount > 0;
+    }
+    return candidate;
+}
+
+app.get('/api/generate-farmer-id/:tb', async (req, res) => {
+    try {
+        const tb = req.params.tb.toLowerCase();
+        if (!tb) {
+            return res.status(400).json({ error: 'Table name is required' });
+        }
+        const farmerId = await generateUniqueFarmerId(tb);
+        res.status(200).json({ success: true, farmerId });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 app.post('/api/splitfeature/:tb', async (req, res) => {
     try {
         const tb = req.params.tb.toLowerCase();
@@ -1162,8 +1211,10 @@ app.post('/api/splitfeature/:tb', async (req, res) => {
         // Save review history before deleting the existing sub_id row
         await saveReviewHistoryBySubId(null, tb, sub_id, 'split');
 
-        if (!properties?.Farmer_ID) {
-            return res.status(400).json({ error: 'Farmer_ID is required in properties' });
+        let farmerId = properties?.Farmer_ID;
+        if (!farmerId) {
+            farmerId = await generateUniqueFarmerId(tb);
+            console.log(`No Farmer_ID provided — generated unique Farmer_ID ${farmerId} for table ${tb}`);
         }
         if (!polygon?.type || !['Polygon', 'MultiPolygon'].includes(polygon.type) || !polygon.coordinates) {
             return res.status(400).json({ error: 'Invalid polygon GeoJSON' });
@@ -1274,7 +1325,7 @@ app.post('/api/splitfeature/:tb', async (req, res) => {
             JSON.stringify(polygon),
             JSON.stringify(line),
             srid || 32647,
-            properties.Farmer_ID,
+            farmerId,
             sub_id,
             id,
             properties.Classtype,

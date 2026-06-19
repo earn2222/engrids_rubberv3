@@ -413,9 +413,27 @@ function filterClasstypeOptions(ct) {
     if (savedVal) select.value = savedVal;
 }
 
+async function fillFarmerIdIfMissing(feature) {
+    if (feature.get('Farmer_ID')) return;
+    try {
+        const tb = document.getElementById('tb').value;
+        const res = await fetch('/rub3/api/generate-farmer-id/' + tb);
+        const data = await res.json();
+        if (data.success && feature === selectedFeature) {
+            feature.set('Farmer_ID', data.farmerId);
+            document.getElementById('xls_id_farmer').value = data.farmerId;
+        }
+    } catch (err) {
+        console.error('Generate Farmer_ID error:', err);
+    }
+}
+
 function showFeaturePanel(feature) {
     document.getElementById('sub_id').value = feature.get('sub_id') || '';
     document.getElementById('xls_id_farmer').value = feature.get('Farmer_ID') || '';
+    if (!feature.get('Farmer_ID')) {
+        fillFarmerIdIfMissing(feature);
+    }
 
     const currentArea = feature.get('shpsplit_sqm');
     document.getElementById('current_sqm').value = currentArea ? Number(currentArea).toLocaleString('th-TH', { maximumFractionDigits: 2 }) : '';
@@ -742,6 +760,10 @@ async function executeSplit() {
     if (!splitLineCoords) {
         alert('กรุณาวาดเส้นตัดก่อน');
         return;
+    }
+    const farmerIdValue = document.getElementById('xls_id_farmer').value.trim();
+    if (farmerIdValue) {
+        selectedFeature.set('Farmer_ID', farmerIdValue);
     }
 
     const id = document.getElementById('id').value;
@@ -1260,6 +1282,13 @@ document.getElementById('save').addEventListener('click', async () => {
         }
     } catch (err) {
         alert('เกิดข้อผิดพลาด: ' + err.message);
+    }
+});
+
+// ── 14b. Farmer_ID edit → keep in sync with selected feature ──
+document.getElementById('xls_id_farmer').addEventListener('input', (e) => {
+    if (selectedFeature) {
+        selectedFeature.set('Farmer_ID', e.target.value.trim());
     }
 });
 
