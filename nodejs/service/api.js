@@ -438,7 +438,7 @@ app.put('/api/restorefeatures/:tb/:id', async (req, res) => {
                         // Point: sync geom_point กลับต้นฉบับ + reset geom = NULL ใน reclass
                         await pool.query(`
                             UPDATE reclass_${tb}
-                            SET shpsplit_sqm = $1, "Class_Area" = ROUND(($1::numeric / 1600.0), 2),
+                            SET shpsplit_sqm = $1, "Class_Area" = ($1::numeric / 1600.0),
                                 geom        = NULL,
                                 geom_point  = b.geom_point
                             FROM backup_${tb} AS b
@@ -450,7 +450,7 @@ app.put('/api/restorefeatures/:tb/:id', async (req, res) => {
                         // Polygon: sync shpsplit_sqm เท่านั้น
                         await pool.query(`
                             UPDATE reclass_${tb}
-                            SET shpsplit_sqm = $1, "Class_Area" = ROUND(($1::numeric / 1600.0), 2)
+                            SET shpsplit_sqm = $1, "Class_Area" = ($1::numeric / 1600.0)
                             WHERE id = $2 AND (sub_id = $3 OR sub_id = $2::text)
                         `, [bk['Sqm_Rechac'], featureId, featureId.toString()]);
                     }
@@ -725,7 +725,7 @@ app.get('/api/getreclassfeatures/:tb', async (req, res) => {
 
         await pool.query(`
             UPDATE reclass_${tb}
-            SET "Class_Area" = ROUND((shpsplit_sqm / 1600.0), 2)
+            SET "Class_Area" = (shpsplit_sqm / 1600.0)
             WHERE "Class_Area" IS NULL AND shpsplit_sqm IS NOT NULL AND "Classtype" IS NOT NULL;
         `);
 
@@ -1045,7 +1045,7 @@ app.post('/api/create_reclass_feature/:tb', async (req, res) => {
                 RETURNING id
             )
             INSERT INTO reclass_${tb} (id, sub_id, farmer_id, shpsplit_sqm, "Class_Area", geom)
-            SELECT id, $2, "Farmer_ID", "Sqm_Rechac", ROUND(("Sqm_Rechac"::numeric / 1600.0), 2), geom
+            SELECT id, $2, "Farmer_ID", "Sqm_Rechac", ("Sqm_Rechac"::numeric / 1600.0), geom
             FROM ${tb}
             WHERE id = $1
             RETURNING id, farmer_id, ST_AsGeoJSON(geom) AS geom;
@@ -1313,7 +1313,7 @@ app.post('/api/splitfeature/:tb', async (req, res) => {
                     $6,
                     $7,
                     allocated_area,
-                    ROUND((allocated_area::numeric / 1600.0), 2),
+                    (allocated_area::numeric / 1600.0),
                     $8
                 FROM final_areas
                 RETURNING *
@@ -1385,7 +1385,7 @@ app.post('/api/unsplit_feature/:tb', async (req, res) => {
                        id::text AS sub_id,
                        "Farmer_ID",
                        "Sqm_Rechac" AS shpsplit_sqm,
-                       ROUND(("Sqm_Rechac"::numeric / 1600.0), 2) AS "Class_Area",
+                       ("Sqm_Rechac"::numeric / 1600.0) AS "Class_Area",
                        ST_Multi(geom) AS geom,
                        NULL AS "Classtype",
                        $2 AS editor
@@ -2838,7 +2838,7 @@ app.post('/api/restore-from-backup/:tb/:id', async (req, res) => {
                 // มีอยู่ใน reclass → UPDATE shpsplit_sqm กลับเป็นค่าต้นฉบับ
                 await pool.query(`
                     UPDATE reclass_${tb}
-                    SET shpsplit_sqm = $1, "Class_Area" = ROUND(($1::numeric / 1600.0), 2),
+                    SET shpsplit_sqm = $1, "Class_Area" = ($1::numeric / 1600.0),
                         geom        = $2
                     WHERE id = $3
                       AND (sub_id = $4 OR sub_id = $3::text)

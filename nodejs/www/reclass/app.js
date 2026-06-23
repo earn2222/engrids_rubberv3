@@ -301,7 +301,7 @@ async function updateAreaDisplay(feature) {
         document.getElementById('current_sqm').value = Number(area).toLocaleString('th-TH', { maximumFractionDigits: 2 });
         document.getElementById('current_rai').value = (area / 1600).toLocaleString('th-TH', { maximumFractionDigits: 2 });
         feature.set('shpsplit_sqm', area);
-        feature.set('Class_Area', (area / 1600).toFixed(2));
+        feature.set('Class_Area', (area / 1600));
     } catch (err) {
         console.error('Area calc error:', err);
     }
