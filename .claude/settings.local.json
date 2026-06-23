@@ -88,7 +88,8 @@
       "Bash(curl -s \"http://localhost:4400/rub3/api/generate-farmer-id/test\")",
       "Bash(curl -s \"http://localhost:4400/rub3/api/getfeaturesv3/test\")",
       "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\(j.data[0]\\);}\\)\")",
-      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);const ids=j.data.map\\(r=>r.id\\);const counts={};ids.forEach\\(id=>counts[id]=\\(counts[id]||0\\)+1\\);const dups=Object.entries\\(counts\\).filter\\(\\([id,c]\\)=>c>1\\);console.log\\('total rows', j.data.length, 'dup ids:', dups.length, dups.slice\\(0,5\\)\\);}\\)\")"
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);const ids=j.data.map\\(r=>r.id\\);const counts={};ids.forEach\\(id=>counts[id]=\\(counts[id]||0\\)+1\\);const dups=Object.entries\\(counts\\).filter\\(\\([id,c]\\)=>c>1\\);console.log\\('total rows', j.data.length, 'dup ids:', dups.length, dups.slice\\(0,5\\)\\);}\\)\")",
+      "Bash(git ls-remote *)"
     ]
   }
 }
